@@ -76,16 +76,6 @@ export default function MainPage() {
     fetchNews();
   }, []);
 
-  const handleCrawl = async () => {
-    try {
-      await api.post("/api/crawl");
-      alert("최신뉴스 수집이 시작되었습니다. 잠시 후 새로고침 해주세요.");
-      setTimeout(fetchNews, 3000);
-    } catch (err) {
-      alert("크롤링 요청 실패");
-    }
-  };
-
   return (
     <div className="flex flex-col gap-8 mt-8">
       <div className="flex justify-between items-end pb-4 border-b-2 border-slate-900">
