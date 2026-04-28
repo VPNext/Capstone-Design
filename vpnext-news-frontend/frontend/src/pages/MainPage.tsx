@@ -2,6 +2,19 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import api from "../api";
 
+const SOURCE_NAME_MAP: Record<string, string> = {
+  hani: "한겨레",
+  khan: "경향신문",
+  chosun: "조선일보",
+  joongang: "중앙일보",
+  donga: "동아일보",
+  mbc: "MBC",
+  kbs: "KBS",
+  sbs: "SBS",
+  ytn: "YTN",
+  // 필요한 언론사를 계속 추가하세요.
+};
+
 const extractImageFromSummary = (rawString: string): string | null => {
   if (!rawString) return null;
   const txt = document.createElement("textarea");
@@ -31,6 +44,7 @@ interface NewsItem {
   credibility_score: number | null;
   credibility_label: string | null;
   is_analyzed: boolean;
+  category?: string; // 카테고리 필터링을 위해 추가된 필드
 }
 
 const CredibilityBadge = ({
@@ -56,9 +70,13 @@ const CredibilityBadge = ({
   );
 };
 
+// 카테고리 목록 정의
+const CATEGORIES = ["전체", "정치", "경제", "사회", "IT/과학", "세계", "문화"];
+
 export default function MainPage() {
   const [newsList, setNewsList] = useState<NewsItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedCategory, setSelectedCategory] = useState<string>("전체"); // 현재 선택된 카테고리 상태
 
   const fetchNews = async () => {
     try {
@@ -76,9 +94,15 @@ export default function MainPage() {
     fetchNews();
   }, []);
 
+  // 카테고리에 따른 뉴스 필터링 로직
+  const filteredNews =
+    selectedCategory === "전체"
+      ? newsList
+      : newsList.filter((news) => news.category === selectedCategory);
+
   return (
     <div className="flex flex-col gap-8 mt-8">
-      <div className="flex justify-between items-end pb-4 border-b-2 border-slate-900">
+      <div className="flex justify-between items-end pb-4 border-b-2 border-slate-900 relative">
         <div>
           <h1 className="text-3xl font-black text-slate-900 tracking-tight">
             오늘의 뉴스
@@ -86,6 +110,45 @@ export default function MainPage() {
           <p className="text-sm text-slate-500 mt-2">
             AI가 실시간으로 수집하고 분석할 준비가 된 뉴스 목록입니다.
           </p>
+        </div>
+
+        {/* 호버 방식의 카테고리 드롭다운 메뉴 */}
+        <div className="group relative">
+          <button className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-lg font-semibold transition-colors">
+            <span>{selectedCategory}</span>
+            <svg
+              className="w-4 h-4 text-slate-500 group-hover:rotate-180 transition-transform duration-300"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                d="M19 9l-7 7-7-7"
+              />
+            </svg>
+          </button>
+
+          {/* 드롭다운 영역 (마우스를 올렸을 때만 표시됨) */}
+          <div className="absolute right-0 top-full pt-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-20">
+            <div className="bg-white border border-slate-200 rounded-xl shadow-xl w-32 py-2 flex flex-col">
+              {CATEGORIES.map((category) => (
+                <button
+                  key={category}
+                  onClick={() => setSelectedCategory(category)}
+                  className={`px-4 py-2 text-sm text-left transition-colors hover:bg-sky-50 hover:text-sky-600 ${
+                    selectedCategory === category
+                      ? "text-sky-600 font-bold bg-sky-50/50"
+                      : "text-slate-600 font-medium"
+                  }`}
+                >
+                  {category}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -98,17 +161,18 @@ export default function MainPage() {
             />
           ))}
         </div>
-      ) : newsList.length === 0 ? (
+      ) : filteredNews.length === 0 ? (
         <div className="py-20 text-center text-slate-500">
           <p className="text-4xl mb-4">📰</p>
-          <p className="text-lg font-semibold">수집된 뉴스가 없습니다.</p>
-          <p className="text-sm mt-2">
-            위의 "최신 뉴스 수집" 버튼을 눌러 뉴스를 가져오세요.
+          <p className="text-lg font-semibold">
+            {selectedCategory !== "전체"
+              ? `해당 카테고리(${selectedCategory})의 뉴스가 없습니다.`
+              : "수집된 뉴스가 없습니다."}
           </p>
         </div>
       ) : (
         <div className="grid gap-6">
-          {newsList.map((news) => {
+          {filteredNews.map((news) => {
             const summaryImage = extractImageFromSummary(news.summary);
             const displayImage = news.image_url || summaryImage;
 
@@ -127,10 +191,17 @@ export default function MainPage() {
                 >
                   <div className="flex-1 flex flex-col justify-between">
                     <div>
-                      {/* 출처 / 날짜 / 신뢰도 배지 */}
+                      {/* 출처 / 날짜 / 신뢰도 배지 / 카테고리 */}
                       <div className="flex items-center gap-3 mb-3 flex-wrap">
+                        {news.category && (
+                          <span className="bg-slate-100 text-slate-600 text-[11px] font-bold px-2 py-1 rounded">
+                            {news.category}
+                          </span>
+                        )}
                         <span className="bg-sky-50 text-sky-700 border border-sky-100 text-[11px] font-bold px-2.5 py-1 rounded-md">
-                          {news.source}
+                          {SOURCE_NAME_MAP[news.source?.toLowerCase()] ||
+                            news.source?.toUpperCase() ||
+                            "알 수 없음"}
                         </span>
                         <span className="text-xs text-slate-400 font-medium">
                           {news.published_at?.split("T")[0]}
