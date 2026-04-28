@@ -358,7 +358,7 @@ export default function DetailPage() {
             {/* ── 어려운 용어 카드 ──────────────────────────────── */}
             <AnalysisCard
               icon="📖"
-              title="어려운 용어 풀이"
+              title="용어 풀이"
               bg="bg-sky-50/80"
               border="border-sky-100"
               textColor="text-sky-900"
