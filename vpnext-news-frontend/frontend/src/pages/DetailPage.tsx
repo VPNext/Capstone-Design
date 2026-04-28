@@ -12,6 +12,18 @@ const extractImageFromSummary = (rawString: string): string | null => {
   const imgMatch = decoded.match(/<img[^>]+src=["']([^"']+)["']/i);
   return imgMatch ? imgMatch[1] : null;
 };
+const SOURCE_NAME_MAP: Record<string, string> = {
+  hani: "한겨레",
+  khan: "경향신문",
+  chosun: "조선일보",
+  joongang: "중앙일보",
+  donga: "동아일보",
+  mbc: "MBC",
+  kbs: "KBS",
+  sbs: "SBS",
+  ytn: "YTN",
+  // 필요한 언론사를 계속 추가하세요.
+};
 
 const renderContent = (content: string) => {
   return content
@@ -161,7 +173,7 @@ export default function DetailPage() {
       <header className="mb-10 pb-8 border-b border-slate-200">
         <div className="flex items-center gap-3 mb-5">
           <span className="bg-slate-800 text-white text-xs font-bold px-3 py-1.5 rounded-md tracking-wider">
-            {news.source}
+            {SOURCE_NAME_MAP[news.source] || news.source}
           </span>
           <span className="text-slate-500 text-sm font-medium">
             {news.published_at?.split("T")[0]}
