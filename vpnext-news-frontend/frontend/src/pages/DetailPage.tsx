@@ -213,6 +213,12 @@ export default function DetailPage() {
             />
           </svg>
         </a>
+        <span className="text-sm text-slate-500 ml-4">
+          출처:{" "}
+          {SOURCE_NAME_MAP[news.source?.toLowerCase()] ||
+            news.source?.toUpperCase() ||
+            "알 수 없음"}
+        </span>
       </header>
 
       {/* --- 하단: 2단 분할 레이아웃 --- */}
