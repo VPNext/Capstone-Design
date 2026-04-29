@@ -377,7 +377,9 @@ export default function DetailPage() {
               </div>
             </div>
 
-            {/* 용어 풀이 패널 */}
+            {/* [Feature] 어려운 용어 국립국어원-우리말샘 연동 */}
+            {/* 작동방식: 용어(term.term) 클릭 시 국립국어원 검색 결과 새 창 렌더링 */}
+            {/* UI/UX: 클릭 가능함을 나타내기 위해 hover 배경색 및 아이콘(🔗) 추가 */}
             <AnalysisCard
               icon="📖"
               title="용어 풀이"
@@ -389,11 +391,31 @@ export default function DetailPage() {
                 <ul className="text-[14px] space-y-4">
                   {analysisData.difficult_terms.map((term: any, i: number) => (
                     <li key={i} className="leading-relaxed">
-                      <strong className="text-sky-700 bg-sky-100 px-1.5 py-0.5 rounded mr-1 inline-block mb-1">
+                      {/* [수정 포인트] 일반 text -> 외부 링크(a) 태그로 변경 */}
+                      <a
+                        href={`https://stdict.korean.go.kr/search/searchResult.do?pageSize=10&searchKeyword=${encodeURIComponent(term.term)}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-sky-700 bg-sky-100 hover:bg-sky-200 transition-colors px-1.5 py-0.5 rounded mr-1 inline-flex items-center gap-1 mb-1 font-bold cursor-pointer"
+                        title={`${term.term} 국립국어원에서 뜻 찾아보기`}
+                      >
                         {term.term}
-                      </strong>
+                        <svg
+                          className="w-3 h-3 opacity-60"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                          />
+                        </svg>
+                      </a>
                       {term.category && (
-                        <span className="text-[11px] text-sky-500 bg-sky-50 border border-sky-100 px-1.5 py-0.5 rounded-full ml-1">
+                        <span className="text-[11px] text-sky-500 bg-sky-50 border border-sky-100 px-1.5 py-0.5 rounded-full ml-1 align-text-bottom">
                           {term.category}
                         </span>
                       )}
