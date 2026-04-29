@@ -4,6 +4,23 @@ import api from "../api";
 
 type AnalysisStatus = "pending" | "analyzing" | "complete";
 
+// [사전 정의] 언론사 ID 매핑 테이블 공유
+const SOURCE_NAME_MAP: Record<string, string> = {
+  hani: "한겨레",
+  khan: "경향신문",
+  chosun: "조선일보",
+  joongang: "중앙일보",
+  donga: "동아일보",
+  mbc: "MBC",
+  kbs: "KBS",
+  sbs: "SBS",
+  ytn: "YTN",
+  hankyung: "한국경제",
+  mk: "매일경제",
+  yonhap: "연합뉴스",
+};
+
+// [유틸] 썸네일 부재 시 본문 내장 이미지 파싱용
 const extractImageFromSummary = (rawString: string): string | null => {
   if (!rawString) return null;
   const txt = document.createElement("textarea");
@@ -13,6 +30,7 @@ const extractImageFromSummary = (rawString: string): string | null => {
   return imgMatch ? imgMatch[1] : null;
 };
 
+// [유틸] 개행문자 기반 텍스트 문단 분리 및 렌더링
 const renderContent = (content: string) => {
   return content
     .split("\n")
@@ -25,6 +43,7 @@ const renderContent = (content: string) => {
     ));
 };
 
+// [유틸] 스코어별 동적 CSS 클래스 할당
 const getScoreColor = (score: number) => {
   if (score >= 0.7)
     return {
@@ -48,11 +67,13 @@ export default function DetailPage() {
   const [status, setStatus] = useState<AnalysisStatus>("pending");
   const [analysisData, setAnalysisData] = useState<any>(null);
 
+  // [Effect] 최초 마운트 시 기사 상세 데이터 Fetch
   useEffect(() => {
     const fetchNewsDetail = async () => {
       try {
         const response = await api.get(`/api/news/${id}`);
         setNews(response.data);
+        // 분석 완료 상태인 경우 데이터 세팅
         if (response.data.is_analyzed) {
           setAnalysisData({
             credibility: {
@@ -76,15 +97,19 @@ export default function DetailPage() {
     fetchNewsDetail();
   }, [id]);
 
+  // [API] AI 분석 요청 핸들러
   const startAnalysis = async () => {
     if (!news?.url) return;
     setStatus("analyzing");
     try {
+      // 분석 요청 후 데이터 업데이트
       const response = await api.post(
         `/api/analyze?article_url=${encodeURIComponent(news.url)}`,
       );
       setAnalysisData(response.data);
       setStatus("complete");
+
+      // 최신 상태 동기화를 위해 뉴스 원본 재조회
       const updated = await api.get(`/api/news/${id}`);
       setNews(updated.data);
     } catch (error) {
@@ -93,6 +118,7 @@ export default function DetailPage() {
     }
   };
 
+  // [컴포넌트] 사이드바 분석 아이템 카드
   const AnalysisCard = ({
     icon,
     title,
@@ -100,14 +126,7 @@ export default function DetailPage() {
     border,
     textColor,
     children,
-  }: {
-    icon: string;
-    title: string;
-    bg: string;
-    border: string;
-    textColor: string;
-    children: React.ReactNode;
-  }) => (
+  }: any) => (
     <div
       className={`${bg} ${border} p-5 rounded-2xl border flex flex-col gap-3 shadow-sm transition-all hover:shadow-md`}
     >
@@ -128,6 +147,7 @@ export default function DetailPage() {
     </div>
   );
 
+  // [UI] 예외 처리
   if (loading)
     return (
       <div className="mt-32 text-center text-slate-500 animate-pulse text-lg font-medium">
@@ -141,11 +161,9 @@ export default function DetailPage() {
       </div>
     );
 
-  const summaryImage = extractImageFromSummary(news.summary);
-  const finalImage = news.image_url || summaryImage;
+  const finalImage = news.image_url || extractImageFromSummary(news.summary);
   const aiSummary =
     analysisData?.credibility?.summary || news.ai_summary || null;
-
   const scoreColor =
     analysisData?.credibility?.score != null
       ? getScoreColor(analysisData.credibility.score)
@@ -157,11 +175,14 @@ export default function DetailPage() {
 
   return (
     <div className="mt-10 pb-20">
-      {/* ── 상단: 기사 헤더 ──────────────────────────────────────── */}
+      {/* --- 상단: 기사 헤더 영역 --- */}
       <header className="mb-10 pb-8 border-b border-slate-200">
         <div className="flex items-center gap-3 mb-5">
+          {/* [로직] 매핑 테이블 통한 언론사 이름 출력 */}
           <span className="bg-slate-800 text-white text-xs font-bold px-3 py-1.5 rounded-md tracking-wider">
-            {news.source}
+            {SOURCE_NAME_MAP[news.source?.toLowerCase()] ||
+              news.source?.toUpperCase() ||
+              "알 수 없음"}
           </span>
           <span className="text-slate-500 text-sm font-medium">
             {news.published_at?.split("T")[0]}
@@ -192,13 +213,18 @@ export default function DetailPage() {
             />
           </svg>
         </a>
+        <span className="text-sm text-slate-500 ml-4">
+          출처:{" "}
+          {SOURCE_NAME_MAP[news.source?.toLowerCase()] ||
+            news.source?.toUpperCase() ||
+            "알 수 없음"}
+        </span>
       </header>
 
-      {/* ── 하단: 2단 레이아웃 ───────────────────────────────────── */}
+      {/* --- 하단: 2단 분할 레이아웃 --- */}
       <div className="flex flex-col lg:flex-row gap-12 relative">
-        {/* 왼쪽: 본문 영역 */}
+        {/* 본문 컨텐츠 (좌측) */}
         <article className="flex-1 min-w-0">
-          {/* 대표 이미지 */}
           {finalImage && (
             <figure className="mb-10 rounded-2xl overflow-hidden bg-slate-50 border border-slate-100 flex justify-center shadow-sm">
               <img
@@ -209,7 +235,6 @@ export default function DetailPage() {
             </figure>
           )}
 
-          {/* ── AI 3줄 요약 박스 (본문 상단에 표시) ─────────────── */}
           {aiSummary && (
             <div className="mb-8 p-5 bg-sky-50 border border-sky-200 rounded-2xl">
               <p className="text-xs font-bold text-sky-600 mb-2 flex items-center gap-1.5">
@@ -221,7 +246,6 @@ export default function DetailPage() {
             </div>
           )}
 
-          {/* ── 본문 렌더링 ──────────────────────────────────────── */}
           <div className="max-w-none">
             {news.content ? (
               <div>{renderContent(news.content)}</div>
@@ -238,7 +262,7 @@ export default function DetailPage() {
             )}
           </div>
 
-          {/* ── 분석 버튼 ────────────────────────────────────────── */}
+          {/* 분석 트리거 버튼 */}
           <div className="mt-12 pt-10 border-t border-slate-100">
             <button
               onClick={startAnalysis}
@@ -265,10 +289,9 @@ export default function DetailPage() {
           </div>
         </article>
 
-        {/* 오른쪽: AI 분석 사이드바 */}
+        {/* 사이드바 (우측 고정) */}
         <aside className="w-full lg:w-[380px] shrink-0">
           <div className="sticky top-24 flex flex-col gap-5">
-            {/* 사이드바 헤더 */}
             <div className="bg-slate-900 text-white p-5 rounded-2xl shadow-md">
               <h2 className="text-lg font-bold flex items-center gap-2">
                 🤖 AI 나침반 리포트
@@ -278,7 +301,7 @@ export default function DetailPage() {
               </p>
             </div>
 
-            {/* ── 신뢰도 분석 카드 ──────────────────────────────── */}
+            {/* 신뢰도 점수 패널 */}
             <div
               className={`${scoreColor.bg} ${scoreColor.border} p-5 rounded-2xl border flex flex-col gap-3 shadow-sm transition-all hover:shadow-md`}
             >
@@ -335,7 +358,6 @@ export default function DetailPage() {
                         </ul>
                       </div>
                     )}
-                    {/* 사이드바의 3줄 요약은 본문에 이미 보이므로 접을 수 있게 처리 */}
                     {analysisData.credibility.summary && (
                       <div className="mt-3">
                         <p className="text-xs font-bold text-slate-500 mb-1.5">
@@ -355,10 +377,10 @@ export default function DetailPage() {
               </div>
             </div>
 
-            {/* ── 어려운 용어 카드 ──────────────────────────────── */}
+            {/* 용어 풀이 패널 */}
             <AnalysisCard
               icon="📖"
-              title="어려운 용어 풀이"
+              title="용어 풀이"
               bg="bg-sky-50/80"
               border="border-sky-100"
               textColor="text-sky-900"
@@ -389,7 +411,7 @@ export default function DetailPage() {
               )}
             </AnalysisCard>
 
-            {/* ── 핵심 인물 카드 ──────────────────────────────────── */}
+            {/* 핵심 인물 패널 */}
             <AnalysisCard
               icon="👤"
               title="핵심 인물 프로필"
