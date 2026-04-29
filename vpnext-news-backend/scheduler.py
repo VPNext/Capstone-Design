@@ -1,6 +1,9 @@
 """
 자동 크롤링 스케줄러 (별도 프로세스로 실행)
 """
+#중복제거 함수 추가
+import sqlite3
+import summary_duplicate_check as dup_check
 
 import logging
 import time
