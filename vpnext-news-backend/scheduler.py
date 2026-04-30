@@ -28,6 +28,14 @@ def job():
                 saved += 1
         db.commit()
         logger.info(f"스케줄 크롤링 완료: {saved}건 저장")
+        
+        # 중복 뉴스 제거 (SQLite 연결 객체 필요)
+        from config import DATABASE_URL
+        sqlite_conn = sqlite3.connect(DATABASE_URL.replace("sqlite:///", ""))
+        dup_check.remove_duplicate_news_sqlite(sqlite_conn, threshold=0.8)
+        sqlite_conn.close()
+        logger.info("중복 뉴스 제거 완료")
+        
     except Exception as e:
         logger.error(f"스케줄 크롤링 오류: {e}")
     finally:

@@ -8,7 +8,6 @@ from config import GROQ_API_KEY
 
 logger = logging.getLogger(__name__)
 
-# ✅ 올바른 Groq 클라이언트 초기화
 client = Groq(api_key=GROQ_API_KEY)
 MODEL = "llama-3.3-70b-versatile"  # 무료 tier에서 가장 성능 좋은 모델
 
@@ -45,6 +44,7 @@ def _parse_json(text: str) -> Optional[dict]:
 
 def _call(prompt: str) -> Optional[dict]:
     """✅ Groq API 호출 (Gemini → Groq 교체 핵심)"""
+    # 너무 AI돌린 티가 나요...
     try:
         response = client.chat.completions.create(
             model=MODEL,
