@@ -448,15 +448,40 @@ export default function DetailPage() {
                       key={i}
                       className="leading-relaxed border-l-2 border-emerald-300 pl-3"
                     >
-                      <strong className="block text-emerald-800 text-[15px] mb-0.5">
+                      {/* 
+                        [기능] 인물 구글 검색 연동
+                        [작동방식] 인물 이름 클릭 시 구글 검색 쿼리(q=이름) 새 창 렌더링
+                        [수정내용] strong 태그 -> a 태그로 변경, hover 효과 및 외부 링크 아이콘 추가 (UX 개선)
+                      */}
+                      <a
+                        href={`https://www.google.com/search?q=${encodeURIComponent(person.name)}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 text-emerald-800 text-[15px] mb-0.5 font-bold hover:text-emerald-600 hover:underline cursor-pointer"
+                        title={`${person.name} 구글에서 검색하기`}
+                      >
                         {person.name}
-                      </strong>
+                        <svg
+                          className="w-3 h-3 opacity-60"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                          />
+                        </svg>
+                      </a>
+
                       {person.role && (
                         <span className="text-xs text-emerald-600 font-semibold block mb-0.5">
                           {person.role}
                         </span>
                       )}
-                      <span className="text-slate-700">
+                      <span className="text-slate-700 block">
                         {person.description}
                       </span>
                       {person.relation && (
