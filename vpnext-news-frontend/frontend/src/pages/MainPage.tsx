@@ -49,7 +49,6 @@ interface NewsItem {
   credibility_score: number | null;
   credibility_label: string | null;
   is_analyzed: boolean;
-  category?: string;
 }
 
 // [UI] 신뢰도 점수 기반 뱃지 컴포넌트
@@ -76,30 +75,47 @@ const CredibilityBadge = ({
   );
 };
 
-// [상수] 노출할 카테고리 목록
-const CATEGORIES = ["전체", "정치", "경제", "사회", "IT/과학", "세계", "문화"];
+// [상수] 노출할 언론사 목록 (분야별 카테고리 제거됨)
+const SOURCES = ["전체", ...Object.values(SOURCE_NAME_MAP)];
 
 export default function MainPage() {
-  // 상태 관리: 데이터 및 UI
-  const [newsList, setNewsList] = useState<NewsItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedCategory, setSelectedCategory] = useState<string>("전체");
+  // [로직] 초기 상태 캐시 로드 헬퍼 (React의 Lazy Initialization 활용)
+  const loadCache = <T,>(key: string, fallback: T): T => {
+    const cached = sessionStorage.getItem("main_news_cache");
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached);
+        if (parsed[key] !== undefined) return parsed[key];
+      } catch (e) {
+        console.error("Cache parsing error:", e);
+      }
+    }
+    return fallback;
+  };
 
-  // 상태 관리: 무한 스크롤
-  const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(true);
+  // 상태 관리: 데이터 및 UI (카테고리 상태 제거)
+  const [newsList, setNewsList] = useState<NewsItem[]>(() =>
+    loadCache("newsList", []),
+  );
+  const [page, setPage] = useState<number>(() => loadCache("page", 1));
+  const [hasMore, setHasMore] = useState<boolean>(() =>
+    loadCache("hasMore", true),
+  );
+  const [selectedSource, setSelectedSource] = useState<string>(() =>
+    loadCache("selectedSource", "전체"),
+  );
+
+  const [loading, setLoading] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
 
-  // 무한 스크롤용 DOM 옵저버 Ref
   const observer = useRef<IntersectionObserver | null>(null);
 
   // [로직] 마지막 리스트 아이템 감지용 Callback Ref
   const lastElementRef = useCallback(
     (node: HTMLDivElement | null) => {
-      if (loading || isLoadingMore) return; // 로딩 중 중복 트리거 방지
-      if (observer.current) observer.current.disconnect(); // 기존 옵저버 해제
+      if (loading || isLoadingMore) return;
+      if (observer.current) observer.current.disconnect();
 
-      // 뷰포트 교차 시 페이지 카운트 증가
       observer.current = new IntersectionObserver((entries) => {
         if (entries[0].isIntersecting && hasMore) {
           setPage((prev) => prev + 1);
@@ -111,22 +127,25 @@ export default function MainPage() {
   );
 
   // [API] 뉴스 목록 Fetch
-  const fetchNews = async (pageNumber: number, category: string) => {
+  const fetchNews = async (pageNumber: number, sourceName: string) => {
     try {
       if (pageNumber === 1) setLoading(true);
       else setIsLoadingMore(true);
 
-      const categoryParam = category !== "전체" ? `&category=${category}` : "";
-      // 백엔드 API 명세에 맞춰 쿼리스트링 조합
+      // 언론사 한글명을 다시 API용 ID(key)로 변환
+      const sourceId = Object.keys(SOURCE_NAME_MAP).find(
+        (key) => SOURCE_NAME_MAP[key] === sourceName,
+      );
+      const sourceParam = sourceId ? `&source=${sourceId}` : "";
+
       const response = await api.get(
-        `/api/news?page=${pageNumber}${categoryParam}`,
+        `/api/news?page=${pageNumber}${sourceParam}`,
       );
       const newItems = response.data.items || [];
 
       if (newItems.length === 0) {
-        setHasMore(false); // 더 이상 불러올 데이터 없음
+        setHasMore(false);
       } else {
-        // 첫 페이지면 덮어쓰기, 이후 페이지면 기존 배열에 병합
         setNewsList((prev) =>
           pageNumber === 1 ? newItems : [...prev, ...newItems],
         );
@@ -139,23 +158,73 @@ export default function MainPage() {
     }
   };
 
-  // [Effect] 페이지 번호 변경 시 추가 데이터 로드
+  // 1. [Effect] 마운트 및 스크롤 이벤트 (캐시 유무에 따른 최초 로드)
   useEffect(() => {
-    if (page > 1) fetchNews(page, selectedCategory);
-  }, [page]);
+    const cachedData = sessionStorage.getItem("main_news_cache");
+    if (!cachedData) {
+      // 최초 진입 시 로드
+      fetchNews(1, selectedSource);
+    } else {
+      // 캐시가 존재한다면 DOM이 렌더링된 직후 스크롤 위치만 복원
+      setTimeout(() => {
+        const scrollY = sessionStorage.getItem("main_news_scroll");
+        if (scrollY) window.scrollTo(0, parseInt(scrollY, 10));
+      }, 100);
+    }
 
-  // [Effect] 카테고리 변경 시 초기화 및 1페이지 재요청
+    // 스크롤 위치 실시간 저장
+    const handleScroll = () => {
+      sessionStorage.setItem("main_news_scroll", window.scrollY.toString());
+    };
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  // 2. [Effect] 필터가 변경되었을 때 (1페이지부터 재요청)
+  const isFilterFirstRun = useRef(true);
   useEffect(() => {
+    // 최초 마운트 시에는 실행하지 않음 (초기값으로 인한 트리거 방지)
+    if (isFilterFirstRun.current) {
+      isFilterFirstRun.current = false;
+      return;
+    }
     setNewsList([]);
     setPage(1);
     setHasMore(true);
-    fetchNews(1, selectedCategory);
-  }, [selectedCategory]);
+    window.scrollTo(0, 0); // 새 필터 적용 시 스크롤 맨 위로
+    fetchNews(1, selectedSource);
+  }, [selectedSource]);
+
+  // 3. [Effect] 페이지 번호 변경 시 추가 데이터 로드 (무한 스크롤)
+  const isPageFirstRun = useRef(true);
+  useEffect(() => {
+    if (isPageFirstRun.current) {
+      isPageFirstRun.current = false;
+      return;
+    }
+    // 1페이지는 이미 처리했으므로 2페이지 이상일 때만 호출
+    if (page > 1) {
+      fetchNews(page, selectedSource);
+    }
+  }, [page]);
+
+  // 4. [Effect] 상태가 변경될 때마다 sessionStorage 업데이트 (뒤로가기 대비용)
+  useEffect(() => {
+    sessionStorage.setItem(
+      "main_news_cache",
+      JSON.stringify({
+        newsList,
+        page,
+        hasMore,
+        selectedSource,
+      }),
+    );
+  }, [newsList, page, hasMore, selectedSource]);
 
   return (
     <div className="flex flex-col gap-8 mt-8">
-      {/* 상단 헤더 및 카테고리 드롭다운 */}
-      <div className="flex justify-between items-end pb-4 border-b-2 border-slate-900 relative">
+      {/* 상단 헤더, 검색창 및 드롭다운 */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end pb-4 border-b-2 border-slate-900 gap-4 relative">
         <div>
           <h1 className="text-3xl font-black text-slate-900 tracking-tight">
             오늘의 뉴스
@@ -165,60 +234,62 @@ export default function MainPage() {
           </p>
         </div>
 
-        {/* [UI] 호버 트리거 드롭다운 메뉴 (CSS 기반 제어) */}
-        <div className="group relative">
-          <button className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-lg font-semibold transition-colors">
-            <span>{selectedCategory}</span>
-            <svg
-              className="w-4 h-4 group-hover:rotate-180 transition-transform"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                d="M19 9l-7 7-7-7"
-              />
-            </svg>
-          </button>
-          <div className="absolute right-0 top-full pt-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-20">
-            <div className="bg-white border border-slate-200 rounded-xl shadow-xl w-32 py-2 flex flex-col">
-              {CATEGORIES.map((cat) => (
-                <button
-                  key={cat}
-                  onClick={() => setSelectedCategory(cat)}
-                  className={`px-4 py-2 text-sm text-left hover:bg-sky-50 ${
-                    selectedCategory === cat
-                      ? "text-sky-600 font-bold bg-sky-50/50"
-                      : "text-slate-600"
-                  }`}
-                >
-                  {cat}
-                </button>
-              ))}
+        <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
+          {/* [UI] 언론사 드롭다운 메뉴 */}
+          <div className="group relative w-full sm:w-auto z-30">
+            <button className="w-full flex justify-between sm:justify-center items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-lg font-semibold transition-colors">
+              <span>
+                {selectedSource === "전체" ? "언론사 전체" : selectedSource}
+              </span>
+              <svg
+                className="w-4 h-4 group-hover:rotate-180 transition-transform"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M19 9l-7 7-7-7"
+                />
+              </svg>
+            </button>
+            <div className="absolute right-0 top-full pt-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all">
+              <div className="bg-white border border-slate-200 rounded-xl shadow-xl w-32 py-2 flex flex-col max-h-60 overflow-y-auto">
+                {SOURCES.map((src) => (
+                  <button
+                    key={src}
+                    onClick={() => setSelectedSource(src)}
+                    className={`px-4 py-2 text-sm text-left hover:bg-sky-50 ${
+                      selectedSource === src
+                        ? "text-sky-600 font-bold bg-sky-50/50"
+                        : "text-slate-600"
+                    }`}
+                  >
+                    {src}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         </div>
       </div>
 
       {/* 리스트 렌더링 */}
-      <div className="grid gap-6">
+      <div className="grid gap-6 z-10 relative">
         {newsList.map((news, index) => {
-          // 썸네일 및 요약본 폴백 처리
           const displayImage =
             news.image_url || extractImageFromSummary(news.summary);
           const displaySummary =
             news.ai_summary || extractTextFromSummary(news.summary);
 
-          // 현재 렌더링 중인 요소가 마지막 요소인지 판별
           const isLast = newsList.length === index + 1;
 
           return (
             <div
               key={news.id}
-              ref={isLast ? lastElementRef : null} // 마지막 요소에 옵저버 타겟 지정
+              ref={isLast ? lastElementRef : null}
               className="group bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-xl hover:border-sky-200 transition-all duration-300"
             >
               <Link
@@ -228,12 +299,6 @@ export default function MainPage() {
                 <div className="flex-1 flex flex-col justify-between">
                   <div>
                     <div className="flex items-center gap-3 mb-3 flex-wrap">
-                      {news.category && (
-                        <span className="bg-slate-100 text-slate-600 text-[11px] font-bold px-2 py-1 rounded">
-                          {news.category}
-                        </span>
-                      )}
-                      {/* [로직] 언론사 영문 ID 매핑 처리 */}
                       <span className="bg-sky-50 text-sky-700 border border-sky-100 text-[11px] font-bold px-2.5 py-1 rounded-md">
                         {SOURCE_NAME_MAP[news.source?.toLowerCase()] ||
                           news.source?.toUpperCase() ||
@@ -277,7 +342,7 @@ export default function MainPage() {
                         (
                           e.target as HTMLImageElement
                         ).parentElement!.style.display = "none";
-                      }} // 엑스박스 방지
+                      }}
                     />
                   </div>
                 )}
