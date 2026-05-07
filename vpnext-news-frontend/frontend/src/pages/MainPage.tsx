@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import api from "../api";
 
 // [사전 정의] 언론사 ID -> 한글명 매핑 맵
@@ -51,6 +51,37 @@ interface NewsItem {
   is_analyzed: boolean;
 }
 
+// [추가] 검색어 하이라이트 처리를 위한 컴포넌트
+const HighlightText = ({
+  text,
+  keyword,
+}: {
+  text: string;
+  keyword: string | null;
+}) => {
+  if (!keyword || !text) return <>{text}</>;
+
+  // 대소문자 구분 없이 키워드를 기준으로 텍스트 분할
+  const parts = text.split(new RegExp(`(${keyword})`, "gi"));
+
+  return (
+    <>
+      {parts.map((part, index) =>
+        part.toLowerCase() === keyword.toLowerCase() ? (
+          <mark
+            key={index}
+            className="bg-yellow-300 text-slate-900 rounded-sm px-0.5 font-bold"
+          >
+            {part}
+          </mark>
+        ) : (
+          part
+        ),
+      )}
+    </>
+  );
+};
+
 // [UI] 신뢰도 점수 기반 뱃지 컴포넌트
 const CredibilityBadge = ({
   label,
@@ -92,6 +123,10 @@ export default function MainPage() {
     }
     return fallback;
   };
+
+  // URL 쿼리 파라미터에서 검색어 가져오기
+  const [searchParams] = useSearchParams();
+  const keyword = searchParams.get("q") || "";
 
   // 상태 관리: 데이터 및 UI (카테고리 상태 제거)
   const [newsList, setNewsList] = useState<NewsItem[]>(() =>
@@ -221,16 +256,30 @@ export default function MainPage() {
     );
   }, [newsList, page, hasMore, selectedSource]);
 
+  // [핵심 추가] 프론트엔드 단에서 newsList를 필터링
+  const filteredNews = keyword
+    ? newsList.filter((news) => {
+        const titleMatch = news.title.includes(keyword);
+        const plainSummary = extractTextFromSummary(news.summary);
+        const summaryMatch = (news.ai_summary || plainSummary).includes(
+          keyword,
+        );
+        return titleMatch || summaryMatch;
+      })
+    : newsList;
+
   return (
     <div className="flex flex-col gap-8 mt-8">
       {/* 상단 헤더, 검색창 및 드롭다운 */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end pb-4 border-b-2 border-slate-900 gap-4 relative">
         <div>
           <h1 className="text-3xl font-black text-slate-900 tracking-tight">
-            오늘의 뉴스
+            {keyword ? `"${keyword}" 검색 결과 (로컬)` : "오늘의 뉴스"}
           </h1>
           <p className="text-sm text-slate-500 mt-2">
-            AI가 분석한 실시간 뉴스 목록입니다.
+            {keyword
+              ? "현재 불러온 데이터 내에서만 검색된 결과입니다."
+              : "AI가 분석한 실시간 뉴스 목록입니다."}
           </p>
         </div>
 
@@ -278,13 +327,13 @@ export default function MainPage() {
 
       {/* 리스트 렌더링 */}
       <div className="grid gap-6 z-10 relative">
-        {newsList.map((news, index) => {
+        {filteredNews.map((news, index) => {
           const displayImage =
             news.image_url || extractImageFromSummary(news.summary);
           const displaySummary =
             news.ai_summary || extractTextFromSummary(news.summary);
 
-          const isLast = newsList.length === index + 1;
+          const isLast = filteredNews.length === index + 1;
 
           return (
             <div
@@ -316,7 +365,7 @@ export default function MainPage() {
                     </div>
 
                     <h2 className="text-xl md:text-2xl font-bold text-slate-900 group-hover:text-sky-600 mb-3 leading-snug transition-colors">
-                      {news.title}
+                      <HighlightText text={news.title} keyword={keyword} />
                     </h2>
 
                     <p
@@ -327,7 +376,10 @@ export default function MainPage() {
                           ✨ AI 요약
                         </span>
                       )}
-                      {displaySummary || "뉴스 요약 정보가 없습니다."}
+                      <HighlightText
+                        text={displaySummary || "뉴스 요약 정보가 없습니다."}
+                        keyword={keyword}
+                      />
                     </p>
                   </div>
                 </div>
@@ -351,6 +403,24 @@ export default function MainPage() {
           );
         })}
       </div>
+
+      {/* [추가] 프론트엔드 필터링의 한계 극복을 위한 수동 데이터 더 불러오기 UI */}
+      {keyword &&
+        filteredNews.length === 0 &&
+        newsList.length > 0 &&
+        hasMore && (
+          <div className="py-12 flex flex-col items-center gap-4 bg-slate-50 rounded-2xl border border-slate-200">
+            <p className="text-slate-600 font-medium">
+              현재 로드된 뉴스 중에는 검색 결과가 없습니다.
+            </p>
+            <button
+              onClick={() => setPage((p) => p + 1)}
+              className="px-6 py-2 bg-slate-800 text-white rounded-full text-sm font-bold hover:bg-slate-700 transition-colors"
+            >
+              과거 뉴스 더 불러와서 찾기
+            </button>
+          </div>
+        )}
 
       {/* 로딩 인디케이터 */}
       {(loading || isLoadingMore) && (
