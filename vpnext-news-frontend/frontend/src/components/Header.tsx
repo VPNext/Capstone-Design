@@ -8,8 +8,10 @@ export default function Header() {
   const handleSearch = () => {
     const trimmed = keyword.trim();
     if (!trimmed) return;
-    // 검색 결과 페이지로 이동 (query string 사용)
-    navigate(`/search?q=${encodeURIComponent(trimmed)}`);
+
+    // 기존: navigate(`/search?q=${encodeURIComponent(trimmed)}`);
+    // 변경: 메인 페이지로 쿼리 파라미터와 함께 이동
+    navigate(`/?q=${encodeURIComponent(trimmed)}`);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
