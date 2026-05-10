@@ -12,3 +12,4 @@ sqlite_conn = sqlite3.connect(DATABASE_URL.replace("sqlite:///", ""))
 dup_check.remove_duplicate_news_sqlite(sqlite_conn, threshold=0.8)
 sqlite_conn.close()
 logger.info("중복 뉴스 제거 완료")
+# 솔직히 이게 뭐 되는지 모르겠음
