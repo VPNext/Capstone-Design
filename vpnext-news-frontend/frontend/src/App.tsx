@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Header from "./components/Header";
 import MainPage from "./pages/MainPage";
 import DetailPage from "./pages/DetailPage";
+import CartoonsPage from "./pages/CartoonsPage"; // <-- 1. 방금 만든 페이지를 불러옵니다
 
 function App() {
   return (
@@ -15,6 +16,8 @@ function App() {
           <Routes>
             <Route path="/" element={<MainPage />} />
             <Route path="/news/:id" element={<DetailPage />} />
+            <Route path="/cartoons" element={<CartoonsPage />} />{" "}
+            {/* <-- 2. /cartoons 주소와 연결합니다 */}
           </Routes>
         </main>
       </div>

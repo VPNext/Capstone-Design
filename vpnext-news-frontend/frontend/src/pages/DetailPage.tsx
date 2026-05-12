@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, Link } from "react-router-dom";
 import api from "../api";
 
 type AnalysisStatus = "pending" | "analyzing" | "complete";
@@ -67,6 +67,10 @@ export default function DetailPage() {
   const [status, setStatus] = useState<AnalysisStatus>("pending");
   const [analysisData, setAnalysisData] = useState<any>(null);
 
+  // [추가] 만화 생성 관련 상태
+  const [isComicGenerating, setIsComicGenerating] = useState(false);
+  const [comicUrls, setComicUrls] = useState<string[] | null>(null);
+
   // [Effect] 최초 마운트 시 기사 상세 데이터 Fetch
   useEffect(() => {
     const fetchNewsDetail = async () => {
@@ -87,6 +91,14 @@ export default function DetailPage() {
             key_persons: response.data.key_persons || [],
           });
           setStatus("complete");
+        }
+        // [추가] DB에 저장된 만화가 있다면 불러오기
+        if (response.data.comic_script) {
+          try {
+            setComicUrls(JSON.parse(response.data.comic_script));
+          } catch (e) {
+            console.error("만화 URL 파싱 실패");
+          }
         }
       } catch (error) {
         console.error("기사 로드 실패:", error);
@@ -115,6 +127,19 @@ export default function DetailPage() {
     } catch (error) {
       alert("분석 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.");
       setStatus("pending");
+    }
+  };
+
+  // [추가] 만화 생성 버튼 핸들러
+  const handleGenerateComic = async () => {
+    setIsComicGenerating(true);
+    try {
+      const res = await api.post(`/api/news/${id}/comic`);
+      setComicUrls(res.data.comic_urls);
+    } catch (error) {
+      alert("만화 생성 중 오류가 발생했습니다.");
+    } finally {
+      setIsComicGenerating(false);
     }
   };
 
@@ -287,6 +312,43 @@ export default function DetailPage() {
                   : "AI 분석 실행 및 본문 가져오기"}
             </button>
           </div>
+
+          {/* [추가] 분석 완료 시 노출되는 AI 만화 생성/보기 섹션 */}
+          {status === "complete" && (
+            <div className="mt-8 p-8 bg-purple-50 border border-purple-100 rounded-3xl text-center flex flex-col items-center gap-4 shadow-sm">
+              <h3 className="text-xl font-black text-purple-900 flex items-center gap-2">
+                🎨 AI 뉴스 4컷 만화
+              </h3>
+              <p className="text-purple-700 text-sm mb-2">
+                이 기사의 핵심 내용을 AI가 만화로 그려줍니다.
+              </p>
+
+              {comicUrls ? (
+                // 만화가 이미 생성되어 DB에 저장된 경우
+                <Link
+                  to={`/cartoons?newsId=${id}`}
+                  className="px-8 py-3.5 bg-purple-600 hover:bg-purple-700 text-white text-lg font-bold rounded-2xl transition-all shadow-md hover:-translate-y-1"
+                >
+                  보러가기 (AI 만화 모음집)
+                </Link>
+              ) : (
+                // 만화를 새로 생성해야 하는 경우
+                <button
+                  onClick={handleGenerateComic}
+                  disabled={isComicGenerating}
+                  className={`px-8 py-3.5 text-lg font-bold rounded-2xl transition-all shadow-md flex items-center gap-2 ${
+                    isComicGenerating
+                      ? "bg-purple-200 text-purple-500 cursor-wait"
+                      : "bg-slate-900 hover:bg-purple-600 text-white hover:-translate-y-1"
+                  }`}
+                >
+                  {isComicGenerating
+                    ? "AI가 열심히 그림을 그리는 중... ⏳"
+                    : "만화 생성하기 ✨"}
+                </button>
+              )}
+            </div>
+          )}
         </article>
 
         {/* 사이드바 (우측 고정) */}

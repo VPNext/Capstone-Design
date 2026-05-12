@@ -3,8 +3,12 @@
 """
 
 import logging
+import re
 from datetime import datetime
 from typing import Optional
+import json
+import os
+import httpx
 
 from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -16,6 +20,7 @@ from config import APP_HOST, APP_PORT
 from database import Article, SessionLocal, get_db, init_db
 from dictionary_api import enrich
 from rss_crawler import crawl_all
+import urllib.parse  
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
@@ -226,6 +231,107 @@ def search(
             for a in articles
         ],
     }
+
+# 1. 만화 생성 API (상세 페이지에서 호출)
+@app.post("/api/news/{news_id}/comic")
+async def generate_comic(news_id: int, db: Session = Depends(get_db)):
+    article = db.query(Article).filter(Article.id == news_id).first()
+    if not article:
+        raise HTTPException(status_code=404, detail="기사를 찾을 수 없습니다.")
+
+    # 1. 뉴스 텍스트 준비
+    news_content = article.ai_summary if article.ai_summary else article.title
+
+    # 2. Groq API를 통해 4컷 만화 시나리오 JSON으로 받기
+    from config import GROQ_API_KEY
+    groq_api_key = os.getenv("GROQ_API_KEY", GROQ_API_KEY)
+    
+    system_prompt = """
+    당신은 기발하고 핵심을 잘 짚는 웹툰 작가입니다. 
+    제공된 뉴스 기사 요약을 읽고, 내용을 4컷 만화(Comic Strip)로 구성해주세요.
+    
+    [🔥 매우 중요한 화풍 및 연출 지침 🔥]
+    1. 뉴스 본문에 등장하는 '핵심 고유명사(인물, 브랜드, 동물, 특정 사물 등)'를 반드시 영어 prompt에 직접 포함하세요. 
+       (예: 포켓몬 기사면 Pikachu, 회사 기사면 office workers, 정치 기사면 politician in suit 등)
+    2. 추상적이거나 배경만 있는 그림은 절대 금지합니다. '누가, 어디서, 무엇을 하고 있는지' 구체적인 행동을 묘사하세요.
+    3. 모든 prompt의 끝에는 반드시 다음 화풍 지정 문구를 똑같이 복사해서 넣으세요:
+       ", korean webtoon style, 2D comic illustration, expressive characters, bold outlines, flat colors, comic panel"
+    4. 4컷의 내용이 하나의 만화 스토리처럼 기승전결로 이어져야 합니다.
+    
+    반드시 아래 JSON 배열 형식으로만 응답해야 합니다. (다른 말은 절대 금지)
+    [
+      {
+        "prompt": "[핵심 고유명사가 포함된 구체적인 영어 묘사 + 지정된 화풍 문구]",
+        "caption": "[만화 컷 하단에 들어갈 재미있고 직관적인 한글 대사 또는 설명]"
+      },
+      ... (총 4개)
+    ]
+    """
+
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                "https://api.groq.com/openai/v1/chat/completions",
+                headers={"Authorization": f"Bearer {groq_api_key}"},
+                json={
+                    "model": "llama-3.3-70b-versatile",
+                    "messages": [
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": f"뉴스 내용:\n{news_content}"}
+                    ],
+                    "temperature": 0.7
+                },
+                timeout=15.0
+            )
+            response.raise_for_status()
+            
+        content = response.json()["choices"][0]["message"]["content"]
+        # 마크다운 백틱(```json)이 붙어올 수 있으므로 제거
+        clean_json = content.replace("```json", "").replace("```", "").strip()
+        scenes = json.loads(clean_json)
+    except Exception as e:
+        logger.error(f"만화 시나리오 생성/파싱 실패: {e}")
+        raise HTTPException(status_code=500, detail="만화 시나리오 생성 중 오류가 발생했습니다.")
+
+    comic_data = []
+    for idx, scene in enumerate(scenes[:4]): # 안전을 위해 최대 4컷으로 제한
+        encoded_prompt = urllib.parse.quote(scene.get("prompt", "comic book illustration"))
+        # 가로 비율을 위해 width=1024, height=512 적용
+        url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?model=flux&width=1024&height=512&nologo=true&seed={news_id}{idx}"
+        
+        # URL과 자막을 함께 묶어서 저장
+        comic_data.append({
+            "url": url,
+            "caption": scene["caption"]
+        })
+
+    # DB에 JSON 문자열로 저장
+    article.comic_script = json.dumps(comic_data)
+    db.commit()
+
+    return {"message": "만화 생성 완료", "comic_urls": comic_data}
+
+# 2. 만화 모음집 조회 API (AI 만화 모음집 페이지에서 호출)
+@app.get("/api/cartoons")
+def get_cartoons(db: Session = Depends(get_db)):
+    # comic_script가 존재하는(만화가 생성된) 기사만 최신순으로 가져오기
+    articles = db.query(Article).filter(Article.comic_script.isnot(None)).order_by(Article.published_at.desc()).all()
+    
+    result = []
+    for a in articles:
+        try:
+            urls = json.loads(a.comic_script)
+            if urls:
+                result.append({
+                    "news_id": a.id,
+                    "title": a.title,
+                    "comic_urls": urls,
+                    "published_at": a.published_at
+                })
+        except:
+            continue
+            
+    return result
 
 
 # ─── 헬스체크 ─────────────────────────────────────────────────────────────────
