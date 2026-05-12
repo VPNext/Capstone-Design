@@ -63,6 +63,7 @@ ai_analyzer.py (Groq llama-3.3-70b)
 dictionary_api.py → 국립국어원 사전 보완 (선택)
       ↓
 SQLite DB에 저장 → 프론트엔드로 응답
+PostgreSQL 테스트 후 변경예정
 ```
 
 ---
