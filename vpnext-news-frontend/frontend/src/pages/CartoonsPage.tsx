@@ -1,58 +1,331 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import api from "../api";
 
-// 🌟 1. 엑스박스 완벽 해결: 브라우저 캐시를 무시하는 강력한 재시도 로직 🌟
-const ComicImage = ({
-  src,
-  alt,
-  className,
-}: {
-  src: string;
-  alt: string;
-  className: string;
-}) => {
-  const [imgSrc, setImgSrc] = useState(src);
-  const [retries, setRetries] = useState(0);
-  const [hasError, setHasError] = useState(false);
+// ─── 타입 ──────────────────────────────────────────────────────────────────
+interface ComicScene {
+  url: string;
+  caption: string;
+}
 
-  const handleError = () => {
-    // 최대 15번(약 1분)까지 여유롭게 대기합니다.
-    if (retries < 15) {
-      setTimeout(() => {
-        setRetries((prev) => prev + 1);
-        // [핵심] 주소 끝에 현재 시간을 달아 브라우저가 "새로운 이미지"로 착각하고 무조건 다시 가져오게 만듭니다.
-        // Pollinations 서버는 앞부분 프롬프트가 같으면 그리던 작업을 마저 이어서 처리해 줍니다.
-        setImgSrc(`${src}&cb=${Date.now()}`);
-      }, 4000);
-    } else {
-      setHasError(true);
-    }
+interface CartoonItem {
+  news_id: number;
+  title: string;
+  source?: string;
+  summary?: string;
+  comic_urls: (ComicScene | string)[];
+  published_at: string;
+}
+
+// ─── 이미지 로딩 상태 타입 ─────────────────────────────────────────────────
+type ImgStatus = "idle" | "loading" | "loaded" | "error";
+
+// ─── 커스텀 훅: 단일 이미지 프리로더 ──────────────────────────────────────
+// Pollinations 이미지는 첫 요청 시 생성되므로 최대 20번 재시도합니다.
+// &t= 파라미터를 붙여 브라우저 캐시를 우회하되, Pollinations는 seed 기반으로
+// 캐시하기 때문에 동일 이미지를 반환합니다.
+function usePollinationsImage(src: string) {
+  const [status, setStatus] = useState<ImgStatus>("idle");
+  const [loadedSrc, setLoadedSrc] = useState<string>("");
+  const retriesRef = useRef(0);
+  const MAX_RETRIES = 20; // 최대 재시도 횟수 (약 80초)
+  const RETRY_DELAY_MS = 4000; // 재시도 간격 (4초)
+
+  const attemptLoad = useCallback(() => {
+    if (!src) return;
+    setStatus("loading");
+
+    const img = new Image();
+
+    img.onload = () => {
+      setLoadedSrc(img.src);
+      setStatus("loaded");
+    };
+
+    img.onerror = () => {
+      retriesRef.current += 1;
+      if (retriesRef.current <= MAX_RETRIES) {
+        setTimeout(() => {
+          // 브라우저 캐시 우회를 위해 타임스탬프 추가
+          // (Pollinations는 seed 기반이라 다른 이미지가 나오지 않습니다)
+          img.src = `${src}&t=${Date.now()}`;
+          attemptLoad();
+        }, RETRY_DELAY_MS);
+      } else {
+        setStatus("error");
+      }
+    };
+
+    // 첫 시도에는 원본 URL 사용
+    img.src = retriesRef.current === 0 ? src : `${src}&t=${Date.now()}`;
+  }, [src]);
+
+  useEffect(() => {
+    retriesRef.current = 0;
+    setStatus("idle");
+    setLoadedSrc("");
+    if (src) attemptLoad();
+  }, [src, attemptLoad]);
+
+  return {
+    status,
+    loadedSrc,
+    retryCount: retriesRef.current,
+    retry: () => {
+      retriesRef.current = 0;
+      attemptLoad();
+    },
   };
+}
 
-  return hasError ? (
-    <div className="w-full h-full flex flex-col items-center justify-center bg-slate-800 text-slate-400 py-20 min-h-[300px]">
-      <span className="text-3xl mb-2">🥲</span>
-      <p className="text-sm font-bold">이미지 로딩 실패</p>
+// ─── 컴포넌트: 단일 만화 패널 ──────────────────────────────────────────────
+function ComicPanel({
+  scene,
+  panelNumber,
+}: {
+  scene: ComicScene | string;
+  panelNumber: number;
+}) {
+  const imageUrl = typeof scene === "string" ? scene : scene.url;
+  const caption =
+    typeof scene === "string" ? `${panelNumber}컷` : scene.caption;
+
+  const { status, loadedSrc, retryCount, retry } =
+    usePollinationsImage(imageUrl);
+
+  // 컷 번호별 색상 (웹툰 특유의 포인트 컬러)
+  const panelColors = [
+    {
+      bg: "bg-yellow-400",
+      text: "text-yellow-900",
+      border: "border-yellow-500",
+    },
+    { bg: "bg-rose-400", text: "text-rose-900", border: "border-rose-500" },
+    { bg: "bg-sky-400", text: "text-sky-900", border: "border-sky-500" },
+    {
+      bg: "bg-emerald-400",
+      text: "text-emerald-900",
+      border: "border-emerald-500",
+    },
+  ];
+  const color = panelColors[(panelNumber - 1) % 4];
+
+  return (
+    <div className="relative w-full overflow-hidden border-b-4 border-slate-900 last:border-b-0">
+      {/* ─ 이미지 영역 ─────────────────────────────────────────── */}
+      <div className="relative w-full min-h-[280px] sm:min-h-[380px] bg-slate-100">
+        {/* 로딩 스켈레톤 */}
+        {(status === "idle" || status === "loading") && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900 gap-4">
+            {/* 애니메이션 로딩 바 */}
+            <div className="w-48 h-2 bg-slate-700 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-yellow-400 rounded-full animate-pulse"
+                style={{ width: `${Math.min(100, retryCount * 5 + 15)}%` }}
+              />
+            </div>
+            <p className="text-slate-400 text-xs font-mono tracking-widest animate-pulse">
+              AI 그림 생성 중... ({Math.min(MAX_RETRIES_DISPLAY, retryCount)}/
+              {MAX_RETRIES_DISPLAY})
+            </p>
+            {/* 스켈레톤 선 */}
+            <div className="absolute inset-0 opacity-5 pointer-events-none">
+              {[...Array(8)].map((_, i) => (
+                <div
+                  key={i}
+                  className="h-px bg-white"
+                  style={{ marginTop: `${(i + 1) * 12.5}%` }}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* 실제 이미지 */}
+        {status === "loaded" && (
+          <img
+            src={loadedSrc}
+            alt={`${panelNumber}컷`}
+            className="w-full h-auto object-cover"
+          />
+        )}
+
+        {/* 에러 상태 */}
+        {status === "error" && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900 text-slate-400 gap-3 min-h-[280px]">
+            <span className="text-5xl">🎨</span>
+            <p className="text-sm font-bold">이미지 로딩 실패</p>
+            <button
+              onClick={retry}
+              className="text-xs bg-yellow-400 text-slate-900 font-bold px-4 py-2 rounded-full hover:bg-yellow-300 transition-colors"
+            >
+              다시 시도
+            </button>
+          </div>
+        )}
+
+        {/* 컷 번호 배지 */}
+        <div
+          className={`absolute top-3 left-3 z-10 ${color.bg} ${color.text} ${color.border}
+            border-2 w-9 h-9 flex items-center justify-center rounded-full font-black text-sm
+            shadow-[2px_2px_0px_rgba(0,0,0,0.8)]`}
+        >
+          {panelNumber}
+        </div>
+      </div>
+
+      {/* ─ 말풍선 캡션 ─────────────────────────────────────────── */}
+      <div className="bg-white border-t-2 border-slate-900 px-5 py-4 relative">
+        {/* 말풍선 꼬리 (위쪽 이미지를 향해) */}
+        <div
+          className="absolute -top-3 left-10 w-5 h-5 bg-white border-t-2 border-l-2 border-slate-900 rotate-45"
+          style={{ zIndex: 1 }}
+        />
+        <p className="text-slate-900 font-black text-base sm:text-lg leading-relaxed text-center break-keep relative z-10">
+          {caption}
+        </p>
+      </div>
     </div>
-  ) : (
-    <img
-      src={imgSrc}
-      alt={alt}
-      onError={handleError}
-      className={className}
-      loading="lazy"
-    />
   );
-};
+}
 
+// 재시도 횟수 표시용 상수 (UI 표시 목적)
+const MAX_RETRIES_DISPLAY = 20;
+
+// ─── 컴포넌트: 만화 카드 (기사 1개 = 4컷 만화) ────────────────────────────
+function CartoonCard({
+  item,
+  highlight,
+}: {
+  item: CartoonItem;
+  highlight: boolean;
+}) {
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (highlight && cardRef.current) {
+      setTimeout(() => {
+        cardRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+      }, 300);
+    }
+  }, [highlight]);
+
+  const dateStr = item.published_at
+    ? new Date(item.published_at).toLocaleDateString("ko-KR", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      })
+    : "";
+
+  return (
+    <article
+      ref={cardRef}
+      id={`comic-${item.news_id}`}
+      className={`
+        rounded-3xl overflow-hidden shadow-[6px_6px_0px_0px_rgba(15,23,42,1)]
+        border-4 border-slate-900
+        transition-all duration-700
+        ${highlight ? "ring-4 ring-yellow-400 ring-offset-4" : ""}
+      `}
+    >
+      {/* ─ 카드 헤더 ─────────────────────────────────────────────── */}
+      <div className="bg-slate-900 text-white px-6 pt-6 pb-5">
+        {/* 소스 & 날짜 */}
+        <div className="flex items-center gap-3 mb-3 flex-wrap">
+          {item.source && (
+            <span className="bg-yellow-400 text-slate-900 text-xs font-black px-3 py-1 rounded-full uppercase tracking-wide">
+              {item.source}
+            </span>
+          )}
+          {dateStr && (
+            <span className="text-slate-400 text-xs font-mono">{dateStr}</span>
+          )}
+        </div>
+
+        {/* 기사 제목 */}
+        <h2 className="text-xl sm:text-2xl font-black text-white leading-tight mb-3 break-keep">
+          {item.title}
+        </h2>
+
+        {/* AI 요약 (있을 경우) */}
+        {item.summary && (
+          <p className="text-slate-300 text-sm leading-relaxed line-clamp-2 border-t border-slate-700 pt-3">
+            {item.summary}
+          </p>
+        )}
+
+        {/* 원본 기사 링크 */}
+        <Link
+          to={`/news/${item.news_id}`}
+          className="inline-flex items-center gap-2 mt-4 text-sm font-bold text-slate-900 bg-yellow-400
+            border-2 border-yellow-300 px-4 py-2 rounded-full
+            hover:bg-yellow-300 hover:-translate-y-0.5 hover:shadow-[3px_3px_0px_rgba(255,255,255,0.3)]
+            transition-all"
+        >
+          <svg
+            className="w-4 h-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2.5}
+              d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+            />
+          </svg>
+          원본 기사 보기
+        </Link>
+      </div>
+
+      {/* ─ 웹툰 패널 영역 ─────────────────────────────────────────── */}
+      {/* 세로 스크롤 웹툰 형식: 컷이 위에서 아래로 이어집니다 */}
+      <div className="bg-amber-50 border-t-4 border-slate-900">
+        {/* 웹툰 타이틀 바 */}
+        <div className="flex items-center gap-3 px-5 py-3 border-b-2 border-slate-900 bg-yellow-400">
+          <span className="text-slate-900 font-black text-sm tracking-widest uppercase">
+            🎨 4컷 만화
+          </span>
+          <div className="flex gap-1 ml-auto">
+            {[1, 2, 3, 4].map((n) => (
+              <div
+                key={n}
+                className="w-2 h-2 rounded-full bg-slate-900 opacity-50"
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* 패널들 */}
+        <div className="border-l-4 border-r-4 border-slate-900">
+          {item.comic_urls.slice(0, 4).map((scene, idx) => (
+            <ComicPanel key={idx} scene={scene} panelNumber={idx + 1} />
+          ))}
+        </div>
+
+        {/* 하단 서명 */}
+        <div className="flex items-center justify-center gap-2 py-3 border-t-2 border-slate-900 bg-slate-900">
+          <span className="text-yellow-400 font-black text-xs tracking-widest">
+            🤖 AI가 그린 뉴스 만화 · 뉴스 정보 나침반
+          </span>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+// ─── 메인 페이지 컴포넌트 ──────────────────────────────────────────────────
 export default function CartoonsPage() {
-  const [cartoons, setCartoons] = useState<any[]>([]);
+  const [cartoons, setCartoons] = useState<CartoonItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchParams] = useSearchParams();
   const targetNewsId = searchParams.get("newsId");
 
-  // 만화 데이터 가져오기
   useEffect(() => {
     const fetchCartoons = async () => {
       try {
@@ -67,119 +340,57 @@ export default function CartoonsPage() {
     fetchCartoons();
   }, []);
 
-  // 특정 기사에서 넘어왔을 경우, 해당 만화 카드로 부드럽게 스크롤
-  useEffect(() => {
-    if (!loading && targetNewsId && cartoons.length > 0) {
-      setTimeout(() => {
-        const element = document.getElementById(`comic-${targetNewsId}`);
-        if (element) {
-          element.scrollIntoView({ behavior: "smooth", block: "center" });
-          // 시각적 강조 효과 (옵션)
-          element.classList.add("ring-4", "ring-purple-400", "ring-offset-4");
-          setTimeout(
-            () =>
-              element.classList.remove(
-                "ring-4",
-                "ring-purple-400",
-                "ring-offset-4",
-              ),
-            2000,
-          );
-        }
-      }, 300);
-    }
-  }, [loading, targetNewsId, cartoons]);
-
   if (loading) {
     return (
-      <div className="mt-32 text-center text-slate-500 font-medium">
-        만화를 불러오는 중입니다...
+      <div className="mt-32 flex flex-col items-center gap-4 text-slate-500">
+        {/* 스켈레톤 로딩 */}
+        <div className="w-16 h-16 border-4 border-slate-900 border-t-yellow-400 rounded-full animate-spin" />
+        <p className="font-bold text-lg animate-pulse">
+          만화 갤러리 불러오는 중...
+        </p>
       </div>
     );
   }
 
   return (
-    <div className="mt-8 pb-20">
-      <header className="mb-10 text-center">
-        <h1 className="text-4xl font-black text-slate-900 tracking-tight flex items-center justify-center gap-3 mb-3">
+    <div className="mt-8 pb-24">
+      {/* ─ 페이지 헤더 ──────────────────────────────────────────── */}
+      <header className="mb-12 text-center">
+        <div
+          className="inline-flex items-center gap-2 bg-yellow-400 border-4 border-slate-900 px-5 py-2 rounded-full mb-4
+          shadow-[4px_4px_0px_0px_rgba(15,23,42,1)]"
+        >
+          <span className="font-black text-slate-900 text-sm uppercase tracking-widest">
+            AI Comics Gallery
+          </span>
+        </div>
+        <h1 className="text-4xl sm:text-5xl font-black text-slate-900 tracking-tight leading-tight mb-3">
           🎨 AI 만화 모음집
         </h1>
-        <p className="text-slate-500">
-          AI가 뉴스를 읽고 직접 그린 4컷 만화 갤러리입니다.
+        <p className="text-slate-500 font-medium max-w-md mx-auto leading-relaxed">
+          AI가 뉴스를 읽고 직접 그린 4컷 웹툰 갤러리입니다.
+          <br />
+          이미지 생성에는 최대 1분이 걸릴 수 있습니다.
         </p>
       </header>
 
+      {/* ─ 만화 목록 ────────────────────────────────────────────── */}
       {cartoons.length === 0 ? (
-        <div className="text-center bg-slate-50 border border-slate-200 rounded-2xl p-20 text-slate-500">
-          아직 생성된 만화가 없습니다. 기사 상세 페이지에서 만화를 생성해
-          보세요!
+        <div className="text-center border-4 border-dashed border-slate-300 rounded-3xl p-20 text-slate-400">
+          <div className="text-6xl mb-4">🖌️</div>
+          <p className="font-bold text-lg mb-2">아직 생성된 만화가 없습니다</p>
+          <p className="text-sm">
+            기사 상세 페이지에서 만화 생성 버튼을 눌러보세요!
+          </p>
         </div>
       ) : (
-        <div className="flex flex-col gap-16">
+        <div className="flex flex-col gap-14">
           {cartoons.map((item) => (
-            <div
+            <CartoonCard
               key={item.news_id}
-              id={`comic-${item.news_id}`}
-              className="bg-amber-50 border-4 border-slate-900 p-6 md:p-10 rounded-3xl shadow-[8px_8px_0px_0px_rgba(15,23,42,1)] transition-all duration-700"
-            >
-              <div className="mb-8 flex flex-col md:flex-row md:justify-between md:items-center gap-4 border-b-4 border-slate-900 pb-6">
-                <h2 className="text-2xl md:text-3xl font-black text-slate-900 line-clamp-1 uppercase tracking-tight">
-                  {item.title}
-                </h2>
-                <Link
-                  to={`/news/${item.news_id}`}
-                  className="shrink-0 text-sm md:text-base font-black text-slate-900 bg-yellow-300 border-2 border-slate-900 px-5 py-2.5 rounded-full hover:bg-yellow-400 hover:-translate-y-1 hover:shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] transition-all"
-                >
-                  원본 기사 보기
-                </Link>
-              </div>
-
-              {/* 4컷 만화 그리드 레이아웃 (Retro Comic Style) */}
-              <div className="border-4 border-slate-900 rounded-xl overflow-hidden">
-                {item.comic_urls.map((scene: any, idx: number) => {
-                  // [중요] 기존 DB에 저장된 문자열 데이터(URL만 있는 경우)와의 호환성을 위한 처리
-                  const imageUrl =
-                    typeof scene === "string" ? scene : scene.url;
-                  const captionText =
-                    typeof scene === "string"
-                      ? `Scene ${idx + 1}`
-                      : scene.caption;
-
-                  return (
-                    <div
-                      key={idx}
-                      className="relative border-b-2 border-slate-800 last:border-b-0 overflow-hidden group"
-                    >
-                      {/* 1. 만화 이미지 영역 */}
-                      <div className="relative min-h-[300px] bg-slate-800">
-                        <ComicImage
-                          src={imageUrl}
-                          alt={`Scene ${idx + 1}`}
-                          className="w-full h-auto object-cover opacity-90 group-hover:opacity-100 transition-opacity"
-                        />
-                        {/* 화수 번호 배지 */}
-                        <div className="absolute top-3 left-3 bg-yellow-400 text-slate-900 border-2 border-slate-900 w-8 h-8 flex items-center justify-center rounded-full font-black text-sm shadow-[2px_2px_0px_rgba(0,0,0,1)] z-10">
-                          {idx + 1}
-                        </div>
-                      </div>
-
-                      {/* 2. 🌟 말풍선 텍스트 크기 확대 (text-[14px] -> text-lg, font-extrabold) 🌟 */}
-                      <div className="absolute bottom-4 left-4 right-4 z-10">
-                        <div className="relative bg-white border-2 border-slate-800 rounded-2xl p-5 shadow-[4px_4px_0px_rgba(30,41,59,1)]">
-                          {/* 말풍선 꼬리 */}
-                          <div className="absolute -top-2 left-8 w-4 h-4 bg-white border-t-2 border-l-2 border-slate-800 transform rotate-45"></div>
-
-                          {/* 자막 텍스트 (더 크고 진하게 변경) */}
-                          <p className="text-lg text-slate-900 font-extrabold leading-relaxed break-keep relative z-10 text-center">
-                            {captionText}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
+              item={item}
+              highlight={targetNewsId === String(item.news_id)}
+            />
           ))}
         </div>
       )}
