@@ -371,7 +371,8 @@ async def generate_comic(news_id: int, bg: BackgroundTasks, db: Session = Depend
     }
     bg_hint = category_hints.get(category, "Korean urban setting, realistic background")
 
-    comic_prompt = f"""당신은 세계 최고의 웹툰 작가입니다. 아래 뉴스 분석 결과를 바탕으로 4컷 만화 시나리오를 만드세요.
+    comic_prompt = f"""당신은 트렌디하고 유머러스한 세계 최고의 '뉴스 정치/사회 풍자 웹툰 작가'입니다. 
+아래 뉴스 분석 결과를 바탕으로, 독자들이 딱딱한 뉴스를 쉽고 재미있게 이해할 수 있도록 4컷 만화 시나리오를 작성하세요.
 
 ━━━ 뉴스 분석 결과 ━━━
 - 분야: {category}
@@ -385,39 +386,38 @@ async def generate_comic(news_id: int, bg: BackgroundTasks, db: Session = Depend
 - 원본 뉴스 제목: {news_title}
 ━━━━━━━━━━━━━━━━━━━━━━
 
-🎨 [4컷 구성 - 기승전결]
-1컷(기): {cause or core_event}가 시작되는 장면
-2컷(승): 사건이 전개되며 {main_actors}가 반응하는 장면
-3컷(전): 가장 극적인 순간 — 핵심 충돌 또는 반전
-4컷(결): {consequence or "결말"} — 교훈 또는 여운
+🎨 [4컷 구성 - 뉴스 흐름 기반 기승전결]
+1컷(발단): {cause} 혹은 사건의 배경이 되는 상황을 위트있거나 과장되게 보여주는 장면
+2컷(전개): {main_actors}가 등장하여 {core_event}가 본격적으로 터지는 다이내믹한 컷
+3컷(절정): 갈등이 최고조에 달하거나 사건의 핵심적인 디테일, 사람들의 현실적인 반응이 드러나는 장면
+4컷(결말): {consequence} 혹은 이 뉴스가 남긴 파장이나 여운(풍자, 허탈, 환희 등)을 보여주며 마무리하는 장면
 
 ━━━━━━━━━━━━━━━━━━━━━━
-🖼️ [이미지 프롬프트 작성 규칙]
+🖼️ [이미지 프롬프트(prompt) 작성 규칙 - 영문]
 ━━━━━━━━━━━━━━━━━━━━━━
-① 배경 힌트(필수 반영): {bg_hint}
-② 주요 인물을 영어로 외모/행동과 함께 구체적으로 묘사하세요.
-   예) "middle-aged Korean male politician in navy suit, pointing finger aggressively at podium microphone"
-   예) "group of Korean workers in hard hats, looking worried at factory machinery shutting down"
-③ 배경, 인물, 행동이 모두 담긴 하나의 완성된 장면을 묘사하세요.
-④ 각 prompt 마지막에 반드시 이것을 그대로 붙이세요:
-   ", korean webtoon style, 2D comic illustration, expressive cartoon characters with visible emotions, bold black outlines, flat cel-shading colors, dynamic composition, cinematic comic panel"
+① 배경 힌트(반드시 반영): {bg_hint}
+② 뉴스의 실제 내용에 맞는 구체적인 행동, 표정, 상황을 영어로 묘사하세요. (단순히 서 있는 모습은 금지하며, 과장된 감정 표현, 땀 흘리는 모습, 환호하는 모습 등 역동적인 액션을 필수적으로 포함하세요.)
+③ 예시: "A caricatured Korean male politician sweating profusely while dodging flying microphones in a crowded press room, panicked expression"
+④ 모든 prompt 마지막에는 다음 스타일 태그를 콤마(,)와 함께 반드시 붙이세요:
+   ", korean webtoon style, 2D comic illustration, highly expressive cartoon characters, dramatic lighting, bold black outlines, flat cel-shading colors, dynamic composition, cinematic comic panel, humorous tone"
 
 ━━━━━━━━━━━━━━━━━━━━━━
-💬 [한글 캡션 작성 규칙]
+💬 [만화 대사/나레이션(caption) 작성 규칙 - 한글]
 ━━━━━━━━━━━━━━━━━━━━━━
-① 반드시 100% 순수 한글만 사용 (영어 단자 하나도 금지)
-② 뉴스의 실제 상황을 반영한 구체적인 대사나 나레이션
-③ 25자 이내, 임팩트 있고 공감 가는 문장
-④ 4컷 캡션을 순서대로 읽으면 뉴스 전체 흐름이 이해되어야 함
+① 100% 순수 한글만 사용하세요. (영어 단어 절대 금지)
+② 단순히 뉴스를 요약하는 딱딱한 문체가 아닙니다. 실제 웹툰처럼 상황을 설명하는 '[나레이션]'과 인물이 직접 말하는 '[대사]'를 결합하여 생동감 있게 작성하세요.
+③ 유행어, 적절한 밈(Meme), 과장된 감탄사를 섞어 재미있고 찰지게 표현하세요. (예: "아니, 갑자기 여기서 이러시면...?!", "내 지갑... 살려줘...", "이러다 다 죽어~!")
+④ 뉴스의 핵심 팩트를 대사 속에 자연스럽게 녹여내야 합니다.
+⑤ 각 컷당 30~50자 내외로 임팩트 있게 작성하세요.
 
 ━━━━━━━━━━━━━━━━━━━━━━
-📌 출력 형식 — JSON 배열만, 절대 다른 말 금지
+📌 출력 형식 — JSON 배열만 반환 (마크다운 백틱 금지, 다른 설명 절대 금지)
 ━━━━━━━━━━━━━━━━━━━━━━
 [
-  {{"prompt": "...", "caption": "..."}},
-  {{"prompt": "...", "caption": "..."}},
-  {{"prompt": "...", "caption": "..."}},
-  {{"prompt": "...", "caption": "..."}}
+  {{"prompt": "...", "caption": "[나레이션] ... \\n[대사] ..."}},
+  {{"prompt": "...", "caption": "[나레이션] ... \\n[대사] ..."}},
+  {{"prompt": "...", "caption": "[나레이션] ... \\n[대사] ..."}},
+  {{"prompt": "...", "caption": "[나레이션] ... \\n[대사] ..."}}
 ]"""
 
     try:
