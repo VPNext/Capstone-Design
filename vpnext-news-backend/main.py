@@ -15,7 +15,7 @@ from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
-from ai_analyzer import full_analysis
+from ai_analyzer import full_analysis, generate_comic_data
 from article_scraper import scrape
 from config import APP_HOST, APP_PORT
 from database import Article, SessionLocal, get_db, init_db
@@ -281,190 +281,17 @@ async def generate_comic(news_id: int, bg: BackgroundTasks, db: Session = Depend
     if not article:
         raise HTTPException(status_code=404, detail="기사를 찾을 수 없습니다.")
 
-    from config import GROQ_API_KEY
-    groq_api_key = os.getenv("GROQ_API_KEY", GROQ_API_KEY)
-
-    # ── 뉴스 컨텍스트 최대한 확보 ─────────────────────────────────────────
     news_title = article.title or ""
-    # ai_summary + content 모두 활용해 LLM이 뉴스를 깊이 이해하도록 함
     news_summary = article.ai_summary or ""
     news_content = article.content or article.summary or ""
-    # summary + content 합쳐서 최대 1500자 (토큰 절약 + 풍부한 맥락)
     combined_body = (news_summary + "\n\n" + news_content).strip()
     news_body = combined_body[:1500] if combined_body else news_title
 
-    # ─────────────────────────────────────────────────────────────────────
-    # [1단계] 뉴스 분석: LLM이 먼저 뉴스를 구조적으로 파악하게 합니다.
-    # 바로 프롬프트를 생성하면 generic해지는 문제를 방지합니다.
-    # ─────────────────────────────────────────────────────────────────────
-    analysis_prompt = f"""아래 뉴스를 읽고, 만화로 표현하기 위해 필요한 핵심 정보를 JSON으로 추출하세요.
-
-[뉴스 제목]: {news_title}
-[뉴스 내용]: {news_body}
-
-다음 JSON 형식으로만 답하세요 (다른 말 금지):
-{{
-  "category": "뉴스 분야 (정치/경제/사회/국제/스포츠/연예/과학기술 중 하나)",
-  "main_actors": ["주요 인물 또는 기관 1", "주요 인물 또는 기관 2"],
-  "location": "주요 배경 장소 (예: 국회의사당, 법원, 주식시장, 전쟁터, 서울 시내 등)",
-  "core_event": "핵심 사건을 한 문장으로 (무엇이 일어났나)",
-  "cause": "사건의 원인 또는 배경",
-  "consequence": "결과 또는 파장",
-  "emotion": "이 뉴스의 전반적 감정/분위기 (예: 충격, 긴장, 희망, 분노, 유머 등)",
-  "visual_keywords": ["시각적으로 표현할 수 있는 키워드 1", "키워드 2", "키워드 3"]
-}}"""
-
     try:
-        async with httpx.AsyncClient() as client:
-            analysis_response = await client.post(
-                "https://api.groq.com/openai/v1/chat/completions",
-                headers={"Authorization": f"Bearer {groq_api_key}"},
-                json={
-                    "model": "llama-3.3-70b-versatile",
-                    "messages": [{"role": "user", "content": analysis_prompt}],
-                    "temperature": 0.3,   # 분석은 정확해야 하므로 낮은 temperature
-                    "max_tokens": 600,
-                },
-                timeout=20.0,
-            )
-            analysis_response.raise_for_status()
-        
-        raw_analysis = analysis_response.json()["choices"][0]["message"]["content"]
-        clean_analysis = re.sub(r"```(?:json)?", "", raw_analysis).replace("```", "").strip()
-        news_analysis = json.loads(clean_analysis)
-        logger.info(f"[만화 #{news_id}] 뉴스 분석 완료: {news_analysis.get('category')} / {news_analysis.get('core_event', '')[:40]}")
-
+        comic_data, raw_urls = await generate_comic_data(news_id, news_title, news_body)
     except Exception as e:
-        logger.warning(f"뉴스 분석 실패, 기본 분석으로 진행: {e}")
-        news_analysis = {
-            "category": "일반",
-            "main_actors": [],
-            "location": "Korea",
-            "core_event": news_title,
-            "cause": "",
-            "consequence": "",
-            "emotion": "neutral",
-            "visual_keywords": [],
-        }
-
-    # ─────────────────────────────────────────────────────────────────────
-    # [2단계] 만화 시나리오 생성: 분석 결과를 바탕으로 구체적인 프롬프트 생성
-    # ─────────────────────────────────────────────────────────────────────
-    category        = news_analysis.get("category", "일반")
-    main_actors     = ", ".join(news_analysis.get("main_actors", [])) or "관련 인물들"
-    location        = news_analysis.get("location", "Korea")
-    core_event      = news_analysis.get("core_event", news_title)
-    cause           = news_analysis.get("cause", "")
-    consequence     = news_analysis.get("consequence", "")
-    emotion         = news_analysis.get("emotion", "neutral")
-    visual_keywords = ", ".join(news_analysis.get("visual_keywords", []))
-
-    # 카테고리별 배경/스타일 힌트 (이미지 품질 향상)
-    category_hints = {
-        "정치":   "government building interior, politicians in suits, parliament hall, voting scene",
-        "경제":   "stock market trading floor, financial charts on screens, businesspeople in boardroom",
-        "사회":   "Korean city street, diverse citizens, public space, everyday life scene",
-        "국제":   "international meeting room, world map, diplomats shaking hands, foreign country setting",
-        "스포츠": "sports stadium, athletes in action, cheering crowd, competition scene",
-        "연예":   "entertainment stage, spotlights, fans cheering, media press conference",
-        "과학기술": "modern laboratory, tech office, computers and robots, futuristic setting",
-    }
-    bg_hint = category_hints.get(category, "Korean urban setting, realistic background")
-
-    comic_prompt = f"""당신은 트렌디하고 유머러스한 세계 최고의 '뉴스 정치/사회 풍자 웹툰 작가'입니다. 
-아래 뉴스 분석 결과를 바탕으로, 독자들이 딱딱한 뉴스를 쉽고 재미있게 이해할 수 있도록 4컷 만화 시나리오를 작성하세요.
-
-━━━ 뉴스 분석 결과 ━━━
-- 분야: {category}
-- 핵심 사건: {core_event}
-- 주요 인물/기관: {main_actors}
-- 주요 배경: {location}
-- 원인: {cause}
-- 결과/파장: {consequence}
-- 감정/분위기: {emotion}
-- 시각 키워드: {visual_keywords}
-- 원본 뉴스 제목: {news_title}
-━━━━━━━━━━━━━━━━━━━━━━
-
-🎨 [4컷 구성 - 뉴스 흐름 기반 기승전결]
-1컷(발단): {cause} 혹은 사건의 배경이 되는 상황을 위트있거나 과장되게 보여주는 장면
-2컷(전개): {main_actors}가 등장하여 {core_event}가 본격적으로 터지는 다이내믹한 컷
-3컷(절정): 갈등이 최고조에 달하거나 사건의 핵심적인 디테일, 사람들의 현실적인 반응이 드러나는 장면
-4컷(결말): {consequence} 혹은 이 뉴스가 남긴 파장이나 여운(풍자, 허탈, 환희 등)을 보여주며 마무리하는 장면
-
-━━━━━━━━━━━━━━━━━━━━━━
-🖼️ [이미지 프롬프트(prompt) 작성 규칙 - 영문]
-━━━━━━━━━━━━━━━━━━━━━━
-① 배경 힌트(반드시 반영): {bg_hint}
-② 뉴스의 실제 내용에 맞는 구체적인 행동, 표정, 상황을 영어로 묘사하세요. (단순히 서 있는 모습은 금지하며, 과장된 감정 표현, 땀 흘리는 모습, 환호하는 모습 등 역동적인 액션을 필수적으로 포함하세요.)
-③ 예시: "A caricatured Korean male politician sweating profusely while dodging flying microphones in a crowded press room, panicked expression"
-④ 모든 prompt 마지막에는 다음 스타일 태그를 콤마(,)와 함께 반드시 붙이세요:
-   ", korean webtoon style, 2D comic illustration, highly expressive cartoon characters, dramatic lighting, bold black outlines, flat cel-shading colors, dynamic composition, cinematic comic panel, humorous tone"
-
-━━━━━━━━━━━━━━━━━━━━━━
-💬 [만화 대사/나레이션(caption) 작성 규칙 - 한글]
-━━━━━━━━━━━━━━━━━━━━━━
-① 100% 순수 한글만 사용하세요. (영어 단어 절대 금지)
-② 단순히 뉴스를 요약하는 딱딱한 문체가 아닙니다. 실제 웹툰처럼 상황을 설명하는 '[나레이션]'과 인물이 직접 말하는 '[대사]'를 결합하여 생동감 있게 작성하세요.
-③ 유행어, 적절한 밈(Meme), 과장된 감탄사를 섞어 재미있고 찰지게 표현하세요. (예: "아니, 갑자기 여기서 이러시면...?!", "내 지갑... 살려줘...", "이러다 다 죽어~!")
-④ 뉴스의 핵심 팩트를 대사 속에 자연스럽게 녹여내야 합니다.
-⑤ 각 컷당 30~50자 내외로 임팩트 있게 작성하세요.
-
-━━━━━━━━━━━━━━━━━━━━━━
-📌 출력 형식 — JSON 배열만 반환 (마크다운 백틱 금지, 다른 설명 절대 금지)
-━━━━━━━━━━━━━━━━━━━━━━
-[
-  {{"prompt": "...", "caption": "[나레이션] ... \\n[대사] ..."}},
-  {{"prompt": "...", "caption": "[나레이션] ... \\n[대사] ..."}},
-  {{"prompt": "...", "caption": "[나레이션] ... \\n[대사] ..."}},
-  {{"prompt": "...", "caption": "[나레이션] ... \\n[대사] ..."}}
-]"""
-
-    try:
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                "https://api.groq.com/openai/v1/chat/completions",
-                headers={"Authorization": f"Bearer {groq_api_key}"},
-                json={
-                    "model": "llama-3.3-70b-versatile",
-                    "messages": [{"role": "user", "content": comic_prompt}],
-                    "temperature": 0.8,
-                    "max_tokens": 1800,
-                },
-                timeout=25.0,
-            )
-            response.raise_for_status()
-
-        raw_content = response.json()["choices"][0]["message"]["content"]
-        clean_json = re.sub(r"```(?:json)?", "", raw_content).replace("```", "").strip()
-        scenes = json.loads(clean_json)
-
-    except Exception as e:
-        logger.error(f"만화 시나리오 생성/파싱 실패: {e}")
+        logger.error(f"만화 생성 실패: {e}")
         raise HTTPException(status_code=500, detail="만화 시나리오 생성 중 오류가 발생했습니다.")
-
-    # Pollinations URL 생성
-    comic_data = []
-    raw_urls = []  # 프리워밍용 순수 URL 목록
-
-    for idx, scene in enumerate(scenes[:4]):
-        prompt_text = scene.get("prompt", "korean webtoon style comic illustration")
-        encoded_prompt = urllib.parse.quote(prompt_text)
-
-        # ─── URL 파라미터 설명 ───────────────────────────────────────────────
-        # width=1024, height=512 : 가로 비율 (만화 컷에 적합)
-        # model=flux             : Pollinations의 최고 품질 모델
-        # nologo=true            : 워터마크 제거
-        # seed                   : 같은 기사의 같은 컷은 항상 동일한 이미지 생성 (재현성)
-        # ────────────────────────────────────────────────────────────────────
-        seed_value = news_id * 100 + idx
-        url = (
-            f"https://image.pollinations.ai/prompt/{encoded_prompt}"
-            f"?model=flux&width=1024&height=512&nologo=true&seed={seed_value}"
-        )
-
-        comic_data.append({"url": url, "caption": scene.get("caption", f"Scene {idx + 1}")})
-        raw_urls.append(url)
 
     # DB에 저장
     article.comic_script = json.dumps(comic_data, ensure_ascii=False)

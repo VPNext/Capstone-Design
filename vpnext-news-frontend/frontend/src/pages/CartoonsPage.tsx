@@ -5,7 +5,9 @@ import api from "../api";
 // ─── 타입 ──────────────────────────────────────────────────────────────────
 interface ComicScene {
   url: string;
-  caption: string;
+  caption?: string; // 백엔드에서 "[나레이션] ... [대사] ..." 형태로 넘어오는 텍스트
+  narration?: string; // (과거 데이터 호환용)
+  dialogue?: string; // (과거 데이터 호환용)
 }
 
 interface CartoonItem {
@@ -87,13 +89,34 @@ function ComicPanel({
   panelNumber: number;
 }) {
   const imageUrl = typeof scene === "string" ? scene : scene.url;
-  const caption =
-    typeof scene === "string" ? `${panelNumber}컷` : scene.caption;
+
+  // ✨ [나레이션]과 [대사]를 분리하는 핵심 파싱 로직 ✨
+  let parsedNarration = "";
+  let parsedDialogue = "";
+
+  const captionStr =
+    typeof scene === "string" ? `${panelNumber}컷` : scene.caption || "";
+
+  if (captionStr.includes("[나레이션]") || captionStr.includes("[대사]")) {
+    // 정규식을 사용해 [나레이션] 뒤의 텍스트와 [대사] 뒤의 텍스트를 각각 추출합니다.
+    const narMatch = captionStr.match(/\[나레이션\](.*?)(?=\[대사\]|$)/s);
+    const diaMatch = captionStr.match(/\[대사\](.*)/s);
+
+    parsedNarration = narMatch ? narMatch[1].trim() : "";
+    parsedDialogue = diaMatch ? diaMatch[1].trim() : "";
+  } else {
+    // 태그가 없는 예전 데이터이거나 파싱 실패 시 전체를 나레이션으로 처리
+    parsedNarration =
+      typeof scene !== "string" && scene.narration
+        ? scene.narration
+        : captionStr;
+    parsedDialogue =
+      typeof scene !== "string" && scene.dialogue ? scene.dialogue : "";
+  }
 
   const { status, loadedSrc, retryCount, retry } =
     usePollinationsImage(imageUrl);
 
-  // 컷 번호별 색상 (웹툰 특유의 포인트 컬러)
   const panelColors = [
     {
       bg: "bg-yellow-400",
@@ -110,14 +133,50 @@ function ComicPanel({
   ];
   const color = panelColors[(panelNumber - 1) % 4];
 
+  // ✨ 컷 번호에 따라 말풍선의 위치와 꼬리 방향을 다이내믹하게 변경합니다.
+  const getBubbleStyle = (num: number) => {
+    switch (num % 4) {
+      case 1: // 1컷: 좌측 상단 (꼬리는 우측 하단)
+        return {
+          pos: "top-[8%] left-[5%]",
+          tail: "-bottom-2 right-6 border-b-2 border-r-2",
+          align: "text-left",
+        };
+      case 2: // 2컷: 우측 하단 (꼬리는 좌측 상단)
+        return {
+          pos: "bottom-[12%] right-[5%]",
+          tail: "-top-2 left-6 border-t-2 border-l-2",
+          align: "text-right",
+        };
+      case 3: // 3컷: 우측 상단 (꼬리는 좌측 하단)
+        return {
+          pos: "top-[10%] right-[5%]",
+          tail: "-bottom-2 left-6 border-b-2 border-l-2",
+          align: "text-center",
+        };
+      case 0: // 4컷: 좌측 하단 (꼬리는 우측 상단)
+        return {
+          pos: "bottom-[15%] left-[5%]",
+          tail: "-top-2 right-6 border-t-2 border-r-2",
+          align: "text-left",
+        };
+      default:
+        return {
+          pos: "top-[10%] right-[5%]",
+          tail: "-bottom-2 left-6 border-b-2 border-l-2",
+          align: "text-center",
+        };
+    }
+  };
+  const bubble = getBubbleStyle(panelNumber);
+
   return (
     <div className="relative w-full overflow-hidden border-b-4 border-slate-900 last:border-b-0">
       {/* ─ 이미지 영역 ─────────────────────────────────────────── */}
-      <div className="relative w-full min-h-[280px] sm:min-h-[380px] bg-slate-100">
+      <div className="relative w-full min-h-[280px] sm:min-h-[380px] bg-slate-100 flex items-center justify-center">
         {/* 로딩 스켈레톤 */}
         {(status === "idle" || status === "loading") && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900 gap-4">
-            {/* 애니메이션 로딩 바 */}
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900 gap-4 z-0">
             <div className="w-48 h-2 bg-slate-700 rounded-full overflow-hidden">
               <div
                 className="h-full bg-yellow-400 rounded-full animate-pulse"
@@ -128,16 +187,6 @@ function ComicPanel({
               AI 그림 생성 중... ({Math.min(MAX_RETRIES_DISPLAY, retryCount)}/
               {MAX_RETRIES_DISPLAY})
             </p>
-            {/* 스켈레톤 선 */}
-            <div className="absolute inset-0 opacity-5 pointer-events-none">
-              {[...Array(8)].map((_, i) => (
-                <div
-                  key={i}
-                  className="h-px bg-white"
-                  style={{ marginTop: `${(i + 1) * 12.5}%` }}
-                />
-              ))}
-            </div>
           </div>
         )}
 
@@ -146,13 +195,30 @@ function ComicPanel({
           <img
             src={loadedSrc}
             alt={`${panelNumber}컷`}
-            className="w-full h-auto object-cover"
+            className="w-full h-auto object-cover relative z-0"
           />
+        )}
+
+        {/* ✨ 다이내믹 말풍선 UI ✨ */}
+        {status === "loaded" && parsedDialogue && (
+          <div
+            className={`absolute ${bubble.pos} max-w-[65%] sm:max-w-[50%] bg-white border-2 border-slate-900 rounded-2xl px-4 py-3 shadow-[4px_4px_0px_rgba(15,23,42,1)] z-20 animate-fade-in`}
+          >
+            <p
+              className={`text-slate-900 font-black text-sm sm:text-base leading-snug break-keep ${bubble.align}`}
+            >
+              {parsedDialogue}
+            </p>
+            {/* 동적 꼬리 방향 */}
+            <div
+              className={`absolute w-4 h-4 bg-white border-slate-900 transform rotate-45 ${bubble.tail}`}
+            ></div>
+          </div>
         )}
 
         {/* 에러 상태 */}
         {status === "error" && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900 text-slate-400 gap-3 min-h-[280px]">
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900 text-slate-400 gap-3 min-h-[280px] z-10">
             <span className="text-5xl">🎨</span>
             <p className="text-sm font-bold">이미지 로딩 실패</p>
             <button
@@ -166,7 +232,7 @@ function ComicPanel({
 
         {/* 컷 번호 배지 */}
         <div
-          className={`absolute top-3 left-3 z-10 ${color.bg} ${color.text} ${color.border}
+          className={`absolute top-3 left-3 z-30 ${color.bg} ${color.text} ${color.border}
             border-2 w-9 h-9 flex items-center justify-center rounded-full font-black text-sm
             shadow-[2px_2px_0px_rgba(0,0,0,0.8)]`}
         >
@@ -174,17 +240,14 @@ function ComicPanel({
         </div>
       </div>
 
-      {/* ─ 말풍선 캡션 ─────────────────────────────────────────── */}
-      <div className="bg-white border-t-2 border-slate-900 px-5 py-4 relative">
-        {/* 말풍선 꼬리 (위쪽 이미지를 향해) */}
-        <div
-          className="absolute -top-3 left-10 w-5 h-5 bg-white border-t-2 border-l-2 border-slate-900 rotate-45"
-          style={{ zIndex: 1 }}
-        />
-        <p className="text-slate-900 font-black text-base sm:text-lg leading-relaxed text-center break-keep relative z-10">
-          {caption}
-        </p>
-      </div>
+      {/* ─ 나레이션 캡션 영역 (하단) ─────────────────────────────────────────── */}
+      {parsedNarration && (
+        <div className="bg-white border-t-2 border-slate-900 px-5 py-3 relative">
+          <p className="text-slate-900 font-bold text-sm sm:text-base leading-relaxed text-center break-keep">
+            {parsedNarration}
+          </p>
+        </div>
+      )}
     </div>
   );
 }
@@ -201,6 +264,8 @@ function CartoonCard({
   highlight: boolean;
 }) {
   const cardRef = useRef<HTMLDivElement>(null);
+  // 강조된(공유 링크 등으로 접근한) 카드는 처음부터 보이도록 설정
+  const [isVisible, setIsVisible] = useState(highlight);
 
   useEffect(() => {
     if (highlight && cardRef.current) {
@@ -212,6 +277,27 @@ function CartoonCard({
       }, 300);
     }
   }, [highlight]);
+
+  // ✨ Intersection Observer를 활용한 스크롤 애니메이션
+  useEffect(() => {
+    const currentRef = cardRef.current;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          setIsVisible(true);
+          // 한 번 화면에 나타나면 계속 보이도록 관찰 해제
+          if (currentRef) observer.unobserve(currentRef);
+        }
+      },
+      { threshold: 0.1, rootMargin: "0px 0px -50px 0px" },
+    );
+
+    if (currentRef) observer.observe(currentRef);
+
+    return () => {
+      if (currentRef) observer.unobserve(currentRef);
+    };
+  }, []);
 
   const dateStr = item.published_at
     ? new Date(item.published_at).toLocaleDateString("ko-KR", {
@@ -228,7 +314,8 @@ function CartoonCard({
       className={`
         rounded-3xl overflow-hidden shadow-[6px_6px_0px_0px_rgba(15,23,42,1)]
         border-4 border-slate-900
-        transition-all duration-700
+        transition-all duration-700 ease-out transform
+        ${isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-16"}
         ${highlight ? "ring-4 ring-yellow-400 ring-offset-4" : ""}
       `}
     >
@@ -330,7 +417,8 @@ export default function CartoonsPage() {
     const fetchCartoons = async () => {
       try {
         const res = await api.get("/api/cartoons");
-        setCartoons(res.data);
+        // ✨ 먼저 생성(스크랩)된 만화가 상단에 먼저 보이도록 배열의 순서를 뒤집습니다.
+        setCartoons(res.data.reverse());
       } catch (error) {
         console.error("만화 로딩 실패:", error);
       } finally {
