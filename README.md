@@ -83,6 +83,13 @@ PostgreSQL 테스트 후 변경예정
 1. [https://opendict.korean.go.kr](https://opendict.korean.go.kr/) 접속
 2. 회원가입 후 **Open API** 메뉴에서 키 발급
 
+### 3. Google AI Studio API 키 (필수 · 무료)
+1. [https://aistudio.google.com/] 접속 후 회원가입
+
+2. 좌측 메뉴 **Get API key** → **Create API key** 클릭
+
+3.프로젝트 선택(새 프로젝트 또는 기존 프로젝트) 후 생성된 키를 복사해 둡니다 (AIzaSy... 형태)
+
 ---
 
 ## 🚀 설치 및 실행 방법
