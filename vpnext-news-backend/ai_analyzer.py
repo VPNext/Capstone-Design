@@ -50,8 +50,8 @@ def _parse_json(text: str) -> Optional[dict]:
 
 
 def _call(prompt: str) -> Optional[dict]:
-    """✅ Groq API 호출 (Gemini → Groq 교체 핵심)"""
-    # 너무 AI돌린 티가 나요...
+    """✅ Groq API 호출 """
+    
     try:
         response = client.chat.completions.create(
             model=MODEL,
@@ -203,6 +203,8 @@ def full_analysis(title: str, content: str, include_comic: bool = False) -> Dict
     return result
 
 
+
+# ── 만화 시나리오 + 이미지 URL 생성 함수 (Gemini + Pollinations) ────────────────────────────────
 async def generate_comic_data(news_id: int, news_title: str, news_body: str) -> tuple[list, list]:
     """
      Google GenAI SDK를 활용하여 뉴스를 분석하고 4컷 만화 시나리오 및 URL을 생성합니다.
@@ -210,7 +212,7 @@ async def generate_comic_data(news_id: int, news_title: str, news_body: str) -> 
     # JSON 출력을 강제하는 설정 (딕셔너리 형태로 전달 가능)
     generation_config = {"response_mime_type": "application/json"}
     
-    # 최신 무료 모델 지정
+    # 무료 모델 지정
     MODEL_ID = "gemini-2.5-flash"
 
     # ── [1단계] 뉴스 분석 ─────────────────────────────────────────
@@ -269,8 +271,8 @@ async def generate_comic_data(news_id: int, news_title: str, news_body: str) -> 
     }
     bg_hint = category_hints.get(category, "Korean urban setting, realistic background")
 
-    comic_prompt = f"""당신은 트렌디하고 유머러스한 세계 최고의 '뉴스 정치/사회 풍자 웹툰 작가'입니다. 
-아래 분석 결과를 바탕으로 4컷 만화 시나리오를 작성하세요.
+    comic_prompt = f"""당신은 세계 최고의 '뉴스 스토리보드 아티스트'이자 '풍자 웹툰 작가'입니다. 
+아래 뉴스의 핵심 내용을 요약하여, 대중이 이해하기 쉽고 아주 재미있는 4컷 만화 시나리오를 작성하세요.
 
 ━━━ 뉴스 분석 결과 ━━━
 - 분야: {category}
@@ -283,10 +285,23 @@ async def generate_comic_data(news_id: int, news_title: str, news_body: str) -> 
 - 시각 키워드: {visual_keywords}
 ━━━━━━━━━━━━━━━━━━━━━━
 
+━━━ 📖 4컷 만화 스토리보드 구성 규칙 ━━━
+어려운 뉴스를 독자들이 직관적으로 이해할 수 있도록 아래의 기승전결 흐름을 따르세요.
+- 1컷 (흥미 유발/발단): 뉴스의 가장 핵심적인 이슈나 충격적인 사실을 직관적으로 보여주며 독자의 시선 집중! (예: 폭락하는 주식 차트 앞에서 비명 지르는 개미 투자자)
+- 2컷 (전개/설명 1): 사건의 원인이나 배경을 재미있는 비유나 상황으로 쉽게 설명.
+- 3컷 (위기/설명 2): 사건이 최고조에 달한 상황이나 예상치 못한 전개를 과장되고 코믹하게 묘사.
+- 4컷 (결말/펀치라인): 사건의 결과나 파장을 유머러스하게 마무리하며 여운(또는 뼈 있는 농담/풍자) 남기기.
+
+━━━ 🎨 영문 프롬프트(prompt) 작성 절대 규칙 (이미지 뭉개짐 방지) ━━━
+이미지 생성 AI(Flux)가 완벽하고 기괴하지 않은 이미지를 뽑아내도록 아래 규칙을 반드시 지키세요!
+1. [캐릭터 수 제한]: 한 컷당 등장인물은 **최대 1~2명**으로 제한하세요. (군중을 묘사하면 높은 확률로 얼굴과 팔다리가 기괴하게 뭉개집니다). 군중 대신 그들을 대표하는 1명을 클로즈업하세요.
+2. [마스크 금지 및 이목구비 확보]: 눈/코/입이 뭉개지는 것을 막기 위해 '얼굴을 완전히 덮는 복면(ski mask)'은 절대 금지합니다. 정체를 숨기려면 '선글라스(sunglasses)'나 '눈만 가리는 작은 마스크(small domino mask)'를 사용하세요.
+3. [사물 스케일 명시]: 사물이 사람 몸집만 하게 나오는 오류를 막기 위해, 소품의 크기와 위치를 명확히 적으세요. (예: "a small smartphone in his hand", "a normal-sized document on the desk")
+4. [필수 퀄리티 태그]: 영문 프롬프트 맨 마지막에는 무조건 아래의 보정 태그를 붙이세요.
+   ", {bg_hint}, masterpiece, high quality, flawless anatomy, flawless eyes, clear facial features, korean webtoon style, 2D comic illustration, flat cel-shading, dynamic angle, highly expressive faces, humorous tone"
+
 작성 규칙:
-1. 1컷(발단), 2컷(전개), 3컷(절정), 4컷(결말)의 흐름으로 작성.
-2. prompt (영문): 배경 힌트({bg_hint})를 반영하여 구체적인 행동, 표정 묘사. 마지막에 ", korean webtoon style, 2D comic illustration, highly expressive cartoon characters, dramatic lighting, bold black outlines, flat cel-shading colors, dynamic composition, cinematic comic panel, humorous tone" 태그 필수.
-3. caption (한글): '[나레이션]'과 '[대사]'를 결합하여 유머러스하고 찰지게 표현. 각 컷당 30~50자 내외.
+1. caption (한글): '[나레이션]'과 '[대사]'를 결합하여 유머러스하고 찰지게 표현. 각 컷당 30~50자 내외.
 
 다음 JSON 배열 구조로만 정확하게 반환하세요:
 [

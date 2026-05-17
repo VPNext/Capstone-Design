@@ -125,6 +125,12 @@ source venv/bin/activate
 # 패키지 설치
 pip install fastapi uvicorn sqlalchemy python-dotenv \
             requests beautifulsoup4 lxml feedparser groq schedule
+
+pip install google-genai 설치 후 만일 안된다면
+pip uninstall google-generativeai 후
+다시 재설치
+pip install google-genai
+
 ```
 
 ### `.env` 파일 생성
@@ -137,6 +143,9 @@ GROQ_API_KEY=_여기에_발급받은_키_입력
 
 # ⚪ 선택: 국립국어원 API 키 (없으면 비워두세요)
 KOREAN_DICT_API_KEY=
+
+Google AI Studio API 키
+GEMINI_API_KEY=
 
 # ⚪ 선택: 기본값으로 동작하므로 수정 불필요
 DATABASE_URL=sqlite:///./news_compass.db
