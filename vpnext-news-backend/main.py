@@ -241,10 +241,10 @@ def search(
 async def _prewarm_pollinations_images(urls: list[str], news_id: int):
     """백그라운드에서 Pollinations 이미지 URL을 순차적으로 요청해 캐시를 생성합니다.
 
-    ⚠️ 병렬 요청 금지: Pollinations 무료 tier는 동시 요청 시 402 Payment Required를 반환합니다.
+       병렬 요청 금지: Pollinations 무료 tier는 동시 요청 시 402 Payment Required를 반환합니다.
        반드시 순차 요청 + 요청 간 딜레이를 지켜야 합니다.
     """
-    logger.info(f"[만화 #{news_id}] 이미지 프리워밍 시작 ({len(urls)}장, 순차 처리)")
+    logger.info(f"[만화 #{news_id}] 이미지 생성 시작 ({len(urls)}장, 순차 처리)")
 
     async with httpx.AsyncClient() as client:
         for idx, url in enumerate(urls):
@@ -254,24 +254,24 @@ async def _prewarm_pollinations_images(urls: list[str], news_id: int):
                 response = await client.get(url, timeout=120.0, follow_redirects=True)
                 if response.status_code == 200:
                     size_kb = len(response.content) // 1024
-                    logger.info(f"  ✅ [{idx+1}/{len(urls)}] 프리워밍 완료 ({size_kb}KB)")
+                    logger.info(f"   [{idx+1}/{len(urls)}] 이미지생성 완료 ({size_kb}KB)")
                 elif response.status_code == 402:
-                    logger.warning(f"  ⚠️  [{idx+1}/{len(urls)}] 402 — 5초 후 재시도")
+                    logger.warning(f"    [{idx+1}/{len(urls)}] 402 — 5초 후 재시도")
                     await asyncio.sleep(5)
                     retry = await client.get(url, timeout=120.0, follow_redirects=True)
                     if retry.status_code == 200:
                         size_kb = len(retry.content) // 1024
-                        logger.info(f"  ✅ [{idx+1}/{len(urls)}] 재시도 성공 ({size_kb}KB)")
+                        logger.info(f"   [{idx+1}/{len(urls)}] 재시도 성공 ({size_kb}KB)")
                     else:
-                        logger.warning(f"  ❌ [{idx+1}/{len(urls)}] 재시도 실패 (HTTP {retry.status_code})")
+                        logger.warning(f"   [{idx+1}/{len(urls)}] 재시도 실패 (HTTP {retry.status_code})")
                 else:
-                    logger.warning(f"  ⚠️  [{idx+1}/{len(urls)}] HTTP {response.status_code}")
+                    logger.warning(f"    [{idx+1}/{len(urls)}] HTTP {response.status_code}")
             except httpx.TimeoutException:
-                logger.warning(f"  ⏱️  [{idx+1}/{len(urls)}] 타임아웃")
+                logger.warning(f"    [{idx+1}/{len(urls)}] 타임아웃")
             except Exception as e:
-                logger.warning(f"  ❌ [{idx+1}/{len(urls)}] 실패: {e}")
+                logger.warning(f"   [{idx+1}/{len(urls)}] 실패: {e}")
 
-    logger.info(f"[만화 #{news_id}] 이미지 프리워밍 완료")
+    logger.info(f"[만화 #{news_id}] 이미지 생성 완료")
 
 
 # 1. 만화 생성 API (상세 페이지에서 호출)
@@ -297,16 +297,13 @@ async def generate_comic(news_id: int, bg: BackgroundTasks, db: Session = Depend
     article.comic_script = json.dumps(comic_data, ensure_ascii=False)
     db.commit()
 
-    # ─── [핵심 수정] 백그라운드에서 이미지 프리워밍 시작 ────────────────────────
-    # Pollinations는 첫 GET 요청 시 이미지를 생성합니다.
-    # 클라이언트가 페이지를 열기 전에 백엔드에서 미리 요청해 캐시를 채웁니다.
     bg.add_task(_prewarm_pollinations_images, raw_urls, news_id)
     # ─────────────────────────────────────────────────────────────────────────
 
     return {
         "message": "만화 생성 완료 (이미지 서버 준비 중, 약 30~60초 후 완성됩니다)",
         "comic_urls": comic_data,
-        "prewarming": True,  # 프론트엔드에서 이 플래그를 보고 로딩 UI를 표시할 수 있습니다
+        "prewarming": True,  
     }
 
 
