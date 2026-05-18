@@ -60,6 +60,37 @@ const getScoreColor = (score: number) => {
   return { text: "text-red-600", bg: "bg-red-50", border: "border-red-200" };
 };
 
+// [컴포넌트] 사이드바 분석 아이템 카드
+// 리렌더링 시 스크롤 튐 현상을 방지하기 위해 DetailPage 외부로 분리했습니다.
+const AnalysisCard = ({
+  icon,
+  title,
+  bg,
+  border,
+  textColor,
+  status, // 외부에서 status 상태를 props로 받습니다.
+  children,
+}: any) => (
+  <div
+    className={`${bg} ${border} p-5 rounded-2xl border flex flex-col gap-3 shadow-sm transition-all hover:shadow-md`}
+  >
+    <h3
+      className={`font-bold ${textColor} text-[15px] flex items-center gap-2 border-b ${border} pb-2`}
+    >
+      <span>{icon}</span> {title}
+    </h3>
+    <div className="pt-1">
+      {status === "complete" ? (
+        children
+      ) : (
+        <p className={`text-sm ${textColor} opacity-60`}>
+          아래 버튼을 눌러 AI 분석을 실행해주세요.
+        </p>
+      )}
+    </div>
+  </div>
+);
+
 export default function DetailPage() {
   const { id } = useParams();
   const [news, setNews] = useState<any>(null);
@@ -70,6 +101,10 @@ export default function DetailPage() {
   // [추가] 만화 생성 관련 상태
   const [isComicGenerating, setIsComicGenerating] = useState(false);
   const [comicUrls, setComicUrls] = useState<string[] | null>(null);
+
+  // [추가] 직접 용어 검색용 상태
+  const [searchTerm, setSearchTerm] = useState("");
+  const [searchEngine, setSearchEngine] = useState("stdict"); // 기본값: 표준국어대사전
 
   // [Effect] 최초 마운트 시 기사 상세 데이터 Fetch
   useEffect(() => {
@@ -143,34 +178,24 @@ export default function DetailPage() {
     }
   };
 
-  // [컴포넌트] 사이드바 분석 아이템 카드
-  const AnalysisCard = ({
-    icon,
-    title,
-    bg,
-    border,
-    textColor,
-    children,
-  }: any) => (
-    <div
-      className={`${bg} ${border} p-5 rounded-2xl border flex flex-col gap-3 shadow-sm transition-all hover:shadow-md`}
-    >
-      <h3
-        className={`font-bold ${textColor} text-[15px] flex items-center gap-2 border-b ${border} pb-2`}
-      >
-        <span>{icon}</span> {title}
-      </h3>
-      <div className="pt-1">
-        {status === "complete" ? (
-          children
-        ) : (
-          <p className={`text-sm ${textColor} opacity-60`}>
-            아래 버튼을 눌러 AI 분석을 실행해주세요.
-          </p>
-        )}
-      </div>
-    </div>
-  );
+  // [로직] 추가 용어 검색 핸들러
+  const handleTermSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!searchTerm.trim()) return;
+
+    let url = "";
+    if (searchEngine === "stdict") {
+      // 국립국어원 표준국어대사전
+      url = `https://stdict.korean.go.kr/search/searchResult.do?pageSize=10&searchKeyword=${encodeURIComponent(searchTerm)}`;
+    } else if (searchEngine === "opendict") {
+      // 우리말샘
+      url = `https://opendict.korean.go.kr/search/searchResult?query=${encodeURIComponent(searchTerm)}`;
+    } else if (searchEngine === "google") {
+      // 구글
+      url = `https://www.google.com/search?q=${encodeURIComponent(searchTerm)}`;
+    }
+    window.open(url, "_blank");
+  };
 
   // [UI] 예외 처리
   if (loading)
@@ -440,20 +465,18 @@ export default function DetailPage() {
             </div>
 
             {/* [Feature] 어려운 용어 국립국어원-우리말샘 연동 */}
-            {/* 작동방식: 용어(term.term) 클릭 시 국립국어원 검색 결과 새 창 렌더링 */}
-            {/* UI/UX: 클릭 가능함을 나타내기 위해 hover 배경색 및 아이콘(🔗) 추가 */}
             <AnalysisCard
               icon="📖"
               title="용어 풀이"
               bg="bg-sky-50/80"
               border="border-sky-100"
               textColor="text-sky-900"
+              status={status} // 추가된 status props
             >
               {analysisData?.difficult_terms?.length > 0 ? (
                 <ul className="text-[14px] space-y-4">
                   {analysisData.difficult_terms.map((term: any, i: number) => (
                     <li key={i} className="leading-relaxed">
-                      {/* [수정 포인트] 일반 text -> 외부 링크(a) 태그로 변경 */}
                       <a
                         href={`https://stdict.korean.go.kr/search/searchResult.do?pageSize=10&searchKeyword=${encodeURIComponent(term.term)}`}
                         target="_blank"
@@ -493,6 +516,44 @@ export default function DetailPage() {
                   추출된 용어가 없습니다.
                 </p>
               )}
+
+              {/* [추가] 수동 용어 검색 UI */}
+              <div className="mt-5 pt-4 border-t border-sky-200/60">
+                <form
+                  onSubmit={handleTermSearch}
+                  className="flex flex-col gap-2"
+                >
+                  <label className="text-[13px] font-bold text-sky-800 flex items-center gap-1">
+                    <span>🔍</span> 추가 용어 검색
+                  </label>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <select
+                      value={searchEngine}
+                      onChange={(e) => setSearchEngine(e.target.value)}
+                      className="text-[13px] bg-white border border-sky-200 rounded-lg px-2 py-1.5 text-slate-700 outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400 transition-all shrink-0"
+                    >
+                      <option value="stdict">표준국어대사전</option>
+                      <option value="opendict">우리말샘</option>
+                      <option value="google">구글 검색</option>
+                    </select>
+                    <div className="flex flex-1 gap-2">
+                      <input
+                        type="text"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        placeholder="궁금한 단어 입력"
+                        className="flex-1 w-full text-[13px] border border-sky-200 rounded-lg px-3 py-1.5 outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400 transition-all"
+                      />
+                      <button
+                        type="submit"
+                        className="bg-sky-600 text-white text-[13px] font-bold px-3 py-1.5 rounded-lg hover:bg-sky-700 transition-colors shrink-0"
+                      >
+                        검색
+                      </button>
+                    </div>
+                  </div>
+                </form>
+              </div>
             </AnalysisCard>
 
             {/* 핵심 인물 패널 */}
@@ -502,6 +563,7 @@ export default function DetailPage() {
               bg="bg-emerald-50/80"
               border="border-emerald-100"
               textColor="text-emerald-900"
+              status={status} // 추가된 status props
             >
               {analysisData?.key_persons?.length > 0 ? (
                 <ul className="text-[14px] space-y-4">
@@ -510,11 +572,6 @@ export default function DetailPage() {
                       key={i}
                       className="leading-relaxed border-l-2 border-emerald-300 pl-3"
                     >
-                      {/* 
-                        [기능] 인물 구글 검색 연동
-                        [작동방식] 인물 이름 클릭 시 구글 검색 쿼리(q=이름) 새 창 렌더링
-                        [수정내용] strong 태그 -> a 태그로 변경, hover 효과 및 외부 링크 아이콘 추가 (UX 개선)
-                      */}
                       <a
                         href={`https://www.google.com/search?q=${encodeURIComponent(person.name)}`}
                         target="_blank"
