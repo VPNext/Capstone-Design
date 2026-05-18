@@ -234,44 +234,53 @@ def search(
     }
 
 
-# ─── 이미지 프리워밍 헬퍼 ────────────────────────────────────────────────────
-# Pollinations는 첫 HTTP GET 요청 시 이미지를 생성하고 캐시합니다.
-# 클라이언트가 로드하기 전에 백엔드에서 미리 요청을 보내 캐시를 채워두는 함수입니다.
-
 async def _prewarm_pollinations_images(urls: list[str], news_id: int):
-    """백그라운드에서 Pollinations 이미지 URL을 순차적으로 요청해 캐시를 생성합니다.
-
-       병렬 요청 금지: Pollinations 무료 tier는 동시 요청 시 402 Payment Required를 반환합니다.
-       반드시 순차 요청 + 요청 간 딜레이를 지켜야 합니다.
     """
-    logger.info(f"[만화 #{news_id}] 이미지 생성 시작 ({len(urls)}장, 순차 처리)")
+    백그라운드에서 Pollinations 캐시를 순차적으로 생성합니다.
+    동시 요청(402 에러)을 방지하기 위해 한 컷이 완전히 끝난 후 다음 컷을 요청합니다.
+    """
+    logger.info(f"[만화 #{news_id}] 이미지 생성 시작 ")
 
-    async with httpx.AsyncClient() as client:
+    # 강제로 단일 연결만 허용
+    limits = httpx.Limits(max_connections=1, max_keepalive_connections=1)
+    
+    async with httpx.AsyncClient(limits=limits) as client:
         for idx, url in enumerate(urls):
-            if idx > 0:
-                await asyncio.sleep(3)
-            try:
-                response = await client.get(url, timeout=120.0, follow_redirects=True)
-                if response.status_code == 200:
-                    size_kb = len(response.content) // 1024
-                    logger.info(f"   [{idx+1}/{len(urls)}] 이미지생성 완료 ({size_kb}KB)")
-                elif response.status_code == 402:
-                    logger.warning(f"    [{idx+1}/{len(urls)}] 402 — 5초 후 재시도")
-                    await asyncio.sleep(5)
-                    retry = await client.get(url, timeout=120.0, follow_redirects=True)
-                    if retry.status_code == 200:
-                        size_kb = len(retry.content) // 1024
-                        logger.info(f"   [{idx+1}/{len(urls)}] 재시도 성공 ({size_kb}KB)")
+            retry_count = 0
+            
+            while retry_count < 5: 
+                try:
+                    
+                    response = await client.get(url, timeout=60.0, follow_redirects=True)
+                    
+                    if response.status_code == 200:
+                        size_kb = len(response.content) // 1024
+                        logger.info(f"   [{idx+1}/4] 이미지 생성 완료 ({size_kb}KB)")
+                        
+                        
+                        if idx < len(urls) - 1:
+                            await asyncio.sleep(2.0) 
+                        break 
+                    
+                    elif response.status_code == 402:
+                        retry_count += 1
+                        
+                        logger.warning(f"   [{idx+1}/4] 402 차단 - 5초 후 재시도 ({retry_count}/5)")
+                        await asyncio.sleep(5.0) 
+                        
                     else:
-                        logger.warning(f"   [{idx+1}/{len(urls)}] 재시도 실패 (HTTP {retry.status_code})")
-                else:
-                    logger.warning(f"    [{idx+1}/{len(urls)}] HTTP {response.status_code}")
-            except httpx.TimeoutException:
-                logger.warning(f"    [{idx+1}/{len(urls)}] 타임아웃")
-            except Exception as e:
-                logger.warning(f"   [{idx+1}/{len(urls)}] 실패: {e}")
+                        logger.warning(f"   [{idx+1}/4] 예외 상태 코드: {response.status_code}")
+                        break
+                        
+                except httpx.TimeoutException:
+                    retry_count += 1
+                    logger.warning(f"   [{idx+1}/4] 타임아웃 - 다시 시도 ({retry_count}/5)")
+                    await asyncio.sleep(2.0)
+                except Exception as e:
+                    logger.warning(f"   [{idx+1}/4] 요청 에러: {e}")
+                    break
 
-    logger.info(f"[만화 #{news_id}] 이미지 생성 완료")
+    logger.info(f"[만화 #{news_id}] 이미지 생성 종료")
 
 
 # 1. 만화 생성 API (상세 페이지에서 호출)
@@ -313,7 +322,7 @@ def get_cartoons(db: Session = Depends(get_db)):
     articles = (
         db.query(Article)
         .filter(Article.comic_script.isnot(None))
-        .order_by(Article.published_at.desc())
+        .order_by(Article.created_at.desc()) 
         .all()
     )
 

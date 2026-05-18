@@ -417,7 +417,6 @@ export default function CartoonsPage() {
     const fetchCartoons = async () => {
       try {
         const res = await api.get("/api/cartoons");
-        // ✨ 먼저 생성(스크랩)된 만화가 상단에 먼저 보이도록 배열의 순서를 뒤집습니다.
         setCartoons(res.data.reverse());
       } catch (error) {
         console.error("만화 로딩 실패:", error);

@@ -10,7 +10,13 @@ from config import GROQ_API_KEY, GEMINI_API_KEY
 logger = logging.getLogger(__name__)
 
 client = Groq(api_key=GROQ_API_KEY)
-MODEL = "llama-3.3-70b-versatile"  # 무료 tier에서 가장 성능 좋은 모델
+# 1. Groq 무료 모델들을 성능/크기 순으로 정렬한 리스트
+GROQ_FALLBACK_MODELS = [
+    "llama-3.3-70b-versatile",  # 1순위: 가장 똑똑하지만 한도가 금방 참
+    "llama-3.1-8b-instant",     # 2순위: 가볍고 빠르며 한도가 아주 넉넉함
+    "mixtral-8x7b-32768",       # 3순위: 훌륭한 백업 모델
+    "gemma2-9b-it"              # 4순위: 구글의 경량 모델
+]
 
 # 새로운 SDK 방식의 Client 초기화 (Groq 클라이언트와의 충돌 방지를 위해 변수명 분리)
 gemini_client = genai.Client(api_key=GEMINI_API_KEY)
@@ -48,25 +54,52 @@ def _parse_json(text: str) -> Optional[dict]:
 
     return None
 
-
-def _call(prompt: str) -> Optional[dict]:
-    """✅ Groq API 호출 """
+# Groq API 다중 모델 순차 호출 + 파싱 실패 시 재시도 로직
+def _call(prompt: str, max_retries: int = 2) -> Optional[dict]:
+    """✅ Groq API 다중 모델 순차 호출 + 파싱 실패 시 재시도 로직 추가"""
+    last_error = None
     
-    try:
-        response = client.chat.completions.create(
-            model=MODEL,
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.3,
-            max_tokens=2048,
-        )
-        return _parse_json(response.choices[0].message.content)
-    except Exception as e:
-        logger.error(f"Groq 호출 실패: {e}")
-        return None
+    for model_id in GROQ_FALLBACK_MODELS:
+        
+        for attempt in range(max_retries):
+            try:
+                response = client.chat.completions.create(
+                    model=model_id,
+                    messages=[{"role": "user", "content": prompt}],
+                    temperature=0.2, 
+                    max_tokens=2048,
+                )
+                
+                
+                content = response.choices[0].message.content
+                
+                
+                parsed_data = _parse_json(content)
+                
+                
+                if parsed_data is not None:
+                    return parsed_data
+                    
+               
+                raise ValueError("응답은 수신했으나 JSON 파싱에 실패했습니다.")
 
+            except Exception as e:
+                error_msg = str(e).lower()
+                last_error = e
+                
+                # Case A: API 한도 초과(429) 에러인 경우
+                if "429" in error_msg or "rate limit" in error_msg or "tokens" in error_msg:
+                    logger.warning(f"Groq [{model_id}] 한도 초과. 다음 모델로 넘어갑니다.")
+                    break  
+                    
+                # Case B: JSON 파싱 실패 또는 일시적 네트워크 오류인 경우
+                logger.warning(f"Groq [{model_id}] 시도 {attempt+1}/{max_retries} 실패: {e}")
+               
+                
 
-# analyze_credibility, extract_terms, extract_persons, generate_comic 함수는
-# 기존 코드 그대로 사용 가능 — _call()만 바꿨으므로 자동 적용됨
+    logger.error(f"모든 Groq 모델 호출 및 재시도 실패. 마지막 에러: {last_error}")
+    return None
+
 
 # ── 분석 함수들 ─────
 
@@ -202,18 +235,47 @@ def full_analysis(title: str, content: str, include_comic: bool = False) -> Dict
         result["comic_script"] = generate_comic(title, content)
     return result
 
+# 사용할 모델을 성능 및 선호도 순으로 정렬한 리스트
+# (무료 한도가 0인 Pro 모델은 제외하고, 한도가 있는 Flash/Lite 위주로 구성)
 
+FALLBACK_MODELS = [
+    "gemini-2.5-flash",       # 가장 안정적인 메인 모델
+    "gemini-3.1-flash-lite",  # 일일 한도가 500으로 가장 넉넉한 모델
+    "gemini-2.5-flash-lite",
+    "gemini-3-flash"          # 3.0은 API 명칭이 다를 수 있어 후순위 배치
+]
 
-# ── 만화 시나리오 + 이미지 URL 생성 함수 (Gemini + Pollinations) ────────────────────────────────
 async def generate_comic_data(news_id: int, news_title: str, news_body: str) -> tuple[list, list]:
     """
      Google GenAI SDK를 활용하여 뉴스를 분석하고 4컷 만화 시나리오 및 URL을 생성합니다.
     """
-    # JSON 출력을 강제하는 설정 (딕셔너리 형태로 전달 가능)
     generation_config = {"response_mime_type": "application/json"}
     
-    # 무료 모델 지정
-    MODEL_ID = "gemini-2.5-flash"
+   # 2. 헬퍼 함수 에러 핸들링 강화 (404 에러 포함)
+    async def generate_with_fallback(prompt: str) -> str:
+        last_error = None
+        for model_id in FALLBACK_MODELS:
+            try:
+                logger.info(f"[만화 #{news_id}] {model_id} 모델로 생성을 시도합니다...")
+                response = await gemini_client.aio.models.generate_content(
+                    model=model_id,
+                    contents=prompt,
+                    config=generation_config
+                )
+                return response.text
+            except Exception as e:
+                error_msg = str(e).lower()
+                last_error = e
+              
+                if any(err in error_msg for err in ["429", "quota", "exhausted", "404", "not found"]):
+                    logger.warning(f"[만화 #{news_id}] {model_id} 사용 불가(한도초과 or 미지원). 다음 모델로 넘어갑니다.")
+                    continue
+                else:
+                    
+                    logger.error(f"[만화 #{news_id}] {model_id} 예상치 못한 오류: {e}")
+                    raise e
+                    
+        raise Exception(f"모든 모델의 호출이 실패했습니다. (마지막 오류: {last_error})")
 
     # ── [1단계] 뉴스 분석 ─────────────────────────────────────────
     analysis_prompt = f"""아래 뉴스를 읽고, 만화로 표현하기 위해 필요한 핵심 정보를 JSON으로 추출하세요.
@@ -234,16 +296,12 @@ async def generate_comic_data(news_id: int, news_title: str, news_body: str) -> 
 }}"""
 
     try:
-        # 비동기(aio) 클라이언트로 호출
-        analysis_response = await gemini_client.aio.models.generate_content(
-            model=MODEL_ID,
-            contents=analysis_prompt,
-            config=generation_config
-        )
-        news_analysis = json.loads(analysis_response.text)
-        logger.info(f"[만화 #{news_id}] Gemini 분석 완료: {news_analysis.get('category')} / {news_analysis.get('core_event', '')[:40]}")
+        # 기존 직접 호출 대신 fallback 헬퍼 함수 사용
+        analysis_text = await generate_with_fallback(analysis_prompt)
+        news_analysis = json.loads(analysis_text)
+        logger.info(f"[만화 #{news_id}] 분석 완료: {news_analysis.get('category')} / {news_analysis.get('core_event', '')[:40]}")
     except Exception as e:
-        logger.warning(f"Gemini 뉴스 분석 실패, 기본 분석으로 진행: {e}")
+        logger.warning(f"뉴스 분석 실패, 기본 분석으로 진행: {e}")
         news_analysis = {
             "category": "일반", "main_actors": [], "location": "Korea",
             "core_event": news_title, "cause": "", "consequence": "",
@@ -271,8 +329,9 @@ async def generate_comic_data(news_id: int, news_title: str, news_body: str) -> 
     }
     bg_hint = category_hints.get(category, "Korean urban setting, realistic background")
 
+  
     comic_prompt = f"""당신은 세계 최고의 '뉴스 스토리보드 아티스트'이자 '풍자 웹툰 작가'입니다. 
-아래 뉴스의 핵심 내용을 요약하여, 대중이 이해하기 쉽고 아주 재미있는 4컷 만화 시나리오를 작성하세요.
+아래 뉴스의 핵심 내용을 요약하여, 대중이 직관적이고 아주 재미있게 이해할 수 있는 4컷 만화 시나리오를 작성하세요.
 
 ━━━ 뉴스 분석 결과 ━━━
 - 분야: {category}
@@ -285,43 +344,40 @@ async def generate_comic_data(news_id: int, news_title: str, news_body: str) -> 
 - 시각 키워드: {visual_keywords}
 ━━━━━━━━━━━━━━━━━━━━━━
 
-━━━ 📖 4컷 만화 스토리보드 구성 규칙 ━━━
-어려운 뉴스를 독자들이 직관적으로 이해할 수 있도록 아래의 기승전결 흐름을 따르세요.
-- 1컷 (흥미 유발/발단): 뉴스의 가장 핵심적인 이슈나 충격적인 사실을 직관적으로 보여주며 독자의 시선 집중! (예: 폭락하는 주식 차트 앞에서 비명 지르는 개미 투자자)
+━━━ 📖 4컷 만화 스토리보드 구성 규칙 (기승전결) ━━━
+뉴스의 본문 내용과 철저히 연관되게 구성하며, 누구나 "아, 이 뉴스 이야기구나!" 하고 무릎을 탁 칠 수 있도록 만드세요.
+- 1컷 (흥미 유발/발단): 뉴스의 가장 핵심적인 이슈나 충격적인 사실을 직관적으로 보여주며 독자의 시선 집중!
 - 2컷 (전개/설명 1): 사건의 원인이나 배경을 재미있는 비유나 상황으로 쉽게 설명.
 - 3컷 (위기/설명 2): 사건이 최고조에 달한 상황이나 예상치 못한 전개를 과장되고 코믹하게 묘사.
 - 4컷 (결말/펀치라인): 사건의 결과나 파장을 유머러스하게 마무리하며 여운(또는 뼈 있는 농담/풍자) 남기기.
 
-━━━ 🎨 영문 프롬프트(prompt) 작성 절대 규칙 (이미지 뭉개짐 방지) ━━━
-이미지 생성 AI(Flux)가 완벽하고 기괴하지 않은 이미지를 뽑아내도록 아래 규칙을 반드시 지키세요!
-1. [캐릭터 수 제한]: 한 컷당 등장인물은 **최대 1~2명**으로 제한하세요. (군중을 묘사하면 높은 확률로 얼굴과 팔다리가 기괴하게 뭉개집니다). 군중 대신 그들을 대표하는 1명을 클로즈업하세요.
-2. [마스크 금지 및 이목구비 확보]: 눈/코/입이 뭉개지는 것을 막기 위해 '얼굴을 완전히 덮는 복면(ski mask)'은 절대 금지합니다. 정체를 숨기려면 '선글라스(sunglasses)'나 '눈만 가리는 작은 마스크(small domino mask)'를 사용하세요.
-3. [사물 스케일 명시]: 사물이 사람 몸집만 하게 나오는 오류를 막기 위해, 소품의 크기와 위치를 명확히 적으세요. (예: "a small smartphone in his hand", "a normal-sized document on the desk")
-4. [필수 퀄리티 태그]: 영문 프롬프트 맨 마지막에는 무조건 아래의 보정 태그를 붙이세요.
-   ", {bg_hint}, masterpiece, high quality, flawless anatomy, flawless eyes, clear facial features, korean webtoon style, 2D comic illustration, flat cel-shading, dynamic angle, highly expressive faces, humorous tone"
+━━━ 🎨 영문 프롬프트(prompt) 작성 절대 규칙 (텍스트/말풍선 묘사 절대 금지) ━━━
+이미지 생성 AI가 글씨 없이 **순수하게 인물과 배경 그림만** 완벽하게 뽑아내도록 해야 합니다.
+1. [텍스트 렌더링 금지]: 프롬프트 안에 text, speech bubble, typography, words, caption 등의 단어를 **절대** 넣지 마세요. 그림 안에 이상한 글씨가 뭉개져서 생성되는 것을 막아야 합니다.
+2. [캐릭터 수 제한]: 한 컷당 등장인물은 **최대 1~2명**으로 제한하세요. 
+3. [필수 퀄리티 태그]: 영문 프롬프트 맨 마지막에는 무조건 아래의 보정 태그를 붙이세요.
+   ", {bg_hint}, masterpiece, high quality, flawless anatomy, clear facial features, korean webtoon style, 2D comic illustration, flat cel-shading, dynamic angle, highly expressive faces, humorous tone"
 
-작성 규칙:
-1. caption (한글): '[나레이션]'과 '[대사]'를 결합하여 유머러스하고 찰지게 표현. 각 컷당 30~50자 내외.
+━━━ 💬 캡션(caption) 작성 규칙 (프론트엔드 UI 적용) ━━━
+실제 캐릭터의 대사와 설명은 프론트엔드 웹페이지 상에서 UI로 그려집니다. 따라서 반드시 아래 형식을 정확히 지켜서 작성해야 합니다.
+형식: "[나레이션] 상황을 설명하는 재치있는 문장 [대사] 캐릭터가 하는 생동감 넘치는 짧은 대사"
 
 다음 JSON 배열 구조로만 정확하게 반환하세요:
+```json
 [
-  {{"prompt": "영문 프롬프트...", "caption": "[나레이션] ... \\n[대사] ..."}},
-  {{"prompt": "영문 프롬프트...", "caption": "[나레이션] ... \\n[대사] ..."}},
-  {{"prompt": "영문 프롬프트...", "caption": "[나레이션] ... \\n[대사] ..."}},
-  {{"prompt": "영문 프롬프트...", "caption": "[나레이션] ... \\n[대사] ..."}}
+  {{"prompt": "영문 프롬프트...", "caption": "[나레이션] ... [대사] ..."}},
+  {{"prompt": "영문 프롬프트...", "caption": "[나레이션] ... [대사] ..."}},
+  {{"prompt": "영문 프롬프트...", "caption": "[나레이션] ... [대사] ..."}},
+  {{"prompt": "영문 프롬프트...", "caption": "[나레이션] ... [대사] ..."}}
 ]"""
 
     try:
-        comic_response = await gemini_client.aio.models.generate_content(
-            model=MODEL_ID,
-            contents=comic_prompt,
-            config=generation_config
-        )
-        scenes = json.loads(comic_response.text)
+        # 시나리오 생성 단계에도 동일하게 fallback 적용
+        comic_text = await generate_with_fallback(comic_prompt)
+        scenes = json.loads(comic_text)
     except Exception as e:
-        logger.error(f"Gemini 만화 시나리오 생성 실패: {e}")
+        logger.error(f"만화 시나리오 생성 실패: {e}")
         raise Exception("만화 시나리오 생성 중 오류가 발생했습니다.")
-
     # ── [3단계] Pollinations 이미지 URL 결합 ────────────────────────────────
     comic_data = []
     raw_urls = []
@@ -333,10 +389,10 @@ async def generate_comic_data(news_id: int, news_title: str, news_body: str) -> 
         seed_value = news_id * 100 + idx
         url = (
             f"https://image.pollinations.ai/prompt/{encoded_prompt}"
-            f"?model=flux&width=1024&height=512&nologo=true&seed={seed_value}"
+            f"?model=flux&width=800&height=400&nologo=true&seed={seed_value}"
         )
         
-        comic_data.append({"url": url, "caption": scene.get("caption", f"Scene {idx + 1}")})
+        comic_data.append({"url": url, "caption": scene.get("caption", f"[나레이션] 장면 {idx + 1} [대사] ")})
         raw_urls.append(url)
 
     return comic_data, raw_urls
