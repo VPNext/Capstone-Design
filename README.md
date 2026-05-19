@@ -84,11 +84,18 @@ PostgreSQL 테스트 후 변경예정
 2. 회원가입 후 **Open API** 메뉴에서 키 발급
 
 ### 3. Google AI Studio API 키 (필수 · 무료)
+
 1. [https://aistudio.google.com/] 접속 후 회원가입
 
 2. 좌측 메뉴 **Get API key** → **Create API key** 클릭
 
 3.프로젝트 선택(새 프로젝트 또는 기존 프로젝트) 후 생성된 키를 복사해 둡니다 (AIzaSy... 형태)
+
+### 4. 영남이공대 AI 캠퍼스 API 키
+
+1. 영남이공대 AI 캠퍼스 접속
+
+2. 좌측 하단 **API Gateway** -> **API 키 생성 ** 클릭
 
 ---
 
@@ -153,6 +160,9 @@ KOREAN_DICT_API_KEY=
 
 Google AI Studio API 키
 GEMINI_API_KEY=
+
+영남이공대 AI캠퍼스 API 키
+GATEWAY_API_KEY=
 
 # ⚪ 선택: 기본값으로 동작하므로 수정 불필요
 DATABASE_URL=sqlite:///./news_compass.db
@@ -315,21 +325,21 @@ npm install
 
 ## 🗂️ 파일별 역할 요약
 
-| 파일                 | 역할                                    |
-| -------------------- | --------------------------------------- |
-| `main.py`            | FastAPI 서버 · 전체 API 엔드포인트 관리 |
-| `config.py`          | 환경변수 로드 · RSS 피드 URL 목록       |
-| `database.py`        | SQLite 테이블 정의 · DB 세션 관리       |
-| `models.py`          | API 요청/응답 데이터 타입 (Pydantic)    |
-| `rss_crawler.py`     | RSS XML 파싱 → 기사 목록 추출           |
-| `article_scraper.py` | 기사 URL → 본문·제목·이미지 스크래핑    |
-| `ai_analyzer.py`     | Groq AI 호출 · 신뢰도·용어·인물 분석    |
-| `dictionary_api.py`  | 국립국어원 API로 용어 설명 보완         |
-| `scheduler.py`       | 별도 프로세스로 주기적 자동 크롤링      |
-| `App.tsx`            | React 라우터 설정 (메인/상세 페이지)    |
-| `Header.tsx`         | 상단 헤더 · 검색창                      |
-| `MainPage.tsx`       | 뉴스 목록 · AI 요약 미리보기            |
-| `DetailPage.tsx`     | 기사 본문 · AI 분석 사이드바            |
+| 파일                 | 역할                                                              |
+| -------------------- | ----------------------------------------------------------------- |
+| `main.py`            | FastAPI 서버 · 전체 API 엔드포인트 관리                           |
+| `config.py`          | 환경변수 로드 · RSS 피드 URL 목록                                 |
+| `database.py`        | SQLite 테이블 정의 · DB 세션 관리                                 |
+| `models.py`          | API 요청/응답 데이터 타입 (Pydantic)                              |
+| `rss_crawler.py`     | RSS XML 파싱 → 기사 목록 추출                                     |
+| `article_scraper.py` | 기사 URL → 본문·제목·이미지 스크래핑                              |
+| `ai_analyzer.py`     | Groq AI · 신뢰도·용어·인물 분석, Gemini AI 만화생성 시나리오 생성 |
+| `dictionary_api.py`  | 국립국어원 API로 용어 설명 보완                                   |
+| `scheduler.py`       | 별도 프로세스로 주기적 자동 크롤링                                |
+| `App.tsx`            | React 라우터 설정 (메인/상세 페이지)                              |
+| `Header.tsx`         | 상단 헤더 · 검색창                                                |
+| `MainPage.tsx`       | 뉴스 목록 · AI 요약 미리보기                                      |
+| `DetailPage.tsx`     | 기사 본문 · AI 분석 사이드바                                      |
 
 ---
 
