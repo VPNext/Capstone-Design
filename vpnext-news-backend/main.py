@@ -234,53 +234,6 @@ def search(
     }
 
 
-async def _prewarm_pollinations_images(urls: list[str], news_id: int):
-    """
-    백그라운드에서 Pollinations 캐시를 순차적으로 생성합니다.
-    동시 요청(402 에러)을 방지하기 위해 한 컷이 완전히 끝난 후 다음 컷을 요청합니다.
-    """
-    logger.info(f"[만화 #{news_id}] 이미지 생성 시작 ")
-
-    # 강제로 단일 연결만 허용
-    limits = httpx.Limits(max_connections=1, max_keepalive_connections=1)
-    
-    async with httpx.AsyncClient(limits=limits) as client:
-        for idx, url in enumerate(urls):
-            retry_count = 0
-            
-            while retry_count < 5: 
-                try:
-                    
-                    response = await client.get(url, timeout=60.0, follow_redirects=True)
-                    
-                    if response.status_code == 200:
-                        size_kb = len(response.content) // 1024
-                        logger.info(f"   [{idx+1}/4] 이미지 생성 완료 ({size_kb}KB)")
-                        
-                        
-                        if idx < len(urls) - 1:
-                            await asyncio.sleep(2.0) 
-                        break 
-                    
-                    elif response.status_code == 402:
-                        retry_count += 1
-                        
-                        logger.warning(f"   [{idx+1}/4] 402 차단 - 5초 후 재시도 ({retry_count}/5)")
-                        await asyncio.sleep(5.0) 
-                        
-                    else:
-                        logger.warning(f"   [{idx+1}/4] 예외 상태 코드: {response.status_code}")
-                        break
-                        
-                except httpx.TimeoutException:
-                    retry_count += 1
-                    logger.warning(f"   [{idx+1}/4] 타임아웃 - 다시 시도 ({retry_count}/5)")
-                    await asyncio.sleep(2.0)
-                except Exception as e:
-                    logger.warning(f"   [{idx+1}/4] 요청 에러: {e}")
-                    break
-
-    logger.info(f"[만화 #{news_id}] 이미지 생성 종료")
 
 
 # 1. 만화 생성 API (상세 페이지에서 호출)
@@ -306,13 +259,14 @@ async def generate_comic(news_id: int, bg: BackgroundTasks, db: Session = Depend
     article.comic_script = json.dumps(comic_data, ensure_ascii=False)
     db.commit()
 
-    bg.add_task(_prewarm_pollinations_images, raw_urls, news_id)
+    # Base64 이미지이므로 사전 로딩이 필요 없습니다.
+    # bg.add_task(_prewarm_pollinations_images, raw_urls, news_id)
     # ─────────────────────────────────────────────────────────────────────────
 
     return {
-        "message": "만화 생성 완료 (이미지 서버 준비 중, 약 30~60초 후 완성됩니다)",
+        "message": "만화 생성 완료",
         "comic_urls": comic_data,
-        "prewarming": True,  
+        "prewarming": False,  
     }
 
 

@@ -37,6 +37,9 @@ function usePollinationsImage(src: string) {
     if (!src) return;
     setStatus("loading");
 
+    // ✨ 추가된 로직: src가 Base64 데이터인지 확인합니다.
+    const isBase64 = src.startsWith("data:image/");
+
     const img = new Image();
 
     img.onload = () => {
@@ -45,6 +48,12 @@ function usePollinationsImage(src: string) {
     };
 
     img.onerror = () => {
+      // Base64 데이터이거나 에러 폴백 이미지인 경우 재시도하지 않음
+      if (isBase64) {
+        setStatus("error");
+        return;
+      }
+
       retriesRef.current += 1;
       if (retriesRef.current <= MAX_RETRIES) {
         setTimeout(() => {
@@ -58,8 +67,9 @@ function usePollinationsImage(src: string) {
       }
     };
 
-    // 첫 시도에는 원본 URL 사용
-    img.src = retriesRef.current === 0 ? src : `${src}&t=${Date.now()}`;
+    // Base64는 원본 그대로 사용, 일반 URL일 때만 타임스탬프 추가
+    img.src =
+      retriesRef.current === 0 || isBase64 ? src : `${src}&t=${Date.now()}`;
   }, [src]);
 
   useEffect(() => {
@@ -80,100 +90,18 @@ function usePollinationsImage(src: string) {
   };
 }
 
-// ─── 컴포넌트: 단일 만화 패널 ──────────────────────────────────────────────
-function ComicPanel({
-  scene,
-  panelNumber,
-}: {
-  scene: ComicScene | string;
-  panelNumber: number;
-}) {
+// ─── 컴포넌트: 통합 만화 패널 (통합 1장용으로 수정) ──────────────────────────────
+function IntegratedComicPanel({ scene }: { scene: ComicScene | string }) {
   const imageUrl = typeof scene === "string" ? scene : scene.url;
 
-  // ✨ [나레이션]과 [대사]를 분리하는 핵심 파싱 로직 ✨
-  let parsedNarration = "";
-  let parsedDialogue = "";
-
-  const captionStr =
-    typeof scene === "string" ? `${panelNumber}컷` : scene.caption || "";
-
-  if (captionStr.includes("[나레이션]") || captionStr.includes("[대사]")) {
-    // 정규식을 사용해 [나레이션] 뒤의 텍스트와 [대사] 뒤의 텍스트를 각각 추출합니다.
-    const narMatch = captionStr.match(/\[나레이션\](.*?)(?=\[대사\]|$)/s);
-    const diaMatch = captionStr.match(/\[대사\](.*)/s);
-
-    parsedNarration = narMatch ? narMatch[1].trim() : "";
-    parsedDialogue = diaMatch ? diaMatch[1].trim() : "";
-  } else {
-    // 태그가 없는 예전 데이터이거나 파싱 실패 시 전체를 나레이션으로 처리
-    parsedNarration =
-      typeof scene !== "string" && scene.narration
-        ? scene.narration
-        : captionStr;
-    parsedDialogue =
-      typeof scene !== "string" && scene.dialogue ? scene.dialogue : "";
-  }
-
+  // ✨ 이제 말풍선을 이미지 안에 포함하므로, UI 말풍선 파싱 로직을 모두 제거합니다.
   const { status, loadedSrc, retryCount, retry } =
     usePollinationsImage(imageUrl);
 
-  const panelColors = [
-    {
-      bg: "bg-yellow-400",
-      text: "text-yellow-900",
-      border: "border-yellow-500",
-    },
-    { bg: "bg-rose-400", text: "text-rose-900", border: "border-rose-500" },
-    { bg: "bg-sky-400", text: "text-sky-900", border: "border-sky-500" },
-    {
-      bg: "bg-emerald-400",
-      text: "text-emerald-900",
-      border: "border-emerald-500",
-    },
-  ];
-  const color = panelColors[(panelNumber - 1) % 4];
-
-  // ✨ 컷 번호에 따라 말풍선의 위치와 꼬리 방향을 다이내믹하게 변경합니다.
-  const getBubbleStyle = (num: number) => {
-    switch (num % 4) {
-      case 1: // 1컷: 좌측 상단 (꼬리는 우측 하단)
-        return {
-          pos: "top-[8%] left-[5%]",
-          tail: "-bottom-2 right-6 border-b-2 border-r-2",
-          align: "text-left",
-        };
-      case 2: // 2컷: 우측 하단 (꼬리는 좌측 상단)
-        return {
-          pos: "bottom-[12%] right-[5%]",
-          tail: "-top-2 left-6 border-t-2 border-l-2",
-          align: "text-right",
-        };
-      case 3: // 3컷: 우측 상단 (꼬리는 좌측 하단)
-        return {
-          pos: "top-[10%] right-[5%]",
-          tail: "-bottom-2 left-6 border-b-2 border-l-2",
-          align: "text-center",
-        };
-      case 0: // 4컷: 좌측 하단 (꼬리는 우측 상단)
-        return {
-          pos: "bottom-[15%] left-[5%]",
-          tail: "-top-2 right-6 border-t-2 border-r-2",
-          align: "text-left",
-        };
-      default:
-        return {
-          pos: "top-[10%] right-[5%]",
-          tail: "-bottom-2 left-6 border-b-2 border-l-2",
-          align: "text-center",
-        };
-    }
-  };
-  const bubble = getBubbleStyle(panelNumber);
-
   return (
-    <div className="relative w-full overflow-hidden border-b-4 border-slate-900 last:border-b-0">
+    <div className="relative w-full overflow-hidden bg-white">
       {/* ─ 이미지 영역 ─────────────────────────────────────────── */}
-      <div className="relative w-full min-h-[280px] sm:min-h-[380px] bg-slate-100 flex items-center justify-center">
+      <div className="relative w-full min-h-[400px] sm:min-h-[600px] bg-slate-100 flex items-center justify-center">
         {/* 로딩 스켈레톤 */}
         {(status === "idle" || status === "loading") && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900 gap-4 z-0">
@@ -184,78 +112,39 @@ function ComicPanel({
               />
             </div>
             <p className="text-slate-400 text-xs font-mono tracking-widest animate-pulse">
-              AI 그림 생성 중... ({Math.min(MAX_RETRIES_DISPLAY, retryCount)}/
-              {MAX_RETRIES_DISPLAY})
+              AI가 4컷 만화를 그리는 중...
             </p>
           </div>
         )}
 
-        {/* 실제 이미지 */}
+        {/* 실제 통합 이미지 (DALL-E 3가 생성한 말풍선 포함 이미지) */}
         {status === "loaded" && (
           <img
             src={loadedSrc}
-            alt={`${panelNumber}컷`}
-            className="w-full h-auto object-cover relative z-0"
+            alt="AI News Comic"
+            className="w-full h-auto object-contain relative z-0 shadow-inner"
           />
-        )}
-
-        {/* ✨ 다이내믹 말풍선 UI ✨ */}
-        {status === "loaded" && parsedDialogue && (
-          <div
-            className={`absolute ${bubble.pos} max-w-[65%] sm:max-w-[50%] bg-white border-2 border-slate-900 rounded-2xl px-4 py-3 shadow-[4px_4px_0px_rgba(15,23,42,1)] z-20 animate-fade-in`}
-          >
-            <p
-              className={`text-slate-900 font-black text-sm sm:text-base leading-snug break-keep ${bubble.align}`}
-            >
-              {parsedDialogue}
-            </p>
-            {/* 동적 꼬리 방향 */}
-            <div
-              className={`absolute w-4 h-4 bg-white border-slate-900 transform rotate-45 ${bubble.tail}`}
-            ></div>
-          </div>
         )}
 
         {/* 에러 상태 */}
         {status === "error" && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900 text-slate-400 gap-3 min-h-[280px] z-10">
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900 text-slate-400 gap-3">
             <span className="text-5xl">🎨</span>
-            <p className="text-sm font-bold">이미지 로딩 실패</p>
+            <p className="text-sm font-bold">이미지 생성 실패</p>
             <button
               onClick={retry}
-              className="text-xs bg-yellow-400 text-slate-900 font-bold px-4 py-2 rounded-full hover:bg-yellow-300 transition-colors"
+              className="px-4 py-2 bg-yellow-400 text-black rounded-full text-xs font-bold"
             >
               다시 시도
             </button>
           </div>
         )}
-
-        {/* 컷 번호 배지 */}
-        <div
-          className={`absolute top-3 left-3 z-30 ${color.bg} ${color.text} ${color.border}
-            border-2 w-9 h-9 flex items-center justify-center rounded-full font-black text-sm
-            shadow-[2px_2px_0px_rgba(0,0,0,0.8)]`}
-        >
-          {panelNumber}
-        </div>
       </div>
-
-      {/* ─ 나레이션 캡션 영역 (하단) ─────────────────────────────────────────── */}
-      {parsedNarration && (
-        <div className="bg-white border-t-2 border-slate-900 px-5 py-3 relative">
-          <p className="text-slate-900 font-bold text-sm sm:text-base leading-relaxed text-center break-keep">
-            {parsedNarration}
-          </p>
-        </div>
-      )}
     </div>
   );
 }
 
-// 재시도 횟수 표시용 상수 (UI 표시 목적)
-const MAX_RETRIES_DISPLAY = 20;
-
-// ─── 컴포넌트: 만화 카드 (기사 1개 = 4컷 만화) ────────────────────────────
+// ─── 컴포넌트: 만화 카드 (통합 이미지에 최적화) ────────────────────────────
 function CartoonCard({
   item,
   highlight,
@@ -264,7 +153,6 @@ function CartoonCard({
   highlight: boolean;
 }) {
   const cardRef = useRef<HTMLDivElement>(null);
-  // 강조된(공유 링크 등으로 접근한) 카드는 처음부터 보이도록 설정
   const [isVisible, setIsVisible] = useState(highlight);
 
   useEffect(() => {
@@ -312,25 +200,19 @@ function CartoonCard({
       ref={cardRef}
       id={`comic-${item.news_id}`}
       className={`
-        rounded-3xl overflow-hidden shadow-[6px_6px_0px_0px_rgba(15,23,42,1)]
-        border-4 border-slate-900
-        transition-all duration-700 ease-out transform
+        rounded-3xl overflow-hidden shadow-[8px_8px_0px_0px_rgba(15,23,42,1)]
+        border-4 border-slate-900 transition-all duration-700
         ${isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-16"}
         ${highlight ? "ring-4 ring-yellow-400 ring-offset-4" : ""}
       `}
     >
-      {/* ─ 카드 헤더 ─────────────────────────────────────────────── */}
+      {/* ─ 카드 헤더 (뉴스 제목, 요약, 원본 링크) ────────────────────────────── */}
       <div className="bg-slate-900 text-white px-6 pt-6 pb-5">
-        {/* 소스 & 날짜 */}
         <div className="flex items-center gap-3 mb-3 flex-wrap">
-          {item.source && (
-            <span className="bg-yellow-400 text-slate-900 text-xs font-black px-3 py-1 rounded-full uppercase tracking-wide">
-              {item.source}
-            </span>
-          )}
-          {dateStr && (
-            <span className="text-slate-400 text-xs font-mono">{dateStr}</span>
-          )}
+          <span className="bg-yellow-400 text-slate-900 text-[10px] font-black px-2 py-0.5 rounded uppercase">
+            {item.source || "NEWS"}
+          </span>
+          <span className="text-slate-400 text-xs font-mono">{dateStr}</span>
         </div>
 
         {/* 기사 제목 */}
@@ -338,14 +220,14 @@ function CartoonCard({
           {item.title}
         </h2>
 
-        {/* AI 요약 (있을 경우) */}
+        {/* ✨ 복구됨: AI 요약 (있을 경우) */}
         {item.summary && (
           <p className="text-slate-300 text-sm leading-relaxed line-clamp-2 border-t border-slate-700 pt-3">
             {item.summary}
           </p>
         )}
 
-        {/* 원본 기사 링크 */}
+        {/* ✨ 복구됨: 원본 기사 링크 */}
         <Link
           to={`/news/${item.news_id}`}
           className="inline-flex items-center gap-2 mt-4 text-sm font-bold text-slate-900 bg-yellow-400
@@ -370,35 +252,29 @@ function CartoonCard({
         </Link>
       </div>
 
-      {/* ─ 웹툰 패널 영역 ─────────────────────────────────────────── */}
-      {/* 세로 스크롤 웹툰 형식: 컷이 위에서 아래로 이어집니다 */}
-      <div className="bg-amber-50 border-t-4 border-slate-900">
-        {/* 웹툰 타이틀 바 */}
-        <div className="flex items-center gap-3 px-5 py-3 border-b-2 border-slate-900 bg-yellow-400">
-          <span className="text-slate-900 font-black text-sm tracking-widest uppercase">
-            🎨 4컷 만화
+      {/* ─ 웹툰 영역 (통합 1장) ─────────────────────────────────── */}
+      <div className="bg-white border-t-4 border-slate-900">
+        <div className="flex items-center justify-between px-5 py-2 border-b-2 border-slate-900 bg-yellow-400">
+          <span className="text-slate-900 font-black text-xs tracking-tighter uppercase">
+            TODAY'S AI NEWS COMIC
           </span>
-          <div className="flex gap-1 ml-auto">
-            {[1, 2, 3, 4].map((n) => (
-              <div
-                key={n}
-                className="w-2 h-2 rounded-full bg-slate-900 opacity-50"
-              />
-            ))}
+          <div className="flex gap-1">
+            <div className="w-2 h-2 rounded-full bg-slate-900" />
+            <div className="w-2 h-2 rounded-full bg-slate-900 opacity-30" />
           </div>
         </div>
 
-        {/* 패널들 */}
-        <div className="border-l-4 border-r-4 border-slate-900">
-          {item.comic_urls.slice(0, 4).map((scene, idx) => (
-            <ComicPanel key={idx} scene={scene} panelNumber={idx + 1} />
-          ))}
+        {/* 4번 반복(map)하지 않고 첫 번째 이미지(통합본)만 딱 보여줍니다 */}
+        <div className="border-l-0 border-r-0">
+          {item.comic_urls.length > 0 && (
+            <IntegratedComicPanel scene={item.comic_urls[0]} />
+          )}
         </div>
 
         {/* 하단 서명 */}
-        <div className="flex items-center justify-center gap-2 py-3 border-t-2 border-slate-900 bg-slate-900">
-          <span className="text-yellow-400 font-black text-xs tracking-widest">
-            🤖 AI가 그린 뉴스 만화 · 뉴스 정보 나침반
+        <div className="py-4 bg-slate-50 border-t-2 border-slate-900 text-center">
+          <span className="text-slate-400 font-bold text-[10px] tracking-widest uppercase">
+            Generated by AI Comic Engine
           </span>
         </div>
       </div>

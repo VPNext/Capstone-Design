@@ -5,7 +5,7 @@ import json, logging, re
 from typing import Dict, List, Optional
 from groq import Groq
 from google import genai
-from config import GROQ_API_KEY, GEMINI_API_KEY
+from config import GROQ_API_KEY, GEMINI_API_KEY, GATEWAY_API_KEY
 
 logger = logging.getLogger(__name__)
 
@@ -277,122 +277,142 @@ async def generate_comic_data(news_id: int, news_title: str, news_body: str) -> 
                     
         raise Exception(f"모든 모델의 호출이 실패했습니다. (마지막 오류: {last_error})")
 
-    # ── [1단계] 뉴스 분석 ─────────────────────────────────────────
-    analysis_prompt = f"""아래 뉴스를 읽고, 만화로 표현하기 위해 필요한 핵심 정보를 JSON으로 추출하세요.
+    logger.info(f"[만화 #{news_id}] 분석 및 만화 생성 시작")
+    
+    # ── [1단계] 뉴스 다각도 분석 ───────────────────────────────────────────────
+    # (코믹 만화에 더 적합한 다각적 분석 요청)
+    prompt_all = f"""당신은 날카로운 웹툰 작가입니다. 
+아래 뉴스를 기반으로 코믹 만화를 그리기 위해 상세하게 분석하세요.
 
-[뉴스 제목]: {news_title}
-[뉴스 내용]: {news_body}
+[뉴스 기사]
+제목: {news_title}
+본문: {news_body}
 
-다음 JSON 구조에 맞춰서 답하세요:
-{{
-  "category": "뉴스 분야 (정치/경제/사회/국제/스포츠/연예/과학기술 중 하나)",
-  "main_actors": ["주요 인물 또는 기관 1", "주요 인물 또는 기관 2"],
-  "location": "주요 배경 장소",
-  "core_event": "핵심 사건을 한 문장으로",
-  "cause": "사건의 원인 또는 배경",
-  "consequence": "결과 또는 파장",
-  "emotion": "이 뉴스의 전반적 감정/분위기",
-  "visual_keywords": ["시각 키워드 1", "키워드 2", "키워드 3"]
-}}"""
+[분석 규칙 (영어 dialogue 생성 필수)]
+1. 핵심 사건, 주요 인물, 기사의 전반적인 분위기를 파악하세요.
+2. 기사의 풍자 포인트나 코믹한 상황을 잡아내세요.
+3. 주요 인물들이 나눌법한 **짧고 코믹한 영문 대사(Dialogue in English)**를 4장면에 걸쳐 구상하세요. 
+   (영어만 깔끔하게 텍스트로 그려지므로 영어 대사가 필수입니다).
 
-    try:
-        # 기존 직접 호출 대신 fallback 헬퍼 함수 사용
-        analysis_text = await generate_with_fallback(analysis_prompt)
-        news_analysis = json.loads(analysis_text)
-        logger.info(f"[만화 #{news_id}] 분석 완료: {news_analysis.get('category')} / {news_analysis.get('core_event', '')[:40]}")
-    except Exception as e:
-        logger.warning(f"뉴스 분석 실패, 기본 분석으로 진행: {e}")
-        news_analysis = {
-            "category": "일반", "main_actors": [], "location": "Korea",
-            "core_event": news_title, "cause": "", "consequence": "",
-            "emotion": "neutral", "visual_keywords": []
-        }
-
-    # ── [2단계] 만화 시나리오 생성 ─────────────────────────────────────────
-    category        = news_analysis.get("category", "일반")
-    main_actors     = ", ".join(news_analysis.get("main_actors", [])) or "관련 인물들"
-    location        = news_analysis.get("location", "Korea")
-    core_event      = news_analysis.get("core_event", news_title)
-    cause           = news_analysis.get("cause", "")
-    consequence     = news_analysis.get("consequence", "")
-    emotion         = news_analysis.get("emotion", "neutral")
-    visual_keywords = ", ".join(news_analysis.get("visual_keywords", []))
-
-    category_hints = {
-        "정치":   "government building interior, politicians in suits, parliament hall",
-        "경제":   "stock market trading floor, financial charts on screens",
-        "사회":   "Korean city street, diverse citizens, public space",
-        "국제":   "international meeting room, world map",
-        "스포츠": "sports stadium, athletes in action",
-        "연예":   "entertainment stage, spotlights",
-        "과학기술": "modern laboratory, tech office",
-    }
-    bg_hint = category_hints.get(category, "Korean urban setting, realistic background")
-
-  
-    comic_prompt = f"""당신은 세계 최고의 '뉴스 스토리보드 아티스트'이자 '풍자 웹툰 작가'입니다. 
-아래 뉴스의 핵심 내용을 요약하여, 대중이 직관적이고 아주 재미있게 이해할 수 있는 4컷 만화 시나리오를 작성하세요.
-
-━━━ 뉴스 분석 결과 ━━━
-- 분야: {category}
-- 핵심 사건: {core_event}
-- 주요 인물/기관: {main_actors}
-- 배경: {location}
-- 원인: {cause}
-- 결과/파장: {consequence}
-- 감정/분위기: {emotion}
-- 시각 키워드: {visual_keywords}
-━━━━━━━━━━━━━━━━━━━━━━
-
-━━━ 📖 4컷 만화 스토리보드 구성 규칙 (기승전결) ━━━
-뉴스의 본문 내용과 철저히 연관되게 구성하며, 누구나 "아, 이 뉴스 이야기구나!" 하고 무릎을 탁 칠 수 있도록 만드세요.
-- 1컷 (흥미 유발/발단): 뉴스의 가장 핵심적인 이슈나 충격적인 사실을 직관적으로 보여주며 독자의 시선 집중!
-- 2컷 (전개/설명 1): 사건의 원인이나 배경을 재미있는 비유나 상황으로 쉽게 설명.
-- 3컷 (위기/설명 2): 사건이 최고조에 달한 상황이나 예상치 못한 전개를 과장되고 코믹하게 묘사.
-- 4컷 (결말/펀치라인): 사건의 결과나 파장을 유머러스하게 마무리하며 여운(또는 뼈 있는 농담/풍자) 남기기.
-
-━━━ 🎨 영문 프롬프트(prompt) 작성 절대 규칙 (텍스트/말풍선 묘사 절대 금지) ━━━
-이미지 생성 AI가 글씨 없이 **순수하게 인물과 배경 그림만** 완벽하게 뽑아내도록 해야 합니다.
-1. [텍스트 렌더링 금지]: 프롬프트 안에 text, speech bubble, typography, words, caption 등의 단어를 **절대** 넣지 마세요. 그림 안에 이상한 글씨가 뭉개져서 생성되는 것을 막아야 합니다.
-2. [캐릭터 수 제한]: 한 컷당 등장인물은 **최대 1~2명**으로 제한하세요. 
-3. [필수 퀄리티 태그]: 영문 프롬프트 맨 마지막에는 무조건 아래의 보정 태그를 붙이세요.
-   ", {bg_hint}, masterpiece, high quality, flawless anatomy, clear facial features, korean webtoon style, 2D comic illustration, flat cel-shading, dynamic angle, highly expressive faces, humorous tone"
-
-━━━ 💬 캡션(caption) 작성 규칙 (프론트엔드 UI 적용) ━━━
-실제 캐릭터의 대사와 설명은 프론트엔드 웹페이지 상에서 UI로 그려집니다. 따라서 반드시 아래 형식을 정확히 지켜서 작성해야 합니다.
-형식: "[나레이션] 상황을 설명하는 재치있는 문장 [대사] 캐릭터가 하는 생동감 넘치는 짧은 대사"
-
-다음 JSON 배열 구조로만 정확하게 반환하세요:
+[결과 포맷 (JSON)]
 ```json
-[
-  {{"prompt": "영문 프롬프트...", "caption": "[나레이션] ... [대사] ..."}},
-  {{"prompt": "영문 프롬프트...", "caption": "[나레이션] ... [대사] ..."}},
-  {{"prompt": "영문 프롬프트...", "caption": "[나레이션] ... [대사] ..."}},
-  {{"prompt": "영문 프롬프트...", "caption": "[나레이션] ... [대사] ..."}}
-]"""
+{{
+  "category": "분야",
+  "core_event": "핵심 사건 한줄 요약",
+  "main_actors": ["인물1", "인물2"],
+  "emotion": "전반적 분위기(예: humorous, satirical, tense)",
+  "satire_point": "풍자 포인트",
+  "scenes": [
+    {{
+      "situation": "1컷 상황 묘사",
+      "korean_dialogue": "캐릭터 A: '짧은 한국어 대사!'"
+    }},
+    {{
+      "situation": "2컷 상황 묘사",
+      "korean_dialogue": "캐릭터 B: '재미있는 한국어 답변...'"
+    }},
+    {{
+      "situation": "3컷 상황 묘사",
+      "korean_dialogue": "캐릭터 A: '역동적인 한국어 감탄사!'"
+    }},
+    {{
+      "situation": "4컷 상황 묘사",
+      "korean_dialogue": "캐릭터 B: '재치있는 한국어 마무리 대사.'"
+    }}
+  ]
+}}
+```"""
 
     try:
-        # 시나리오 생성 단계에도 동일하게 fallback 적용
-        comic_text = await generate_with_fallback(comic_prompt)
-        scenes = json.loads(comic_text)
+        analysis_text = await generate_with_fallback(prompt_all)
+        news_analysis = json.loads(analysis_text)
+        logger.info(f"[만화 #{news_id}] 1단계 분석 완료.")
     except Exception as e:
-        logger.error(f"만화 시나리오 생성 실패: {e}")
-        raise Exception("만화 시나리오 생성 중 오류가 발생했습니다.")
-    # ── [3단계] Pollinations 이미지 URL 결합 ────────────────────────────────
+        logger.error(f"[만화 #{news_id}] 뉴스 분석 실패: {e}")
+        raise Exception("뉴스 분석 중 오류가 발생했습니다.")
+
+    # ── [2단계] 단일 4컷 코믹 만화 통합 프롬프트 생성 ───────
+    
+    scenes = news_analysis.get("scenes", [])
+    if len(scenes) < 4:
+        raise Exception("만화 장면 생성 데이터가 부족합니다.")
+    
+    core_theme = news_analysis.get("core_event", "a news story")
+    actors_str = ", ".join(news_analysis.get("main_actors", []))
+    
+    final_integrated_prompt = f"""A single-image, professional-grade 4-panel comic strip grid (2x2 layout), in a vibrant Korean webtoon style, humorous tone. No captions below the image. All dialogue is inside speech bubbles.
+
+The comic is about: {core_theme}, featuring {actors_str}.
+
+**PANEL 1:**
+Visually describe: {scenes[0]['situation']}
+Dialogue: Speech bubbles with legible and accurate KOREAN text: "{scenes[0]['korean_dialogue']}"
+
+**PANEL 2:**
+Visually describe: {scenes[1]['situation']}
+Dialogue: Speech bubbles with legible and accurate KOREAN text: "{scenes[1]['korean_dialogue']}"
+
+**PANEL 3:**
+Visually describe: {scenes[2]['situation']}
+Dialogue: Speech bubbles with legible and accurate KOREAN text: "{scenes[2]['korean_dialogue']}"
+
+**PANEL 4:**
+Visually describe: {scenes[3]['situation']}
+Dialogue: Speech bubbles with legible and accurate KOREAN text: "{scenes[3]['korean_dialogue']}"
+
+**Style requirements:** MASTERPIECE, high definition, detailed characters, dynamic angles, expressive faces. IMPORTANT: All text inside speech bubbles MUST be written in correct KOREAN Hangul letters."""
+
+    # ── [3단계] 단일 이미지 생성 API 호출 (OpenAI 모델 사용) ──────────────────
     comic_data = []
     raw_urls = []
 
-    for idx, scene in enumerate(scenes[:4]):
-        prompt_text = scene.get("prompt", "korean webtoon style comic illustration")
-        encoded_prompt = urllib.parse.quote(prompt_text)
+    gateway_url = "https://factchat-cloud.mindlogic.ai/v1/gateway/images/generate/"
+    headers = {
+        "Authorization": f"Bearer {GATEWAY_API_KEY}",
+        "Content-Type": "application/json"
+    }
+
+    # 타임아웃은 DALL-E 3 호출에 맞게 넉넉히 설정
+    async with httpx.AsyncClient(timeout=65.0) as http_client:
         
-        seed_value = news_id * 100 + idx
-        url = (
-            f"https://image.pollinations.ai/prompt/{encoded_prompt}"
-            f"?model=flux&width=800&height=400&nologo=true&seed={seed_value}"
-        )
+        # 4컷 통합 프롬프트
+        prompt_text = final_integrated_prompt
+        # 설명글을 지우기 위해 caption을 빈 문자열로 설정
+        caption = "" 
         
-        comic_data.append({"url": url, "caption": scene.get("caption", f"[나레이션] 장면 {idx + 1} [대사] ")})
-        raw_urls.append(url)
+        # ✨ 수정: quality를 문서에 맞게 "high"로 변경 (또는 생략 가능)
+        payload = {
+            "model": "gpt-image-1.5", 
+            "prompt": prompt_text,
+            "quality": "high", 
+            "number_of_images": 1
+        }
+
+        try:
+            logger.info(f"[만화 #{news_id}] 4컷 코믹 웹툰 통합 이미지 생성 API 호출 중... (OpenAI 모델 사용)")
+            response = await http_client.post(gateway_url, json=payload, headers=headers)
+            response.raise_for_status()
+            
+            res_json = response.json()
+            
+            # ✨ 수정: 데이터가 정상적으로 들어왔는지 검사하는 방어 코드 추가
+            if "data" in res_json and len(res_json["data"]) > 0:
+                image_url = res_json["data"][0]["url"]
+                
+                # 설명글 없이 이미지 URL만 담은 데이터 배열 생성
+                comic_data.append({"url": image_url, "caption": caption})
+                raw_urls.append(image_url)
+                logger.info(f"[만화 #{news_id}] 말풍선 포함 4컷 만화 이미지 생성 완료.")
+            else:
+                # 데이터가 비어있다면 OpenAI의 정책 위반(Safety) 차단일 확률이 99%입니다.
+                logger.error(f"[만화 #{news_id}] 이미지 반환 실패. API 응답: {res_json}")
+                comic_data.append({
+                    "url": "https://placehold.co/600x600/1e293b/yellow?text=Blocked+by+AI+Safety+Policy", 
+                    "caption": "정치적 이슈, 범죄, 실존 인물 등 AI 안전 정책에 의해 만화 생성이 차단되었습니다."
+                })
+
+        except Exception as e:
+            logger.error(f"[만화 #{news_id}] 이미지 생성 실패: {e}")
+            comic_data.append({"url": "", "caption": "이미지 생성에 실패했습니다."})
 
     return comic_data, raw_urls
