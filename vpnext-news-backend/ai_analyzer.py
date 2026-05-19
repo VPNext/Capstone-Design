@@ -239,130 +239,69 @@ def full_analysis(title: str, content: str, include_comic: bool = False) -> Dict
 # (무료 한도가 0인 Pro 모델은 제외하고, 한도가 있는 Flash/Lite 위주로 구성)
 
 FALLBACK_MODELS = [
-    "gemini-2.5-flash",       # 가장 안정적인 메인 모델
-    "gemini-3.1-flash-lite",  # 일일 한도가 500으로 가장 넉넉한 모델
-    "gemini-2.5-flash-lite",
-    "gemini-3-flash"          # 3.0은 API 명칭이 다를 수 있어 후순위 배치
+    "gemini-2.5-flash",       # 1순위: 가장 빠르고 똑똑한 메인 모델
+    "gemini-3.1-flash-lite",  # 2순위: 일일 한도가 넉넉한 라이트 모델
+    "gemini-2.5-flash-lite",  # 3순위: 백업용 구형 라이트 모델
+    "gemini-3-flash"          # 4순위: 최신 플래시 모델
 ]
 
 async def generate_comic_data(news_id: int, news_title: str, news_body: str) -> tuple[list, list]:
     """
-     Google GenAI SDK를 활용하여 뉴스를 분석하고 4컷 만화 시나리오 및 URL을 생성합니다.
+    제미나이를 활용해 뉴스를 바탕으로 대사가 포함된 4컷 만화 프롬프트를 생성하고,
+    이미지 생성 API를 호출하여 완성된 이미지를 반환합니다.
     """
-    generation_config = {"response_mime_type": "application/json"}
-    
-   # 2. 헬퍼 함수 에러 핸들링 강화 (404 에러 포함)
-    async def generate_with_fallback(prompt: str) -> str:
-        last_error = None
-        for model_id in FALLBACK_MODELS:
-            try:
-                logger.info(f"[만화 #{news_id}] {model_id} 모델로 생성을 시도합니다...")
-                response = await gemini_client.aio.models.generate_content(
-                    model=model_id,
-                    contents=prompt,
-                    config=generation_config
-                )
-                return response.text
-            except Exception as e:
-                error_msg = str(e).lower()
-                last_error = e
-              
-                if any(err in error_msg for err in ["429", "quota", "exhausted", "404", "not found"]):
-                    logger.warning(f"[만화 #{news_id}] {model_id} 사용 불가(한도초과 or 미지원). 다음 모델로 넘어갑니다.")
-                    continue
-                else:
-                    
-                    logger.error(f"[만화 #{news_id}] {model_id} 예상치 못한 오류: {e}")
-                    raise e
-                    
-        raise Exception(f"모든 모델의 호출이 실패했습니다. (마지막 오류: {last_error})")
-
     logger.info(f"[만화 #{news_id}] 분석 및 만화 생성 시작")
     
-    # ── [1단계] 뉴스 다각도 분석 ───────────────────────────────────────────────
-    # (코믹 만화에 더 적합한 다각적 분석 요청)
-    prompt_all = f"""당신은 날카로운 웹툰 작가입니다. 
-아래 뉴스를 기반으로 코믹 만화를 그리기 위해 상세하게 분석하세요.
+    # ── [1단계] 제미나이를 통한 4컷 만화 통합 프롬프트 생성 ──
+    # JSON 파싱 없이, 이미지 AI에게 던져줄 프롬프트 자체를 바로 생성하게 만듭니다.
+    prompt_generator = f"""
+당신은 코믹 웹툰 프롬프트 전문가입니다. 아래 뉴스를 바탕으로 고품질 4컷 만화(2x2 그리드)를 생성하기 위한 영문 프롬프트를 작성해 주세요.
+반드시 각 컷(Panel)마다 상황 묘사와 함께, 말풍선(Speech bubble) 안에 들어갈 짧은 한국어 대사를 포함시켜야 합니다.
 
 [뉴스 기사]
 제목: {news_title}
 본문: {news_body}
 
-[분석 규칙 (영어 dialogue 생성 필수)]
-1. 핵심 사건, 주요 인물, 기사의 전반적인 분위기를 파악하세요.
-2. 기사의 풍자 포인트나 코믹한 상황을 잡아내세요.
-3. 주요 인물들이 나눌법한 **짧고 코믹한 영문 대사(Dialogue in English)**를 4장면에 걸쳐 구상하세요. 
-   (영어만 깔끔하게 텍스트로 그려지므로 영어 대사가 필수입니다).
+[작성 규칙]
+1. 프롬프트는 영어로 작성하되, 말풍선 안의 대사는 반드시 "한국어" 그대로 적어주세요.
+2. 대사는 글씨가 깨지지 않도록 최대한 짧고 간결하게 작성하세요.
+3. 2x2 그리드 레이아웃(Top-Left, Top-Right, Bottom-Left, Bottom-Right)을 명확히 지시하세요.
+4. 불필요한 설명 없이, 오직 이미지 생성 API에 들어갈 '프롬프트 텍스트'만 출력하세요.
+"""
 
-[결과 포맷 (JSON)]
-```json
-{{
-  "category": "분야",
-  "core_event": "핵심 사건 한줄 요약",
-  "main_actors": ["인물1", "인물2"],
-  "emotion": "전반적 분위기(예: humorous, satirical, tense)",
-  "satire_point": "풍자 포인트",
-  "scenes": [
-    {{
-      "situation": "1컷 상황 묘사",
-      "korean_dialogue": "캐릭터 A: '짧은 한국어 대사!'"
-    }},
-    {{
-      "situation": "2컷 상황 묘사",
-      "korean_dialogue": "캐릭터 B: '재미있는 한국어 답변...'"
-    }},
-    {{
-      "situation": "3컷 상황 묘사",
-      "korean_dialogue": "캐릭터 A: '역동적인 한국어 감탄사!'"
-    }},
-    {{
-      "situation": "4컷 상황 묘사",
-      "korean_dialogue": "캐릭터 B: '재치있는 한국어 마무리 대사.'"
-    }}
-  ]
-}}
-```"""
+    final_integrated_prompt = ""
+    last_error = None
 
-    try:
-        analysis_text = await generate_with_fallback(prompt_all)
-        news_analysis = json.loads(analysis_text)
-        logger.info(f"[만화 #{news_id}] 1단계 분석 완료.")
-    except Exception as e:
-        logger.error(f"[만화 #{news_id}] 뉴스 분석 실패: {e}")
-        raise Exception("뉴스 분석 중 오류가 발생했습니다.")
+    # ✨ 503 에러 대비 Fallback(대체 모델) 루프 적용
+    for model_id in FALLBACK_MODELS:
+        try:
+            logger.info(f"[만화 #{news_id}] {model_id} 모델로 프롬프트 생성을 시도합니다...")
+            response = await gemini_client.aio.models.generate_content(
+                model=model_id,
+                contents=prompt_generator,
+            )
+            final_integrated_prompt = response.text.strip()
+            logger.info(f"[만화 #{news_id}] 이미지 프롬프트 생성 완료 ({model_id})")
+            break  # 성공 시 루프 탈출
+            
+        except Exception as e:
+            error_msg = str(e).lower()
+            last_error = e
+            
+            # 503(서버 과부하) 또는 429(한도 초과) 에러인 경우 다음 모델로 시도
+            if any(err in error_msg for err in ["503", "unavailable", "429", "quota", "exhausted"]):
+                logger.warning(f"[만화 #{news_id}] {model_id} 서버 과부하/한도초과. 다음 모델로 재시도합니다.")
+                continue
+            else:
+                logger.error(f"[만화 #{news_id}] {model_id} 예상치 못한 오류: {e}")
+                raise e
 
-    # ── [2단계] 단일 4컷 코믹 만화 통합 프롬프트 생성 ───────
-    
-    scenes = news_analysis.get("scenes", [])
-    if len(scenes) < 4:
-        raise Exception("만화 장면 생성 데이터가 부족합니다.")
-    
-    core_theme = news_analysis.get("core_event", "a news story")
-    actors_str = ", ".join(news_analysis.get("main_actors", []))
-    
-    final_integrated_prompt = f"""A single-image, professional-grade 4-panel comic strip grid (2x2 layout), in a vibrant Korean webtoon style, humorous tone. No captions below the image. All dialogue is inside speech bubbles.
+    # 모든 모델이 실패했을 경우 예외 처리
+    if not final_integrated_prompt:
+        raise Exception(f"모든 AI 모델의 프롬프트 생성이 실패했습니다. (마지막 오류: {last_error})")
 
-The comic is about: {core_theme}, featuring {actors_str}.
 
-**PANEL 1:**
-Visually describe: {scenes[0]['situation']}
-Dialogue: Speech bubbles with legible and accurate KOREAN text: "{scenes[0]['korean_dialogue']}"
-
-**PANEL 2:**
-Visually describe: {scenes[1]['situation']}
-Dialogue: Speech bubbles with legible and accurate KOREAN text: "{scenes[1]['korean_dialogue']}"
-
-**PANEL 3:**
-Visually describe: {scenes[2]['situation']}
-Dialogue: Speech bubbles with legible and accurate KOREAN text: "{scenes[2]['korean_dialogue']}"
-
-**PANEL 4:**
-Visually describe: {scenes[3]['situation']}
-Dialogue: Speech bubbles with legible and accurate KOREAN text: "{scenes[3]['korean_dialogue']}"
-
-**Style requirements:** MASTERPIECE, high definition, detailed characters, dynamic angles, expressive faces. IMPORTANT: All text inside speech bubbles MUST be written in correct KOREAN Hangul letters."""
-
-    # ── [3단계] 단일 이미지 생성 API 호출 (OpenAI 모델 사용) ──────────────────
+    # ── [2단계] 단일 이미지 생성 API 호출 ──
     comic_data = []
     raw_urls = []
 
@@ -372,43 +311,35 @@ Dialogue: Speech bubbles with legible and accurate KOREAN text: "{scenes[3]['kor
         "Content-Type": "application/json"
     }
 
-    # 타임아웃은 DALL-E 3 호출에 맞게 넉넉히 설정
     async with httpx.AsyncClient(timeout=65.0) as http_client:
-        
-        # 4컷 통합 프롬프트
-        prompt_text = final_integrated_prompt
-        # 설명글을 지우기 위해 caption을 빈 문자열로 설정
-        caption = "" 
-        
-        # ✨ 수정: quality를 문서에 맞게 "high"로 변경 (또는 생략 가능)
         payload = {
-            "model": "gpt-image-1.5", 
-            "prompt": prompt_text,
+            "model": "gpt-image-1-mini", 
+            "prompt": final_integrated_prompt,
             "quality": "high", 
             "number_of_images": 1
         }
 
         try:
-            logger.info(f"[만화 #{news_id}] 4컷 코믹 웹툰 통합 이미지 생성 API 호출 중... (OpenAI 모델 사용)")
+            logger.info(f"[만화 #{news_id}] 대사가 포함된 4컷 만화 이미지 생성 API 호출 중...")
             response = await http_client.post(gateway_url, json=payload, headers=headers)
             response.raise_for_status()
             
             res_json = response.json()
             
-            # ✨ 수정: 데이터가 정상적으로 들어왔는지 검사하는 방어 코드 추가
             if "data" in res_json and len(res_json["data"]) > 0:
                 image_url = res_json["data"][0]["url"]
                 
-                # 설명글 없이 이미지 URL만 담은 데이터 배열 생성
-                comic_data.append({"url": image_url, "caption": caption})
+                # 프론트엔드에서 더 이상 텍스트 합성을 하지 않으므로 url만 깔끔하게 넘깁니다.
+                comic_data.append({
+                    "url": image_url
+                })
                 raw_urls.append(image_url)
-                logger.info(f"[만화 #{news_id}] 말풍선 포함 4컷 만화 이미지 생성 완료.")
+                logger.info(f"[만화 #{news_id}] 만화 이미지 생성 완료.")
             else:
-                # 데이터가 비어있다면 OpenAI의 정책 위반(Safety) 차단일 확률이 99%입니다.
                 logger.error(f"[만화 #{news_id}] 이미지 반환 실패. API 응답: {res_json}")
                 comic_data.append({
                     "url": "https://placehold.co/600x600/1e293b/yellow?text=Blocked+by+AI+Safety+Policy", 
-                    "caption": "정치적 이슈, 범죄, 실존 인물 등 AI 안전 정책에 의해 만화 생성이 차단되었습니다."
+                    "caption": "안전 정책에 의해 차단되었습니다."
                 })
 
         except Exception as e:

@@ -6,8 +6,6 @@ import api from "../api";
 interface ComicScene {
   url: string;
   caption?: string; // 백엔드에서 "[나레이션] ... [대사] ..." 형태로 넘어오는 텍스트
-  narration?: string; // (과거 데이터 호환용)
-  dialogue?: string; // (과거 데이터 호환용)
 }
 
 interface CartoonItem {
@@ -19,132 +17,54 @@ interface CartoonItem {
   published_at: string;
 }
 
-// ─── 이미지 로딩 상태 타입 ─────────────────────────────────────────────────
-type ImgStatus = "idle" | "loading" | "loaded" | "error";
-
-// ─── 커스텀 훅: 단일 이미지 프리로더 ──────────────────────────────────────
-// Pollinations 이미지는 첫 요청 시 생성되므로 최대 20번 재시도합니다.
-// &t= 파라미터를 붙여 브라우저 캐시를 우회하되, Pollinations는 seed 기반으로
-// 캐시하기 때문에 동일 이미지를 반환합니다.
-function usePollinationsImage(src: string) {
-  const [status, setStatus] = useState<ImgStatus>("idle");
-  const [loadedSrc, setLoadedSrc] = useState<string>("");
-  const retriesRef = useRef(0);
-  const MAX_RETRIES = 20; // 최대 재시도 횟수 (약 80초)
-  const RETRY_DELAY_MS = 4000; // 재시도 간격 (4초)
-
-  const attemptLoad = useCallback(() => {
-    if (!src) return;
-    setStatus("loading");
-
-    // ✨ 추가된 로직: src가 Base64 데이터인지 확인합니다.
-    const isBase64 = src.startsWith("data:image/");
-
-    const img = new Image();
-
-    img.onload = () => {
-      setLoadedSrc(img.src);
-      setStatus("loaded");
-    };
-
-    img.onerror = () => {
-      // Base64 데이터이거나 에러 폴백 이미지인 경우 재시도하지 않음
-      if (isBase64) {
-        setStatus("error");
-        return;
-      }
-
-      retriesRef.current += 1;
-      if (retriesRef.current <= MAX_RETRIES) {
-        setTimeout(() => {
-          // 브라우저 캐시 우회를 위해 타임스탬프 추가
-          // (Pollinations는 seed 기반이라 다른 이미지가 나오지 않습니다)
-          img.src = `${src}&t=${Date.now()}`;
-          attemptLoad();
-        }, RETRY_DELAY_MS);
-      } else {
-        setStatus("error");
-      }
-    };
-
-    // Base64는 원본 그대로 사용, 일반 URL일 때만 타임스탬프 추가
-    img.src =
-      retriesRef.current === 0 || isBase64 ? src : `${src}&t=${Date.now()}`;
-  }, [src]);
-
-  useEffect(() => {
-    retriesRef.current = 0;
-    setStatus("idle");
-    setLoadedSrc("");
-    if (src) attemptLoad();
-  }, [src, attemptLoad]);
-
-  return {
-    status,
-    loadedSrc,
-    retryCount: retriesRef.current,
-    retry: () => {
-      retriesRef.current = 0;
-      attemptLoad();
-    },
-  };
-}
-
-// ─── 컴포넌트: 통합 만화 패널 (통합 1장용으로 수정) ──────────────────────────────
-function IntegratedComicPanel({ scene }: { scene: ComicScene | string }) {
+// ─── 단순화된 만화 패널 컴포넌트 ───────────────────────────────────────────
+function SimpleComicPanel({ scene }: { scene: any }) {
   const imageUrl = typeof scene === "string" ? scene : scene.url;
-
-  // ✨ 이제 말풍선을 이미지 안에 포함하므로, UI 말풍선 파싱 로직을 모두 제거합니다.
-  const { status, loadedSrc, retryCount, retry } =
-    usePollinationsImage(imageUrl);
+  const [isLoading, setIsLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
 
   return (
     <div className="relative w-full overflow-hidden bg-white">
-      {/* ─ 이미지 영역 ─────────────────────────────────────────── */}
       <div className="relative w-full min-h-[400px] sm:min-h-[600px] bg-slate-100 flex items-center justify-center">
-        {/* 로딩 스켈레톤 */}
-        {(status === "idle" || status === "loading") && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900 gap-4 z-0">
+        {/* 로딩 표시 */}
+        {isLoading && !hasError && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900 gap-4 z-10">
             <div className="w-48 h-2 bg-slate-700 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-yellow-400 rounded-full animate-pulse"
-                style={{ width: `${Math.min(100, retryCount * 5 + 15)}%` }}
-              />
+              <div className="h-full bg-yellow-400 rounded-full w-full animate-pulse" />
             </div>
             <p className="text-slate-400 text-xs font-mono tracking-widest animate-pulse">
-              AI가 4컷 만화를 그리는 중...
+              AI가 만화를 그리는 중...
             </p>
           </div>
         )}
 
-        {/* 실제 통합 이미지 (DALL-E 3가 생성한 말풍선 포함 이미지) */}
-        {status === "loaded" && (
-          <img
-            src={loadedSrc}
-            alt="AI News Comic"
-            className="w-full h-auto object-contain relative z-0 shadow-inner"
-          />
+        {/* 에러 상태 */}
+        {hasError && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900 text-slate-400 gap-3 z-10">
+            <span className="text-5xl">🎨</span>
+            <p className="text-sm font-bold">이미지를 불러올 수 없습니다.</p>
+          </div>
         )}
 
-        {/* 에러 상태 */}
-        {status === "error" && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900 text-slate-400 gap-3">
-            <span className="text-5xl">🎨</span>
-            <p className="text-sm font-bold">이미지 생성 실패</p>
-            <button
-              onClick={retry}
-              className="px-4 py-2 bg-yellow-400 text-black rounded-full text-xs font-bold"
-            >
-              다시 시도
-            </button>
-          </div>
+        {/* 단순 이미지 렌더링 (SVG 제거) */}
+        {imageUrl && (
+          <img
+            src={imageUrl}
+            alt="AI News Comic"
+            className="w-full h-auto object-contain relative z-0 shadow-inner"
+            onLoad={() => setIsLoading(false)}
+            onError={() => {
+              setIsLoading(false);
+              setHasError(true);
+            }}
+          />
         )}
       </div>
     </div>
   );
 }
 
-// ─── 컴포넌트: 만화 카드 (통합 이미지에 최적화) ────────────────────────────
+// ─── 컴포넌트: 만화 카드 ────────────────────────────
 function CartoonCard({
   item,
   highlight,
@@ -166,14 +86,12 @@ function CartoonCard({
     }
   }, [highlight]);
 
-  // ✨ Intersection Observer를 활용한 스크롤 애니메이션
   useEffect(() => {
     const currentRef = cardRef.current;
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries[0].isIntersecting) {
           setIsVisible(true);
-          // 한 번 화면에 나타나면 계속 보이도록 관찰 해제
           if (currentRef) observer.unobserve(currentRef);
         }
       },
@@ -181,7 +99,6 @@ function CartoonCard({
     );
 
     if (currentRef) observer.observe(currentRef);
-
     return () => {
       if (currentRef) observer.unobserve(currentRef);
     };
@@ -206,7 +123,7 @@ function CartoonCard({
         ${highlight ? "ring-4 ring-yellow-400 ring-offset-4" : ""}
       `}
     >
-      {/* ─ 카드 헤더 (뉴스 제목, 요약, 원본 링크) ────────────────────────────── */}
+      {/* ─ 카드 헤더 ── */}
       <div className="bg-slate-900 text-white px-6 pt-6 pb-5">
         <div className="flex items-center gap-3 mb-3 flex-wrap">
           <span className="bg-yellow-400 text-slate-900 text-[10px] font-black px-2 py-0.5 rounded uppercase">
@@ -215,63 +132,40 @@ function CartoonCard({
           <span className="text-slate-400 text-xs font-mono">{dateStr}</span>
         </div>
 
-        {/* 기사 제목 */}
         <h2 className="text-xl sm:text-2xl font-black text-white leading-tight mb-3 break-keep">
           {item.title}
         </h2>
 
-        {/* ✨ 복구됨: AI 요약 (있을 경우) */}
         {item.summary && (
           <p className="text-slate-300 text-sm leading-relaxed line-clamp-2 border-t border-slate-700 pt-3">
             {item.summary}
           </p>
         )}
 
-        {/* ✨ 복구됨: 원본 기사 링크 */}
         <Link
           to={`/news/${item.news_id}`}
           className="inline-flex items-center gap-2 mt-4 text-sm font-bold text-slate-900 bg-yellow-400
             border-2 border-yellow-300 px-4 py-2 rounded-full
-            hover:bg-yellow-300 hover:-translate-y-0.5 hover:shadow-[3px_3px_0px_rgba(255,255,255,0.3)]
-            transition-all"
+            hover:bg-yellow-300 hover:-translate-y-0.5 hover:shadow-[3px_3px_0px_rgba(255,255,255,0.3)] transition-all"
         >
-          <svg
-            className="w-4 h-4"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2.5}
-              d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-            />
-          </svg>
           원본 기사 보기
         </Link>
       </div>
 
-      {/* ─ 웹툰 영역 (통합 1장) ─────────────────────────────────── */}
+      {/* ─ 웹툰 영역 (단순화됨) ── */}
       <div className="bg-white border-t-4 border-slate-900">
         <div className="flex items-center justify-between px-5 py-2 border-b-2 border-slate-900 bg-yellow-400">
           <span className="text-slate-900 font-black text-xs tracking-tighter uppercase">
             TODAY'S AI NEWS COMIC
           </span>
-          <div className="flex gap-1">
-            <div className="w-2 h-2 rounded-full bg-slate-900" />
-            <div className="w-2 h-2 rounded-full bg-slate-900 opacity-30" />
-          </div>
         </div>
 
-        {/* 4번 반복(map)하지 않고 첫 번째 이미지(통합본)만 딱 보여줍니다 */}
         <div className="border-l-0 border-r-0">
           {item.comic_urls.length > 0 && (
-            <IntegratedComicPanel scene={item.comic_urls[0]} />
+            <SimpleComicPanel scene={item.comic_urls[0]} />
           )}
         </div>
 
-        {/* 하단 서명 */}
         <div className="py-4 bg-slate-50 border-t-2 border-slate-900 text-center">
           <span className="text-slate-400 font-bold text-[10px] tracking-widest uppercase">
             Generated by AI Comic Engine
