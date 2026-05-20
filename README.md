@@ -136,14 +136,15 @@ venv\Scripts\activate
 ## macOS / Linux
 source venv/bin/activate
 
-# 패키지 설치
-pip install fastapi uvicorn sqlalchemy python-dotenv \
-            requests beautifulsoup4 lxml feedparser groq schedule
+# 패키지 설치 (requirements.txt 사용)
+# `backend/requirements.txt`에 필요한 패키지들이 명시되어 있습니다.
+pip install -r requirements.txt
 
-pip install google-genai 설치 후 만일 안된다면
-pip uninstall google-generativeai 후
-다시 재설치
+# `google-genai` 관련: 문제가 발생하면 재설치하세요.
 pip install google-genai
+# 문제가 생기면 아래처럼 기존 패키지를 제거 후 재설치합니다.
+# pip uninstall google-generativeai
+# pip install google-genai
 
 ```
 

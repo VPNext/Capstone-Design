@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 app = FastAPI(
     title="뉴스 정보 나침반 API",
     description="허위뉴스 판별 + 뉴스 이해도 향상 서비스 (VPNext / 팀4)",
-    version="1.0.0",
+    version="1.1.0",
 )
 app.add_middleware(
     CORSMiddleware,
@@ -317,4 +317,4 @@ def health():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host=APP_HOST, port=APP_PORT, reload=True)
+    uvicorn.run("main:app", host=APP_HOST, port=APP_PORT, reload=False)
