@@ -187,7 +187,23 @@ export default function CartoonsPage() {
     const fetchCartoons = async () => {
       try {
         const res = await api.get("/api/cartoons");
-        setCartoons(res.data.reverse());
+
+        // 날짜 기준 최신순(내림차순) 정렬 로직 추가
+        const sortedCartoons = res.data.sort(
+          (a: CartoonItem, b: CartoonItem) => {
+            // published_at이 없을 경우를 대비한 방어 로직 포함
+            const dateA = a.published_at
+              ? new Date(a.published_at).getTime()
+              : 0;
+            const dateB = b.published_at
+              ? new Date(b.published_at).getTime()
+              : 0;
+
+            return dateB - dateA; // 최신 날짜가 먼저 오도록 정렬
+          },
+        );
+
+        setCartoons(sortedCartoons);
       } catch (error) {
         console.error("만화 로딩 실패:", error);
       } finally {
