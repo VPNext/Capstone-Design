@@ -102,6 +102,10 @@ export default function DetailPage() {
   const [isComicGenerating, setIsComicGenerating] = useState(false);
   const [comicUrls, setComicUrls] = useState<string[] | null>(null);
 
+  // 👇 여기부터 추가
+  const [showPromptInput, setShowPromptInput] = useState(false);
+  const [customPrompt, setCustomPrompt] = useState("");
+
   // [추가] 직접 용어 검색용 상태
   const [searchTerm, setSearchTerm] = useState("");
   const [searchEngine, setSearchEngine] = useState("stdict"); // 기본값: 표준국어대사전
@@ -165,11 +169,14 @@ export default function DetailPage() {
     }
   };
 
-  // [추가] 만화 생성 버튼 핸들러
-  const handleGenerateComic = async () => {
+  // [수정] 만화 생성 버튼 핸들러 (커스텀 프롬프트 지원)
+  const handleGenerateComic = async (promptText?: string) => {
     setIsComicGenerating(true);
     try {
-      const res = await api.post(`/api/news/${id}/comic`);
+      // 프롬프트가 있으면 body에 담아서 전송, 없으면 빈 객체
+      const payload = promptText ? { custom_prompt: promptText } : {};
+      const res = await api.post(`/api/news/${id}/comic`, payload);
+
       setComicUrls(res.data.comic_urls);
     } catch (error) {
       alert("만화 생성 중 오류가 발생했습니다.");
@@ -357,20 +364,58 @@ export default function DetailPage() {
                   보러가기 (AI 만화 모음집)
                 </Link>
               ) : (
-                // 만화를 새로 생성해야 하는 경우
-                <button
-                  onClick={handleGenerateComic}
-                  disabled={isComicGenerating}
-                  className={`px-8 py-3.5 text-lg font-bold rounded-2xl transition-all shadow-md flex items-center gap-2 ${
-                    isComicGenerating
-                      ? "bg-purple-200 text-purple-500 cursor-wait"
-                      : "bg-slate-900 hover:bg-purple-600 text-white hover:-translate-y-1"
-                  }`}
-                >
-                  {isComicGenerating
-                    ? "AI가 열심히 그림을 그리는 중... ⏳"
-                    : "만화 생성하기 ✨"}
-                </button>
+                // [수정] 만화를 새로 생성해야 하는 경우 (입력창 + 2개 버튼 UI)
+                <div className="w-full flex flex-col gap-4 mt-2">
+                  {!showPromptInput ? (
+                    <div className="flex flex-col sm:flex-row justify-center gap-3">
+                      <button
+                        onClick={() => handleGenerateComic()}
+                        disabled={isComicGenerating}
+                        className="px-6 py-3.5 bg-slate-900 text-white text-lg font-bold rounded-2xl shadow-md hover:-translate-y-1 hover:bg-purple-600 transition-all disabled:opacity-50"
+                      >
+                        {isComicGenerating ? "생성 중... ⏳" : "AI 자동 생성"}
+                      </button>
+                      <button
+                        onClick={() => setShowPromptInput(true)}
+                        disabled={isComicGenerating}
+                        className="px-6 py-3.5 bg-white text-purple-900 border-2 border-purple-200 text-lg font-bold rounded-2xl shadow-sm hover:-translate-y-1 hover:border-purple-400 transition-all disabled:opacity-50"
+                      >
+                        직접 디렉팅
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-3 w-full animate-in fade-in slide-in-from-top-2 duration-300">
+                      <textarea
+                        value={customPrompt}
+                        onChange={(e) => setCustomPrompt(e.target.value)}
+                        placeholder="예: 주인공을 고양이로 그려줘, 배경을 우주로 해줘..."
+                        className="w-full h-24 p-4 rounded-xl border-2 border-purple-200 focus:outline-none focus:ring-4 focus:ring-purple-300 resize-none font-medium text-slate-700"
+                        disabled={isComicGenerating}
+                      />
+                      <div className="flex justify-end gap-3">
+                        <button
+                          onClick={() => setShowPromptInput(false)}
+                          disabled={isComicGenerating}
+                          className="px-4 py-2 text-slate-500 font-bold hover:text-slate-800 transition-colors"
+                        >
+                          취소
+                        </button>
+                        <button
+                          onClick={() => handleGenerateComic(customPrompt)}
+                          disabled={
+                            isComicGenerating ||
+                            customPrompt.trim().length === 0
+                          }
+                          className="px-6 py-2 bg-purple-600 text-white font-bold rounded-xl shadow-md hover:-translate-y-1 hover:bg-purple-700 transition-all disabled:opacity-50"
+                        >
+                          {isComicGenerating
+                            ? "생성 중... ⏳"
+                            : "이 내용으로 생성"}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           )}

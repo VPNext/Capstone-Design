@@ -13,6 +13,7 @@ import httpx
 
 from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from ai_analyzer import full_analysis, generate_comic_data
@@ -234,11 +235,19 @@ def search(
     }
 
 
+# [추가] 프론트엔드에서 전달받을 만화 생성 옵션 스키마
+class ComicGenerateRequest(BaseModel):
+    custom_prompt: Optional[str] = None
 
 
 # 1. 만화 생성 API (상세 페이지에서 호출)
 @app.post("/api/news/{news_id}/comic")
-async def generate_comic(news_id: int, bg: BackgroundTasks, db: Session = Depends(get_db)):
+async def generate_comic(
+    news_id: int, 
+    bg: BackgroundTasks, 
+    payload: Optional[ComicGenerateRequest] = None,  # 👈 추가된 부분: 클라이언트의 요청 바디 수신
+    db: Session = Depends(get_db)
+):
     article = db.query(Article).filter(Article.id == news_id).first()
     if not article:
         raise HTTPException(status_code=404, detail="기사를 찾을 수 없습니다.")
@@ -249,8 +258,12 @@ async def generate_comic(news_id: int, bg: BackgroundTasks, db: Session = Depend
     combined_body = (news_summary + "\n\n" + news_content).strip()
     news_body = combined_body[:1500] if combined_body else news_title
 
+    # 👈 추가된 부분: 프론트엔드에서 커스텀 프롬프트를 보냈다면 꺼내고, 아니면 None 처리
+    custom_prompt = payload.custom_prompt if payload else None
+
     try:
-        comic_data, raw_urls = await generate_comic_data(news_id, news_title, news_body)
+        # 👈 추가된 부분: custom_prompt를 ai_analyzer로 전달
+        comic_data, raw_urls = await generate_comic_data(news_id, news_title, news_body, custom_prompt)
     except Exception as e:
         logger.error(f"만화 생성 실패: {e}")
         raise HTTPException(status_code=500, detail="만화 시나리오 생성 중 오류가 발생했습니다.")
@@ -258,10 +271,6 @@ async def generate_comic(news_id: int, bg: BackgroundTasks, db: Session = Depend
     # DB에 저장
     article.comic_script = json.dumps(comic_data, ensure_ascii=False)
     db.commit()
-
-    # Base64 이미지이므로 사전 로딩이 필요 없습니다.
-    # bg.add_task(_prewarm_pollinations_images, raw_urls, news_id)
-    # ─────────────────────────────────────────────────────────────────────────
 
     return {
         "message": "만화 생성 완료",
