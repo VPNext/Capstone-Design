@@ -111,3 +111,46 @@ def scrape(url: str) -> Optional[Dict]:
             logger.error(f"스크래핑 오류 ({url}): {e}")
             break
     return None
+
+
+from urllib.parse import urlparse
+
+def get_source_from_url(url: str) -> str:
+    """URL 도메인을 분석하여 한국어 언론사명을 반환"""
+    domain_map = {
+        "naver.com": "네이버 뉴스",
+        "daum.net": "다음 뉴스",
+        "yonhapnewstv.co.kr": "연합뉴스TV",
+        "ytn.co.kr": "YTN",
+        "kbs.co.kr": "KBS",
+        "imbc.com": "MBC",
+        "sbs.co.kr": "SBS",
+        "jtbc.co.kr": "JTBC",
+        "hani.co.kr": "한겨레",
+        "khan.co.kr": "경향신문",
+        "chosun.com": "조선일보",
+        "joongang.co.kr": "중앙일보",
+        "joins.com": "중앙일보",
+        "donga.com": "동아일보",
+        "mk.co.kr": "매일경제",
+        "hankyung.com": "한국경제",
+    }
+    
+    try:
+        parsed = urlparse(url)
+        netloc = parsed.netloc.lower()
+        
+        for domain, name in domain_map.items():
+            if domain in netloc:
+                return name
+                
+        # 매핑되지 않은 도메인은 도메인명 자체를 가공해 반환
+        parts = netloc.split('.')
+        # www. 혹은 news. 등 서브도메인이 있을 수 있으므로 뒤에서 2개 세그먼트 활용
+        if len(parts) >= 2:
+            return f"{parts[-2]}.{parts[-1]}"
+        return netloc
+    except Exception as e:
+        logger.error(f"URL 출처 파싱 오류 ({url}): {e}")
+        return "외부 뉴스"
+
