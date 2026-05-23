@@ -17,7 +17,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from ai_analyzer import full_analysis, generate_comic_data
-from article_scraper import scrape
+from article_scraper import scrape, get_source_from_url
 from config import APP_HOST, APP_PORT
 from database import Article, SessionLocal, get_db, init_db
 from dictionary_api import enrich
@@ -147,6 +147,7 @@ async def analyze(
     include_comic: bool = False,
     db: Session = Depends(get_db),
 ):
+    # 1. 기존 분석 데이터가 있는지 확인 (캐시)
     cached_art = db.query(Article).filter(
         Article.url == article_url,
         Article.is_analyzed == True,
@@ -166,25 +167,40 @@ async def analyze(
             "comic_script":    cached_art.comic_script,
         }
 
+    # 2. 본문 및 메타데이터 스크래핑
     scraped = scrape(article_url)
     if not scraped or not scraped.get("content"):
         raise HTTPException(422, "기사 본문을 가져올 수 없습니다. 해당 언론사 사이트에서 직접 확인해 주세요.")
 
-    analysis = full_analysis(scraped["title"], scraped["content"], include_comic)
+    # 3. URL로부터 언론사(출처)명 추출
+    source_name = get_source_from_url(article_url)
 
+    # 4. AI 전체 분석 실행 (출처 정보 포함)
+    analysis = full_analysis(
+        title=scraped["title"], 
+        content=scraped["content"], 
+        include_comic=include_comic,
+        source=source_name
+    )
+
+    # 5. 어려운 용어 보완 (사전 링크 등)
     if analysis.get("difficult_terms"):
         analysis["difficult_terms"] = enrich(analysis["difficult_terms"])
 
+    # 6. DB 저장 (이미 존재하는 기사라면 업데이트, 없으면 생성)
     art = db.query(Article).filter(Article.url == article_url).first()
     if not art:
         art = Article(title=scraped["title"], url=article_url)
         db.add(art)
 
+    # 기본 정보 업데이트
+    art.source    = source_name or art.source
     art.content   = scraped.get("content", art.content)
     art.title     = scraped.get("title") or art.title
     if scraped.get("image_url"):
         art.image_url = scraped["image_url"]
 
+    # AI 분석 결과 업데이트
     cred = analysis.get("credibility", {})
     art.credibility_score  = cred.get("score")
     art.credibility_label  = cred.get("label")
@@ -195,9 +211,11 @@ async def analyze(
     art.difficult_terms    = analysis.get("difficult_terms", [])
     art.comic_script       = analysis.get("comic_script")
     art.is_analyzed        = True
+    
     db.commit()
 
     return {"cached": False, **analysis}
+
 
 
 # ─── 검색 ─────────────────────────────────────────────────────────────────────

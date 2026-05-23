@@ -103,33 +103,37 @@ def _call(prompt: str, max_retries: int = 2) -> Optional[dict]:
 
 # ── 분석 함수들 ─────
 
-def analyze_credibility(title: str, content: str) -> Dict:
+def analyze_credibility(title: str, content: str, source: Optional[str] = None) -> Dict:
     """
-    허위뉴스 신뢰도 분석
+    허위뉴스 신뢰도 분석 (외부 출처 정보 포함)
     score: 0.0~1.0  (1.0 = 매우 신뢰)
     label: '신뢰' | '주의' | '허위 의심'
     """
+    source_name = source if source else "미상(외부 뉴스)"
     prompt = f"""
 당신은 뉴스 팩트체크 전문가입니다. 아래 기사를 분석해 신뢰도를 평가하세요.
+특히 기사의 출처({source_name}) 정보를 바탕으로 해당 매체의 신뢰성을 평가 및 분석에 반영하세요.
 
+[출처] {source_name}
 [제목] {title}
 [본문] {content[:3000]}
 
 평가 기준:
-1. 출처 명확성 (인용 출처·발언자 명시 여부)
-2. 감정적·선동적 표현 여부
-3. 과장·미검증 주장 여부
-4. 사실과 의견의 혼동 여부
-5. 제목과 본문 일치 여부
+1. 사실과 의견의 구분: 기사가 객관적 사실을 전달하는지, 아니면 작성자의 주관적 의견을 담고 있는지 분석하세요.
+2. 제목과 본문의 일치성: 제목이 본문의 내용을 왜곡하거나 과장하지 않고 적절하게 반영하고 있는지 확인하세요.
+3. 과장된 표현: 자극적이거나 과장된 수식어를 사용하여 사실을 부풀리고 있는지 확인하세요.
+4. 미검증된 주장: 근거나 출처가 불분명한 주장을 포함하고 있는지 확인하세요.
+5. 감정적·선동적 표현: 독자의 감정을 자극하거나 편향된 시각을 유도하는 선동적인 언어를 사용하는지 확인하세요.
+6. 출처({source_name})의 신뢰성 검증: 해당 언론사의 보도 신뢰성 및 기존 뉴스와의 비교 결과를 판단 근거에 반영하세요.
 
 아래 JSON 형식으로만 응답:
 ```json
 {{
   "score": 0.85,
   "label": "신뢰",
-  "reason": "판단 근거 2~3문장",
+  "reason": "출처인 {source_name}의 보도 신뢰성 및 기존 뉴스와의 비교 결과를 포함하여 3~4문장으로 작성",
   "red_flags": ["의심 표현1", "의심 표현2"],
-  "summary": "기사 3줄 요약"
+  "summary": "[{source_name} 보도 요약] 기사 핵심 내용을 바탕으로 3줄 요약"
 }}
 ```
 score 범위: 0.7이상→신뢰, 0.4~0.7→주의, 0.4미만→허위 의심
@@ -139,6 +143,7 @@ score 범위: 0.7이상→신뢰, 0.4~0.7→주의, 0.4미만→허위 의심
         "score": 0.5, "label": "분석 불가",
         "reason": "AI 분석 중 오류 발생", "red_flags": [], "summary": "",
     }
+
 
 
 def extract_terms(content: str) -> List[Dict]:
@@ -223,17 +228,18 @@ def generate_comic(title: str, content: str) -> str:
 
 
 
-def full_analysis(title: str, content: str, include_comic: bool = False) -> Dict:
-    """전체 분석 통합 실행"""
-    logger.info(f"AI 분석 시작: {title[:50]}")
+def full_analysis(title: str, content: str, include_comic: bool = False, source: Optional[str] = None) -> Dict:
+    """전체 분석 통합 실행 (출처 정보 포함)"""
+    logger.info(f"AI 분석 시작: {title[:50]} (출처: {source})")
     result = {
-        "credibility":     analyze_credibility(title, content),
+        "credibility":     analyze_credibility(title, content, source),
         "key_persons":     extract_persons(title, content),
         "difficult_terms": extract_terms(content),
     }
     if include_comic:
         result["comic_script"] = generate_comic(title, content)
     return result
+
 
 # 사용할 모델을 성능 및 선호도 순으로 정렬한 리스트
 # (무료 한도가 0인 Pro 모델은 제외하고, 한도가 있는 Flash/Lite 위주로 구성)
