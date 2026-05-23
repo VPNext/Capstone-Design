@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import api from "../api";
+import LoadingModal from "../components/LoadingModal";
 
 type AnalysisStatus = "pending" | "analyzing" | "complete";
 
@@ -101,6 +102,8 @@ export default function DetailPage() {
   // [추가] 만화 생성 관련 상태
   const [isComicGenerating, setIsComicGenerating] = useState(false);
   const [comicUrls, setComicUrls] = useState<string[] | null>(null);
+  const [progress, setProgress] = useState(0);
+  const [loadingStatus, setLoadingStatus] = useState("");
 
   // 👇 여기부터 추가
   const [showPromptInput, setShowPromptInput] = useState(false);
@@ -169,18 +172,48 @@ export default function DetailPage() {
     }
   };
 
-  // [수정] 만화 생성 버튼 핸들러 (커스텀 프롬프트 지원)
+  // [수정] 만화 생성 버튼 핸들러 (커스텀 프롬프트 지원 + 로딩 프로그레스 추가)
   const handleGenerateComic = async (promptText?: string) => {
     setIsComicGenerating(true);
+    setProgress(0);
+    setLoadingStatus("만화 생성을 준비하고 있습니다...");
+
+    // Heuristic progress update (실제 진행률이 아닌 시각적 피드백용)
+    const interval = setInterval(() => {
+      setProgress((prev) => {
+        if (prev < 30) {
+          setLoadingStatus("뉴스를 분석하여 만화 시나리오를 작성하고 있습니다...");
+          return prev + 1;
+        } else if (prev < 90) {
+          setLoadingStatus("AI 이미지를 생성하고 있습니다... (약 1분 소요)");
+          return prev + 0.5; // 이미지 생성 단계는 조금 더 느리게 진행
+        } else if (prev < 98) {
+          setLoadingStatus("이미지 품질을 최적화하고 마무리 작업 중입니다...");
+          return prev + 0.1;
+        }
+        return prev;
+      });
+    }, 500);
+
     try {
       // 프롬프트가 있으면 body에 담아서 전송, 없으면 빈 객체
       const payload = promptText ? { custom_prompt: promptText } : {};
       const res = await api.post(`/api/news/${id}/comic`, payload);
 
+      setProgress(100);
+      setLoadingStatus("만화 생성 완료!");
+      
+      // 사용자에게 100% 완료 상태를 잠시 보여주기 위해 대기
+      await new Promise((resolve) => setTimeout(resolve, 800));
+      
       setComicUrls(res.data.comic_urls);
     } catch (error) {
-      alert("만화 생성 중 오류가 발생했습니다.");
+      // alert("만화 생성 중 오류가 발생했습니다.");
+      console.error("만화 생성 오류:", error);
+      setLoadingStatus("오류가 발생했습니다. 잠시 후 다시 시도해 주세요.");
+      await new Promise((resolve) => setTimeout(resolve, 2000));
     } finally {
+      clearInterval(interval);
       setIsComicGenerating(false);
     }
   };
@@ -232,6 +265,13 @@ export default function DetailPage() {
 
   return (
     <div className="mt-10 pb-20">
+      {/* 로딩 모달 추가 */}
+      <LoadingModal 
+        isOpen={isComicGenerating} 
+        progress={progress} 
+        status={loadingStatus} 
+      />
+
       {/* --- 상단: 기사 헤더 영역 --- */}
       <header className="mb-10 pb-8 border-b border-slate-200">
         <div className="flex items-center gap-3 mb-5">
