@@ -5,7 +5,7 @@ import LoadingModal from "../components/LoadingModal";
 
 type AnalysisStatus = "pending" | "analyzing" | "complete";
 
-// [사전 정의] 언론사 ID 매핑 테이블 공유
+// ─── 언론사 매핑 (원본 유지) ─────────────────────────────────────────────────
 const SOURCE_NAME_MAP: Record<string, string> = {
   hani: "한겨레",
   khan: "경향신문",
@@ -21,7 +21,22 @@ const SOURCE_NAME_MAP: Record<string, string> = {
   yonhap: "연합뉴스",
 };
 
-// [유틸] 썸네일 부재 시 본문 내장 이미지 파싱용
+const SOURCE_BADGE_CLASS: Record<string, string> = {
+  hani: "badge-hani",
+  khan: "badge-khan",
+  chosun: "badge-chosun",
+  joongang: "badge-joongang",
+  donga: "badge-donga",
+  mbc: "badge-mbc",
+  kbs: "badge-kbs",
+  sbs: "badge-sbs",
+  ytn: "badge-ytn",
+  hankyung: "badge-hankyung",
+  mk: "badge-mk",
+  yonhap: "badge-yonhap",
+};
+
+// ─── 유틸 (원본 유지) ────────────────────────────────────────────────────────
 const extractImageFromSummary = (rawString: string): string | null => {
   if (!rawString) return null;
   const txt = document.createElement("textarea");
@@ -31,20 +46,26 @@ const extractImageFromSummary = (rawString: string): string | null => {
   return imgMatch ? imgMatch[1] : null;
 };
 
-// [유틸] 개행문자 기반 텍스트 문단 분리 및 렌더링
 const renderContent = (content: string) => {
   return content
     .split("\n")
     .map((line) => line.trim())
     .filter((line) => line.length > 0)
     .map((line, i) => (
-      <p key={i} className="mb-4 leading-loose text-slate-800 text-[16px]">
+      <p
+        key={i}
+        className="mb-5 leading-loose"
+        style={{
+          color: "#2C2926",
+          fontSize: "16px",
+          fontFamily: "'Noto Sans KR', sans-serif",
+        }}
+      >
         {line}
       </p>
     ));
 };
 
-// [유틸] 스코어별 동적 CSS 클래스 할당
 const getScoreColor = (score: number) => {
   if (score >= 0.7)
     return {
@@ -61,30 +82,35 @@ const getScoreColor = (score: number) => {
   return { text: "text-red-600", bg: "bg-red-50", border: "border-red-200" };
 };
 
-// [컴포넌트] 사이드바 분석 아이템 카드
-// 리렌더링 시 스크롤 튐 현상을 방지하기 위해 DetailPage 외부로 분리했습니다.
+// ─── AnalysisCard 컴포넌트 (원본 로직 유지, 스타일만 개선) ───────────────────
 const AnalysisCard = ({
   icon,
   title,
   bg,
   border,
   textColor,
-  status, // 외부에서 status 상태를 props로 받습니다.
+  status,
   children,
 }: any) => (
   <div
-    className={`${bg} ${border} p-5 rounded-2xl border flex flex-col gap-3 shadow-sm transition-all hover:shadow-md`}
+    className={`${bg} ${border} border rounded-2xl flex flex-col gap-3 overflow-hidden`}
+    style={{ boxShadow: "0 1px 8px rgba(22,19,17,0.06)" }}
   >
-    <h3
-      className={`font-bold ${textColor} text-[15px] flex items-center gap-2 border-b ${border} pb-2`}
+    {/* 카드 헤더 */}
+    <div
+      className={`flex items-center gap-2.5 px-5 pt-5 pb-3 border-b ${border}`}
     >
-      <span>{icon}</span> {title}
-    </h3>
-    <div className="pt-1">
+      <span className="text-xl">{icon}</span>
+      <h3 className={`font-bold ${textColor} text-[14px] tracking-tight`}>
+        {title}
+      </h3>
+    </div>
+    {/* 카드 본문 */}
+    <div className="px-5 pb-5">
       {status === "complete" ? (
         children
       ) : (
-        <p className={`text-sm ${textColor} opacity-60`}>
+        <p className={`text-sm ${textColor} opacity-50`}>
           아래 버튼을 눌러 AI 분석을 실행해주세요.
         </p>
       )}
@@ -92,6 +118,7 @@ const AnalysisCard = ({
   </div>
 );
 
+// ────────────────────────────────────────────────────────────────────────────
 export default function DetailPage() {
   const { id } = useParams();
   const [news, setNews] = useState<any>(null);
@@ -99,9 +126,9 @@ export default function DetailPage() {
   const [status, setStatus] = useState<AnalysisStatus>("pending");
   const [analysisData, setAnalysisData] = useState<any>(null);
 
-  // [추가] 만화 생성 관련 상태
   const [isComicGenerating, setIsComicGenerating] = useState(false);
   const [comicUrls, setComicUrls] = useState<string[] | null>(null);
+
   const [progress, setProgress] = useState(0);
   const [loadingStatus, setLoadingStatus] = useState("");
 
@@ -109,17 +136,15 @@ export default function DetailPage() {
   const [showPromptInput, setShowPromptInput] = useState(false);
   const [customPrompt, setCustomPrompt] = useState("");
 
-  // [추가] 직접 용어 검색용 상태
   const [searchTerm, setSearchTerm] = useState("");
-  const [searchEngine, setSearchEngine] = useState("stdict"); // 기본값: 표준국어대사전
+  const [searchEngine, setSearchEngine] = useState("stdict");
 
-  // [Effect] 최초 마운트 시 기사 상세 데이터 Fetch
+  // ── 기사 상세 Fetch (원본 유지) ──
   useEffect(() => {
     const fetchNewsDetail = async () => {
       try {
         const response = await api.get(`/api/news/${id}`);
         setNews(response.data);
-        // 분석 완료 상태인 경우 데이터 세팅
         if (response.data.is_analyzed) {
           setAnalysisData({
             credibility: {
@@ -134,7 +159,6 @@ export default function DetailPage() {
           });
           setStatus("complete");
         }
-        // [추가] DB에 저장된 만화가 있다면 불러오기
         if (response.data.comic_script) {
           try {
             setComicUrls(JSON.parse(response.data.comic_script));
@@ -151,19 +175,16 @@ export default function DetailPage() {
     fetchNewsDetail();
   }, [id]);
 
-  // [API] AI 분석 요청 핸들러
+  // ── AI 분석 요청 (원본 유지) ──
   const startAnalysis = async () => {
     if (!news?.url) return;
     setStatus("analyzing");
     try {
-      // 분석 요청 후 데이터 업데이트
       const response = await api.post(
         `/api/analyze?article_url=${encodeURIComponent(news.url)}`,
       );
       setAnalysisData(response.data);
       setStatus("complete");
-
-      // 최신 상태 동기화를 위해 뉴스 원본 재조회
       const updated = await api.get(`/api/news/${id}`);
       setNews(updated.data);
     } catch (error) {
@@ -173,6 +194,7 @@ export default function DetailPage() {
   };
 
   // [수정] 만화 생성 버튼 핸들러 (커스텀 프롬프트 지원 + 로딩 프로그레스 추가)
+  // ── 만화 생성 (원본 유지) ──
   const handleGenerateComic = async (promptText?: string) => {
     setIsComicGenerating(true);
     setProgress(0);
@@ -182,7 +204,9 @@ export default function DetailPage() {
     const interval = setInterval(() => {
       setProgress((prev) => {
         if (prev < 30) {
-          setLoadingStatus("뉴스를 분석하여 만화 시나리오를 작성하고 있습니다...");
+          setLoadingStatus(
+            "뉴스를 분석하여 만화 시나리오를 작성하고 있습니다...",
+          );
           return prev + 1;
         } else if (prev < 90) {
           setLoadingStatus("AI 이미지를 생성하고 있습니다... (약 1분 소요)");
@@ -196,16 +220,15 @@ export default function DetailPage() {
     }, 500);
 
     try {
-      // 프롬프트가 있으면 body에 담아서 전송, 없으면 빈 객체
       const payload = promptText ? { custom_prompt: promptText } : {};
       const res = await api.post(`/api/news/${id}/comic`, payload);
 
       setProgress(100);
       setLoadingStatus("만화 생성 완료!");
-      
+
       // 사용자에게 100% 완료 상태를 잠시 보여주기 위해 대기
       await new Promise((resolve) => setTimeout(resolve, 800));
-      
+
       setComicUrls(res.data.comic_urls);
     } catch (error) {
       // alert("만화 생성 중 오류가 발생했습니다.");
@@ -218,36 +241,53 @@ export default function DetailPage() {
     }
   };
 
-  // [로직] 추가 용어 검색 핸들러
+  // ── 용어 검색 (원본 유지) ──
   const handleTermSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (!searchTerm.trim()) return;
-
     let url = "";
     if (searchEngine === "stdict") {
-      // 국립국어원 표준국어대사전
       url = `https://stdict.korean.go.kr/search/searchResult.do?pageSize=10&searchKeyword=${encodeURIComponent(searchTerm)}`;
     } else if (searchEngine === "opendict") {
-      // 우리말샘
       url = `https://opendict.korean.go.kr/search/searchResult?query=${encodeURIComponent(searchTerm)}`;
     } else if (searchEngine === "google") {
-      // 구글
       url = `https://www.google.com/search?q=${encodeURIComponent(searchTerm)}`;
     }
     window.open(url, "_blank");
   };
 
-  // [UI] 예외 처리
+  // ─── 로딩 / 오류 상태 ────────────────────────────────────────────────────
   if (loading)
     return (
-      <div className="mt-32 text-center text-slate-500 animate-pulse text-lg font-medium">
-        기사를 불러오는 중입니다...
+      <div
+        className="mt-32 flex flex-col items-center gap-4"
+        style={{ color: "#9C9891", fontFamily: "'Noto Sans KR', sans-serif" }}
+      >
+        <div
+          className="w-10 h-10 rounded-full border-2 animate-spin"
+          style={{ borderColor: "#E4DDD3", borderTopColor: "#C13026" }}
+        />
+        <p className="text-lg font-bold animate-pulse">
+          기사를 불러오는 중입니다...
+        </p>
       </div>
     );
+
   if (!news)
     return (
-      <div className="mt-32 text-center text-slate-600">
-        기사를 찾을 수 없습니다.
+      <div
+        className="mt-32 text-center"
+        style={{ color: "#5C5853", fontFamily: "'Noto Sans KR', sans-serif" }}
+      >
+        <p className="text-5xl mb-4">📰</p>
+        <p className="text-lg font-bold">기사를 찾을 수 없습니다.</p>
+        <Link
+          to="/"
+          className="mt-4 inline-block text-sm font-bold"
+          style={{ color: "#C13026" }}
+        >
+          ← 목록으로 돌아가기
+        </Link>
       </div>
     );
 
@@ -263,114 +303,227 @@ export default function DetailPage() {
           border: "border-slate-200",
         };
 
+  const sourceKey = news.source?.toLowerCase();
+  const sourceName =
+    SOURCE_NAME_MAP[sourceKey] || news.source?.toUpperCase() || "알 수 없음";
+  const badgeClass = SOURCE_BADGE_CLASS[sourceKey] || "badge-default";
+
+  // ─────────────────────────────────────────────────────────────────────────
   return (
-    <div className="mt-10 pb-20">
-      {/* 로딩 모달 추가 */}
-      <LoadingModal 
-        isOpen={isComicGenerating} 
-        progress={progress} 
-        status={loadingStatus} 
+    <div
+      className="mt-8 pb-20"
+      style={{ fontFamily: "'Noto Sans KR', sans-serif" }}
+    >
+      <LoadingModal
+        isOpen={isComicGenerating}
+        progress={progress}
+        status={loadingStatus}
       />
 
-      {/* --- 상단: 기사 헤더 영역 --- */}
-      <header className="mb-10 pb-8 border-b border-slate-200">
-        <div className="flex items-center gap-3 mb-5">
-          {/* [로직] 매핑 테이블 통한 언론사 이름 출력 */}
-          <span className="bg-slate-800 text-white text-xs font-bold px-3 py-1.5 rounded-md tracking-wider">
-            {SOURCE_NAME_MAP[news.source?.toLowerCase()] ||
-              news.source?.toUpperCase() ||
-              "알 수 없음"}
+      {/* ─── 뒤로가기 ────────────────────────────────────────────── */}
+      <Link
+        to="/"
+        className="inline-flex items-center gap-1.5 text-sm font-bold mb-6 transition-colors duration-200"
+        style={{ color: "#9C9891" }}
+        onMouseEnter={(e) =>
+          ((e.currentTarget as HTMLElement).style.color = "#161311")
+        }
+        onMouseLeave={(e) =>
+          ((e.currentTarget as HTMLElement).style.color = "#9C9891")
+        }
+      >
+        <svg
+          className="w-4 h-4"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2.5}
+            d="M15 19l-7-7 7-7"
+          />
+        </svg>
+        목록으로
+      </Link>
+
+      {/* ─── 기사 헤더 ───────────────────────────────────────────── */}
+      <header className="mb-10">
+        {/* 언론사 + 날짜 */}
+        <div className="flex items-center flex-wrap gap-3 mb-5">
+          <span
+            className={`${badgeClass} text-xs font-black px-3.5 py-1.5 rounded-full`}
+          >
+            {sourceName}
           </span>
-          <span className="text-slate-500 text-sm font-medium">
+          <span className="text-sm font-medium" style={{ color: "#9C9891" }}>
             {news.published_at?.split("T")[0]}
           </span>
         </div>
-        <h1 className="text-3xl md:text-4xl lg:text-5xl font-black text-slate-900 tracking-tight leading-[1.3] mb-6">
+
+        {/* 제목 */}
+        <h1
+          className="font-black leading-snug mb-6"
+          style={{
+            fontFamily: "'Noto Serif KR', serif",
+            fontSize: "clamp(24px, 4vw, 42px)",
+            color: "#161311",
+            lineHeight: 1.35,
+          }}
+        >
           {news.title}
         </h1>
-        <a
-          href={news.url}
-          target="_blank"
-          rel="noreferrer"
-          className="inline-flex items-center gap-1.5 text-sky-600 font-semibold hover:text-sky-800 hover:underline transition-colors"
+
+        {/* 원문 링크 */}
+        <div
+          className="flex items-center flex-wrap gap-4 pb-6"
+          style={{ borderBottom: "1px solid #E4DDD3" }}
         >
-          기사 원문 사이트에서 보기
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-            strokeWidth={2.5}
-            stroke="currentColor"
-            className="w-4 h-4"
+          <a
+            href={news.url}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1.5 text-sm font-bold transition-colors duration-200"
+            style={{ color: "#1A55A8" }}
+            onMouseEnter={(e) =>
+              ((e.currentTarget as HTMLElement).style.color = "#C13026")
+            }
+            onMouseLeave={(e) =>
+              ((e.currentTarget as HTMLElement).style.color = "#1A55A8")
+            }
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="m4.5 19.5 15-15m0 0H8.25m11.25 0v11.25"
-            />
-          </svg>
-        </a>
-        <span className="text-sm text-slate-500 ml-4">
-          출처:{" "}
-          {SOURCE_NAME_MAP[news.source?.toLowerCase()] ||
-            news.source?.toUpperCase() ||
-            "알 수 없음"}
-        </span>
+            기사 원문 사이트에서 보기
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={2.5}
+              stroke="currentColor"
+              className="w-4 h-4"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="m4.5 19.5 15-15m0 0H8.25m11.25 0v11.25"
+              />
+            </svg>
+          </a>
+          <span className="text-sm" style={{ color: "#9C9891" }}>
+            출처: {sourceName}
+          </span>
+        </div>
       </header>
 
-      {/* --- 하단: 2단 분할 레이아웃 --- */}
-      <div className="flex flex-col lg:flex-row gap-12 relative">
-        {/* 본문 컨텐츠 (좌측) */}
+      {/* ─── 2단 레이아웃 ─────────────────────────────────────────── */}
+      <div className="flex flex-col lg:flex-row gap-10 relative">
+        {/* ── 본문 (좌측) ── */}
         <article className="flex-1 min-w-0">
+          {/* 메인 이미지 */}
           {finalImage && (
-            <figure className="mb-10 rounded-2xl overflow-hidden bg-slate-50 border border-slate-100 flex justify-center shadow-sm">
+            <figure
+              className="mb-8 rounded-2xl overflow-hidden"
+              style={{
+                border: "1px solid #E4DDD3",
+                boxShadow: "0 4px 20px rgba(22,19,17,0.08)",
+              }}
+            >
               <img
                 src={finalImage}
                 alt="뉴스 메인 사진"
-                className="w-full max-h-[500px] object-cover"
+                className="w-full max-h-[520px] object-cover"
               />
             </figure>
           )}
 
+          {/* AI 3줄 요약 */}
           {aiSummary && (
-            <div className="mb-8 p-5 bg-sky-50 border border-sky-200 rounded-2xl">
-              <p className="text-xs font-bold text-sky-600 mb-2 flex items-center gap-1.5">
+            <div
+              className="mb-8 p-5 rounded-2xl"
+              style={{ background: "#EFF6FF", border: "1px solid #BFDBFE" }}
+            >
+              <p
+                className="text-[11px] font-black uppercase tracking-widest mb-2.5 flex items-center gap-1.5"
+                style={{ color: "#1A55A8" }}
+              >
                 <span>✨</span> AI 3줄 요약
               </p>
-              <p className="text-[15px] text-slate-700 leading-relaxed">
+              <p
+                className="text-[15px] leading-relaxed"
+                style={{ color: "#1E3A5F" }}
+              >
                 {aiSummary}
               </p>
             </div>
           )}
 
-          <div className="max-w-none">
+          {/* 기사 본문 */}
+          <div>
             {news.content ? (
               <div>{renderContent(news.content)}</div>
             ) : (
-              <div className="bg-sky-50/50 border border-sky-100 rounded-2xl p-12 text-center flex flex-col items-center gap-4">
+              <div
+                className="rounded-2xl p-12 text-center flex flex-col items-center gap-4"
+                style={{ background: "#F0F9FF", border: "1px solid #BAE6FD" }}
+              >
                 <div className="text-4xl">✨</div>
-                <h3 className="text-xl font-bold text-slate-800">
+                <h3 className="text-xl font-bold" style={{ color: "#161311" }}>
                   본문이 아직 수집되지 않았습니다
                 </h3>
-                <p className="text-slate-600">
+                <p style={{ color: "#5C5853" }}>
                   아래 버튼을 눌러 본문을 가져오고 AI 분석을 시작하세요.
                 </p>
               </div>
             )}
           </div>
 
-          {/* 분석 트리거 버튼 */}
-          <div className="mt-12 pt-10 border-t border-slate-100">
+          {/* ─── AI 분석 트리거 버튼 ── */}
+          <div
+            className="mt-12 pt-8"
+            style={{ borderTop: "1px solid #E4DDD3" }}
+          >
             <button
               onClick={startAnalysis}
               disabled={status !== "pending"}
-              className={`w-full py-5 rounded-2xl text-lg font-black shadow-lg transition-all flex items-center justify-center gap-3 ${
+              className="w-full py-5 rounded-2xl text-[17px] font-black flex items-center justify-center gap-3 transition-all duration-300"
+              style={
                 status === "analyzing"
-                  ? "bg-slate-200 text-slate-500 cursor-not-allowed"
+                  ? {
+                      background: "#F3F0EB",
+                      color: "#9C9891",
+                      cursor: "not-allowed",
+                    }
                   : status === "complete"
-                    ? "bg-emerald-50 text-emerald-600 border border-emerald-200 cursor-default"
-                    : "bg-slate-900 hover:bg-sky-600 text-white hover:-translate-y-1 hover:shadow-xl"
-              }`}
+                    ? {
+                        background: "#ECFDF5",
+                        color: "#065F46",
+                        border: "1px solid #A7F3D0",
+                        cursor: "default",
+                      }
+                    : {
+                        background: "#161311",
+                        color: "#fff",
+                        boxShadow: "0 4px 20px rgba(22,19,17,0.2)",
+                      }
+              }
+              onMouseEnter={(e) => {
+                if (status === "pending") {
+                  (e.currentTarget as HTMLElement).style.background = "#C13026";
+                  (e.currentTarget as HTMLElement).style.boxShadow =
+                    "0 8px 32px rgba(193,48,38,0.3)";
+                  (e.currentTarget as HTMLElement).style.transform =
+                    "translateY(-2px)";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (status === "pending") {
+                  (e.currentTarget as HTMLElement).style.background = "#161311";
+                  (e.currentTarget as HTMLElement).style.boxShadow =
+                    "0 4px 20px rgba(22,19,17,0.2)";
+                  (e.currentTarget as HTMLElement).style.transform =
+                    "translateY(0)";
+                }
+              }}
             >
               {status === "analyzing" && (
                 <span className="animate-spin text-2xl">⏳</span>
@@ -385,58 +538,146 @@ export default function DetailPage() {
             </button>
           </div>
 
-          {/* [추가] 분석 완료 시 노출되는 AI 만화 생성/보기 섹션 */}
+          {/* ─── AI 만화 생성 섹션 ── */}
           {status === "complete" && (
-            <div className="mt-8 p-8 bg-purple-50 border border-purple-100 rounded-3xl text-center flex flex-col items-center gap-4 shadow-sm">
-              <h3 className="text-xl font-black text-purple-900 flex items-center gap-2">
-                🎨 AI 뉴스 4컷 만화
-              </h3>
-              <p className="text-purple-700 text-sm mb-2">
-                이 기사의 핵심 내용을 AI가 만화로 그려줍니다.
-              </p>
+            <div
+              className="mt-8 p-8 rounded-3xl text-center flex flex-col items-center gap-4"
+              style={{
+                background: "#FAF5FF",
+                border: "1px solid #E9D5FF",
+                boxShadow: "0 2px 12px rgba(109,40,217,0.08)",
+              }}
+            >
+              <div>
+                <h3
+                  className="text-xl font-black mb-1 flex items-center justify-center gap-2"
+                  style={{ color: "#4C1D95" }}
+                >
+                  🎨 AI 뉴스 4컷 만화
+                </h3>
+                <p className="text-sm" style={{ color: "#6D28D9" }}>
+                  이 기사의 핵심 내용을 AI가 만화로 그려줍니다.
+                </p>
+              </div>
 
               {comicUrls ? (
-                // 만화가 이미 생성되어 DB에 저장된 경우
                 <Link
                   to={`/cartoons?newsId=${id}`}
-                  className="px-8 py-3.5 bg-purple-600 hover:bg-purple-700 text-white text-lg font-bold rounded-2xl transition-all shadow-md hover:-translate-y-1"
+                  className="px-8 py-3.5 text-lg font-black rounded-2xl transition-all duration-200"
+                  style={{
+                    background: "#7C3AED",
+                    color: "#fff",
+                    boxShadow: "0 4px 16px rgba(124,58,237,0.3)",
+                  }}
+                  onMouseEnter={(e) => {
+                    (e.currentTarget as HTMLElement).style.background =
+                      "#6D28D9";
+                    (e.currentTarget as HTMLElement).style.transform =
+                      "translateY(-2px)";
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.currentTarget as HTMLElement).style.background =
+                      "#7C3AED";
+                    (e.currentTarget as HTMLElement).style.transform =
+                      "translateY(0)";
+                  }}
                 >
                   보러가기 (AI 만화 모음집)
                 </Link>
               ) : (
-                // [수정] 만화를 새로 생성해야 하는 경우 (입력창 + 2개 버튼 UI)
                 <div className="w-full flex flex-col gap-4 mt-2">
                   {!showPromptInput ? (
                     <div className="flex flex-col sm:flex-row justify-center gap-3">
                       <button
                         onClick={() => handleGenerateComic()}
                         disabled={isComicGenerating}
-                        className="px-6 py-3.5 bg-slate-900 text-white text-lg font-bold rounded-2xl shadow-md hover:-translate-y-1 hover:bg-purple-600 transition-all disabled:opacity-50"
+                        className="px-6 py-3.5 text-lg font-black rounded-2xl transition-all duration-200 disabled:opacity-50"
+                        style={{
+                          background: "#161311",
+                          color: "#fff",
+                          boxShadow: "0 2px 12px rgba(22,19,17,0.2)",
+                        }}
+                        onMouseEnter={(e) => {
+                          if (!isComicGenerating) {
+                            (e.currentTarget as HTMLElement).style.background =
+                              "#7C3AED";
+                            (e.currentTarget as HTMLElement).style.transform =
+                              "translateY(-2px)";
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          (e.currentTarget as HTMLElement).style.background =
+                            "#161311";
+                          (e.currentTarget as HTMLElement).style.transform =
+                            "translateY(0)";
+                        }}
                       >
                         {isComicGenerating ? "생성 중... ⏳" : "AI 자동 생성"}
                       </button>
                       <button
                         onClick={() => setShowPromptInput(true)}
                         disabled={isComicGenerating}
-                        className="px-6 py-3.5 bg-white text-purple-900 border-2 border-purple-200 text-lg font-bold rounded-2xl shadow-sm hover:-translate-y-1 hover:border-purple-400 transition-all disabled:opacity-50"
+                        className="px-6 py-3.5 text-lg font-black rounded-2xl transition-all duration-200 disabled:opacity-50"
+                        style={{
+                          background: "#fff",
+                          color: "#4C1D95",
+                          border: "2px solid #C4B5FD",
+                          boxShadow: "0 1px 6px rgba(109,40,217,0.1)",
+                        }}
+                        onMouseEnter={(e) => {
+                          if (!isComicGenerating) {
+                            (e.currentTarget as HTMLElement).style.borderColor =
+                              "#7C3AED";
+                            (e.currentTarget as HTMLElement).style.transform =
+                              "translateY(-2px)";
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          (e.currentTarget as HTMLElement).style.borderColor =
+                            "#C4B5FD";
+                          (e.currentTarget as HTMLElement).style.transform =
+                            "translateY(0)";
+                        }}
                       >
                         직접 디렉팅
                       </button>
                     </div>
                   ) : (
-                    <div className="flex flex-col gap-3 w-full animate-in fade-in slide-in-from-top-2 duration-300">
+                    <div className="flex flex-col gap-3 w-full">
                       <textarea
                         value={customPrompt}
                         onChange={(e) => setCustomPrompt(e.target.value)}
                         placeholder="예: 주인공을 고양이로 그려줘, 배경을 우주로 해줘..."
-                        className="w-full h-24 p-4 rounded-xl border-2 border-purple-200 focus:outline-none focus:ring-4 focus:ring-purple-300 resize-none font-medium text-slate-700"
+                        className="w-full h-24 p-4 rounded-xl resize-none font-medium outline-none transition-all"
+                        style={{
+                          border: "2px solid #C4B5FD",
+                          color: "#161311",
+                          background: "#fff",
+                        }}
+                        onFocus={(e) =>
+                          ((e.currentTarget as HTMLElement).style.borderColor =
+                            "#7C3AED")
+                        }
+                        onBlur={(e) =>
+                          ((e.currentTarget as HTMLElement).style.borderColor =
+                            "#C4B5FD")
+                        }
                         disabled={isComicGenerating}
                       />
                       <div className="flex justify-end gap-3">
                         <button
                           onClick={() => setShowPromptInput(false)}
                           disabled={isComicGenerating}
-                          className="px-4 py-2 text-slate-500 font-bold hover:text-slate-800 transition-colors"
+                          className="px-4 py-2 font-bold transition-colors duration-200"
+                          style={{ color: "#9C9891" }}
+                          onMouseEnter={(e) =>
+                            ((e.currentTarget as HTMLElement).style.color =
+                              "#161311")
+                          }
+                          onMouseLeave={(e) =>
+                            ((e.currentTarget as HTMLElement).style.color =
+                              "#9C9891")
+                          }
                         >
                           취소
                         </button>
@@ -446,7 +687,30 @@ export default function DetailPage() {
                             isComicGenerating ||
                             customPrompt.trim().length === 0
                           }
-                          className="px-6 py-2 bg-purple-600 text-white font-bold rounded-xl shadow-md hover:-translate-y-1 hover:bg-purple-700 transition-all disabled:opacity-50"
+                          className="px-6 py-2 font-black rounded-xl transition-all duration-200 disabled:opacity-50"
+                          style={{
+                            background: "#7C3AED",
+                            color: "#fff",
+                            boxShadow: "0 2px 12px rgba(124,58,237,0.25)",
+                          }}
+                          onMouseEnter={(e) => {
+                            if (
+                              !isComicGenerating &&
+                              customPrompt.trim().length > 0
+                            ) {
+                              (
+                                e.currentTarget as HTMLElement
+                              ).style.background = "#6D28D9";
+                              (e.currentTarget as HTMLElement).style.transform =
+                                "translateY(-1px)";
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            (e.currentTarget as HTMLElement).style.background =
+                              "#7C3AED";
+                            (e.currentTarget as HTMLElement).style.transform =
+                              "translateY(0)";
+                          }}
                         >
                           {isComicGenerating
                             ? "생성 중... ⏳"
@@ -461,31 +725,47 @@ export default function DetailPage() {
           )}
         </article>
 
-        {/* 사이드바 (우측 고정) */}
-        <aside className="w-full lg:w-[380px] shrink-0">
-          <div className="sticky top-24 flex flex-col gap-5">
-            <div className="bg-slate-900 text-white p-5 rounded-2xl shadow-md">
-              <h2 className="text-lg font-bold flex items-center gap-2">
+        {/* ── 사이드바 (우측) ── */}
+        <aside className="w-full lg:w-[360px] shrink-0">
+          <div className="sticky top-24 flex flex-col gap-4">
+            {/* 사이드바 헤더 */}
+            <div
+              className="p-5 rounded-2xl"
+              style={{
+                background: "#161311",
+                boxShadow: "0 4px 20px rgba(22,19,17,0.2)",
+              }}
+            >
+              <h2 className="text-[15px] font-bold text-white flex items-center gap-2.5">
                 🤖 AI 나침반 리포트
               </h2>
-              <p className="text-sm text-slate-300 mt-1">
+              <p
+                className="text-xs mt-1"
+                style={{ color: "rgba(255,255,255,0.45)" }}
+              >
                 AI가 분석한 기사 신뢰도 및 핵심 정보입니다.
               </p>
             </div>
 
-            {/* 신뢰도 점수 패널 */}
+            {/* ── 신뢰도 점수 패널 ── */}
             <div
-              className={`${scoreColor.bg} ${scoreColor.border} p-5 rounded-2xl border flex flex-col gap-3 shadow-sm transition-all hover:shadow-md`}
+              className={`${scoreColor.bg} ${scoreColor.border} border rounded-2xl overflow-hidden`}
+              style={{ boxShadow: "0 1px 8px rgba(22,19,17,0.06)" }}
             >
-              <h3
-                className={`font-bold ${scoreColor.text} text-[15px] flex items-center gap-2 border-b ${scoreColor.border} pb-2`}
+              <div
+                className={`flex items-center gap-2.5 px-5 pt-5 pb-3 border-b ${scoreColor.border}`}
               >
-                <span>🔍</span> 기사 신뢰도 분석
-              </h3>
-              <div className="pt-1">
+                <span className="text-xl">🔍</span>
+                <h3
+                  className={`font-bold ${scoreColor.text} text-[14px] tracking-tight`}
+                >
+                  기사 신뢰도 분석
+                </h3>
+              </div>
+              <div className="px-5 pb-5 pt-4">
                 {status === "complete" && analysisData?.credibility ? (
                   <>
-                    <div className="flex items-end gap-3 mb-3">
+                    <div className="flex items-end gap-3 mb-4">
                       <span
                         className={`text-5xl font-black ${scoreColor.text} tracking-tighter`}
                       >
@@ -493,27 +773,31 @@ export default function DetailPage() {
                           ? `${(analysisData.credibility.score * 100).toFixed(0)}`
                           : "-"}
                       </span>
-                      <div className="flex flex-col mb-1">
+                      <div className="flex flex-col mb-1.5">
                         <span
                           className={`text-xl font-bold ${scoreColor.text}`}
                         >
                           %
                         </span>
                         <span
-                          className={`text-xs font-bold px-2 py-0.5 rounded-full ${scoreColor.bg} ${scoreColor.text} border ${scoreColor.border}`}
+                          className={`text-xs font-bold px-2.5 py-1 rounded-full ${scoreColor.bg} ${scoreColor.text} border ${scoreColor.border}`}
                         >
                           {analysisData.credibility.label || "분석 중"}
                         </span>
                       </div>
                     </div>
                     <p
-                      className={`text-[14px] leading-relaxed font-medium bg-white/60 p-3 rounded-lg ${scoreColor.text} mb-3`}
+                      className={`text-[14px] leading-relaxed font-medium p-3 rounded-xl ${scoreColor.text} mb-3`}
+                      style={{ background: "rgba(255,255,255,0.6)" }}
                     >
                       {analysisData.credibility.reason}
                     </p>
                     {analysisData.credibility.red_flags?.length > 0 && (
                       <div>
-                        <p className="text-xs font-bold text-slate-500 mb-1.5">
+                        <p
+                          className="text-xs font-bold mb-1.5"
+                          style={{ color: "#5C5853" }}
+                        >
                           ⚠️ 주의 표현
                         </p>
                         <ul className="flex flex-wrap gap-1.5">
@@ -521,7 +805,12 @@ export default function DetailPage() {
                             (flag: string, i: number) => (
                               <li
                                 key={i}
-                                className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full border border-red-200"
+                                className="text-xs px-2 py-0.5 rounded-full border"
+                                style={{
+                                  background: "#FEF2F2",
+                                  color: "#991B1B",
+                                  borderColor: "#FECACA",
+                                }}
                               >
                                 {flag}
                               </li>
@@ -532,31 +821,43 @@ export default function DetailPage() {
                     )}
                     {analysisData.credibility.summary && (
                       <div className="mt-3">
-                        <p className="text-xs font-bold text-slate-500 mb-1.5">
+                        <p
+                          className="text-xs font-bold mb-1.5"
+                          style={{ color: "#5C5853" }}
+                        >
                           📝 3줄 요약
                         </p>
-                        <p className="text-[13px] text-slate-700 leading-relaxed bg-white/60 p-3 rounded-lg">
+                        <p
+                          className="text-[13px] leading-relaxed p-3 rounded-xl"
+                          style={{
+                            color: "#2C2926",
+                            background: "rgba(255,255,255,0.6)",
+                          }}
+                        >
                           {analysisData.credibility.summary}
                         </p>
                       </div>
                     )}
                   </>
                 ) : (
-                  <p className="text-sm text-slate-400 opacity-60">
+                  <p
+                    className="text-sm opacity-50"
+                    style={{ color: "#5C5853" }}
+                  >
                     AI 분석을 실행해주세요.
                   </p>
                 )}
               </div>
             </div>
 
-            {/* [Feature] 어려운 용어 국립국어원-우리말샘 연동 */}
+            {/* ── 용어 풀이 ── */}
             <AnalysisCard
               icon="📖"
               title="용어 풀이"
               bg="bg-sky-50/80"
               border="border-sky-100"
               textColor="text-sky-900"
-              status={status} // 추가된 status props
+              status={status}
             >
               {analysisData?.difficult_terms?.length > 0 ? (
                 <ul className="text-[14px] space-y-4">
@@ -602,7 +903,7 @@ export default function DetailPage() {
                 </p>
               )}
 
-              {/* [추가] 수동 용어 검색 UI */}
+              {/* 수동 용어 검색 UI */}
               <div className="mt-5 pt-4 border-t border-sky-200/60">
                 <form
                   onSubmit={handleTermSearch}
@@ -641,14 +942,14 @@ export default function DetailPage() {
               </div>
             </AnalysisCard>
 
-            {/* 핵심 인물 패널 */}
+            {/* ── 핵심 인물 ── */}
             <AnalysisCard
               icon="👤"
               title="핵심 인물 프로필"
               bg="bg-emerald-50/80"
               border="border-emerald-100"
               textColor="text-emerald-900"
-              status={status} // 추가된 status props
+              status={status}
             >
               {analysisData?.key_persons?.length > 0 ? (
                 <ul className="text-[14px] space-y-4">
@@ -679,7 +980,6 @@ export default function DetailPage() {
                           />
                         </svg>
                       </a>
-
                       {person.role && (
                         <span className="text-xs text-emerald-600 font-semibold block mb-0.5">
                           {person.role}
