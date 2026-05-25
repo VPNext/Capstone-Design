@@ -1,7 +1,7 @@
 """
 뉴스 정보 나침반 - FastAPI 백엔드
 """
-
+import sys
 import asyncio
 import logging
 import re
@@ -11,10 +11,13 @@ import json
 import os
 import httpx
 
+
+
 from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+
 
 from ai_analyzer import full_analysis, generate_comic_data
 from article_scraper import scrape, get_source_from_url
@@ -23,6 +26,10 @@ from database import Article, SessionLocal, get_db, init_db
 from dictionary_api import enrich
 from rss_crawler import crawl_all
 import urllib.parse
+
+# Windows 환경일 경우 aiodns 충돌 방지를 위해 SelectorEventLoop 정책 설정
+if sys.platform == 'win32':
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)

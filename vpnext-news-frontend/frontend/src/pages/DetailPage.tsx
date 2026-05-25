@@ -175,13 +175,22 @@ export default function DetailPage() {
     fetchNewsDetail();
   }, [id]);
 
-  // ── AI 분석 요청 (원본 유지) ──
+  // ── AI 분석 요청 (출처 파라미터 추가) ──
   const startAnalysis = async () => {
     if (!news?.url) return;
     setStatus("analyzing");
+
+    // 💡 백엔드에 넘겨줄 현재 기사의 언론사 이름 추출
+    const sourceKey = news?.source?.toLowerCase();
+    const currentSourceName =
+      SOURCE_NAME_MAP[sourceKey] ||
+      news?.source?.toUpperCase() ||
+      "미상(외부 뉴스)";
+
     try {
+      // 💡 API URL에 source 파라미터 추가
       const response = await api.post(
-        `/api/analyze?article_url=${encodeURIComponent(news.url)}`,
+        `/api/analyze?article_url=${encodeURIComponent(news.url)}&source=${encodeURIComponent(currentSourceName)}`,
       );
       setAnalysisData(response.data);
       setStatus("complete");
