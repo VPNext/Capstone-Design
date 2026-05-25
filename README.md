@@ -36,13 +36,16 @@ news-compass/
 │
 └── frontend/                 ← React + TypeScript + Tailwind CSS
     ├── src/
-    │   ├── App.tsx            ← 라우터 설정
-    │   ├── api.ts             ← axios 기본 설정 (백엔드 URL)
+    │   ├── App.tsx              ← 라우터 설정
+    │   ├── api.ts               ← axios 기본 설정 (백엔드 URL)
     │   ├── components/
-    │   │   └── Header.tsx     ← 상단 헤더 · 검색창
+    │   │   ├── Header.tsx       ← 상단 헤더 · 검색창
+    │   │   └── LoadingModal.tsx ← 로딩 모달
     │   └── pages/
-    │       ├── MainPage.tsx   ← 뉴스 목록 화면
-    │       └── DetailPage.tsx ← 뉴스 상세 + AI 분석 화면
+    │       ├── MainPage.tsx         ← 뉴스 목록 화면
+    │       ├── DetailPage.tsx       ← 뉴스 상세 + AI 분석 화면
+    │       ├── AnalyzedNewsPage.tsx ← AI 분석 뉴스 페이지
+    │       └── CartoonsPage.tsx     ← 만화 뉴스 페이지
     └── package.json
 ```
 
@@ -326,21 +329,25 @@ npm install
 
 ## 🗂️ 파일별 역할 요약
 
-| 파일                 | 역할                                                              |
-| -------------------- | ----------------------------------------------------------------- |
-| `main.py`            | FastAPI 서버 · 전체 API 엔드포인트 관리                           |
-| `config.py`          | 환경변수 로드 · RSS 피드 URL 목록                                 |
-| `database.py`        | SQLite 테이블 정의 · DB 세션 관리                                 |
-| `models.py`          | API 요청/응답 데이터 타입 (Pydantic)                              |
-| `rss_crawler.py`     | RSS XML 파싱 → 기사 목록 추출                                     |
-| `article_scraper.py` | 기사 URL → 본문·제목·이미지 스크래핑                              |
-| `ai_analyzer.py`     | Groq AI · 신뢰도·용어·인물 분석, Gemini AI 만화생성 시나리오 생성 |
-| `dictionary_api.py`  | 국립국어원 API로 용어 설명 보완                                   |
-| `scheduler.py`       | 별도 프로세스로 주기적 자동 크롤링                                |
-| `App.tsx`            | React 라우터 설정 (메인/상세 페이지)                              |
-| `Header.tsx`         | 상단 헤더 · 검색창                                                |
-| `MainPage.tsx`       | 뉴스 목록 · AI 요약 미리보기                                      |
-| `DetailPage.tsx`     | 기사 본문 · AI 분석 사이드바                                      |
+| 파일                   | 역할                                                              |
+| ---------------------- | ----------------------------------------------------------------- |
+| `main.py`              | FastAPI 서버 · 전체 API 엔드포인트 관리                           |
+| `config.py`            | 환경변수 로드 · RSS 피드 URL 목록                                 |
+| `database.py`          | SQLite 테이블 정의 · DB 세션 관리                                 |
+| `models.py`            | API 요청/응답 데이터 타입 (Pydantic)                              |
+| `rss_crawler.py`       | RSS XML 파싱 → 기사 목록 추출                                     |
+| `article_scraper.py`   | 기사 URL → 본문·제목·이미지 스크래핑                              |
+| `ai_analyzer.py`       | Groq AI · 신뢰도·용어·인물 분석, Gemini AI 만화생성 시나리오 생성 |
+| `dictionary_api.py`    | 국립국어원 API로 용어 설명 보완                                   |
+| `scheduler.py`         | 별도 프로세스로 주기적 자동 크롤링                                |
+| `App.tsx`              | React 라우터 설정 (메인/상세/AI분석/만화 페이지)                  |
+| `api.ts`               | Axios 기본 설정 (백엔드 URL 통신)                                 |
+| `Header.tsx`           | 상단 헤더 · 검색창                                                |
+| `LoadingModal.tsx`     | 글로벌 로딩 상태 표시 모달                                        |
+| `MainPage.tsx`         | 뉴스 목록 · AI 요약 미리보기                                      |
+| `DetailPage.tsx`       | 기사 본문 · AI 분석 사이드바 · 만화 생성 기능                     |
+| `AnalyzedNewsPage.tsx` | AI 분석 완료 기사 모아보기 화면                                   |
+| `CartoonsPage.tsx`     | AI 생성 만화 뉴스 모아보기 화면                                   |
 
 ---
 
@@ -351,6 +358,7 @@ npm install
 - `FastAPI` — Python 웹 프레임워크
 - `SQLAlchemy` + `SQLite` — 데이터베이스
 - `Groq SDK` (llama-3.3-70b) — AI 분석
+- `Gemini API` (`google-genai`) — AI 만화 생성 시나리오 및 프롬프트 작성
 - `feedparser` — RSS 파싱
 - `BeautifulSoup4` + `lxml` — HTML 스크래핑
 
