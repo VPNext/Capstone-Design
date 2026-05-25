@@ -4,14 +4,15 @@ import MainPage from "./pages/MainPage";
 import DetailPage from "./pages/DetailPage";
 import CartoonsPage from "./pages/CartoonsPage";
 import AnalyzedNewsPage from "./pages/AnalyzedNewsPage";
+import "./App.css";
 
 function App() {
   return (
     <BrowserRouter>
       <div
-        className="min-h-screen pb-20"
+        className="min-h-screen pb-24"
         style={{
-          background: "#F7F4EF",
+          background: "var(--paper)",
           fontFamily: "'Noto Sans KR', sans-serif",
         }}
       >

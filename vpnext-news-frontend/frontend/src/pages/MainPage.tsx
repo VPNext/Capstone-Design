@@ -2,7 +2,7 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import api from "../api";
 
-// ─── 언론사 매핑 ────────────────────────────────────────────────────────────
+// ─── 언론사 매핑 ─────────────────────────────────────────────────────────────
 const SOURCE_NAME_MAP: Record<string, string> = {
   hani: "한겨레",
   khan: "경향신문",
@@ -18,7 +18,6 @@ const SOURCE_NAME_MAP: Record<string, string> = {
   yonhap: "연합뉴스",
 };
 
-// ─── 언론사별 배지 색상 (CSS class 활용) ────────────────────────────────────
 const SOURCE_BADGE_CLASS: Record<string, string> = {
   hani: "badge-hani",
   khan: "badge-khan",
@@ -81,12 +80,7 @@ const HighlightText = ({
     <>
       {parts.map((part, index) =>
         part.toLowerCase() === keyword.toLowerCase() ? (
-          <mark
-            key={index}
-            className="bg-amber-300 text-slate-900 rounded-sm px-0.5 font-bold"
-          >
-            {part}
-          </mark>
+          <mark key={index}>{part}</mark>
         ) : (
           part
         ),
@@ -127,13 +121,14 @@ const CredibilityBadge = ({
 // ─── 상수 ────────────────────────────────────────────────────────────────────
 const SOURCES = ["전체", ...Object.values(SOURCE_NAME_MAP)];
 
-// ─── 스켈레톤 카드 ────────────────────────────────────────────────────────────
+// ─── 스켈레톤 ────────────────────────────────────────────────────────────────
 const SkeletonCard = ({ featured = false }: { featured?: boolean }) => (
   <div
-    className="bg-white rounded-2xl overflow-hidden border"
+    className="bg-white overflow-hidden"
     style={{
-      borderColor: "#E4DDD3",
-      boxShadow: "0 1px 8px rgba(22,19,17,0.06)",
+      border: "1px solid #E4DDD3",
+      borderRadius: "20px",
+      boxShadow: "0 1px 8px rgba(22,19,17,0.05)",
     }}
   >
     {featured ? (
@@ -144,8 +139,8 @@ const SkeletonCard = ({ featured = false }: { featured?: boolean }) => (
             <div className="shimmer h-5 w-14 rounded-full" />
             <div className="shimmer h-5 w-20 rounded-full" />
           </div>
-          <div className="shimmer h-7 w-full rounded" />
-          <div className="shimmer h-7 w-5/6 rounded" />
+          <div className="shimmer h-7 w-full rounded-lg" />
+          <div className="shimmer h-7 w-5/6 rounded-lg" />
           <div className="shimmer h-4 w-full rounded" />
           <div className="shimmer h-4 w-3/4 rounded" />
         </div>
@@ -157,8 +152,8 @@ const SkeletonCard = ({ featured = false }: { featured?: boolean }) => (
             <div className="shimmer h-5 w-12 rounded-full" />
             <div className="shimmer h-5 w-16 rounded-full" />
           </div>
-          <div className="shimmer h-5 w-full rounded" />
-          <div className="shimmer h-5 w-4/5 rounded" />
+          <div className="shimmer h-5 w-full rounded-lg" />
+          <div className="shimmer h-5 w-4/5 rounded-lg" />
           <div className="shimmer h-3.5 w-full rounded mt-1" />
           <div className="shimmer h-3.5 w-2/3 rounded" />
         </div>
@@ -170,7 +165,6 @@ const SkeletonCard = ({ featured = false }: { featured?: boolean }) => (
 
 // ─── 메인 페이지 ─────────────────────────────────────────────────────────────
 export default function MainPage() {
-  // ── 캐시 로드 헬퍼 (로직 원본 유지) ──
   const loadCache = <T,>(key: string, fallback: T): T => {
     const cached = sessionStorage.getItem("main_news_cache");
     if (cached) {
@@ -207,9 +201,7 @@ export default function MainPage() {
       if (loading || isLoadingMore) return;
       if (observer.current) observer.current.disconnect();
       observer.current = new IntersectionObserver((entries) => {
-        if (entries[0].isIntersecting && hasMore) {
-          setPage((prev) => prev + 1);
-        }
+        if (entries[0].isIntersecting && hasMore) setPage((prev) => prev + 1);
       });
       if (node) observer.current.observe(node);
     },
@@ -228,12 +220,9 @@ export default function MainPage() {
         `/api/news?page=${pageNumber}${sourceParam}`,
       );
       const newItems = response.data.items || [];
-
-      // 분석되지 않은 뉴스만 표시 (is_analyzed === false)
       const unanalyzedItems = newItems.filter(
         (item: NewsItem) => item.is_analyzed === false,
       );
-
       if (newItems.length === 0) {
         setHasMore(false);
       } else {
@@ -259,9 +248,8 @@ export default function MainPage() {
         if (scrollY) window.scrollTo(0, parseInt(scrollY, 10));
       }, 100);
     }
-    const handleScroll = () => {
+    const handleScroll = () =>
       sessionStorage.setItem("main_news_scroll", window.scrollY.toString());
-    };
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
@@ -306,43 +294,53 @@ export default function MainPage() {
       })
     : newsList;
 
-  // ────────────────────────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────
   return (
     <div
       className="flex flex-col mt-8"
       style={{ fontFamily: "'Noto Sans KR', sans-serif" }}
     >
-      {/* ─── 페이지 헤더 ──────────────────────────────────────────── */}
-      <div className="mb-7">
+      {/* ─── 페이지 헤더 ─────────────────────────────────────────── */}
+      <div className="mb-8">
         <div
-          className="flex flex-col md:flex-row md:items-end justify-between gap-3 mb-5 pb-4"
+          className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6 pb-5"
           style={{ borderBottom: "2px solid #161311" }}
         >
           <div>
             <p
-              className="text-[10px] font-black uppercase tracking-[0.2em] mb-1"
+              className="text-[10px] font-black uppercase tracking-[0.25em] mb-1.5 flex items-center gap-2"
               style={{ color: "#C13026" }}
             >
-              {keyword ? "검색 결과" : "UNANALYZED NEWS"}
+              <span
+                className="inline-block w-4 h-px"
+                style={{ background: "#C13026" }}
+              />
+              {keyword ? "검색 결과" : "TODAY'S NEWS"}
             </p>
             <h1
-              className="text-3xl font-black"
+              className="font-black"
               style={{
                 fontFamily: "'Noto Serif KR', serif",
+                fontSize: "clamp(26px, 4vw, 36px)",
                 color: "#161311",
-                lineHeight: 1.2,
+                lineHeight: 1.15,
+                letterSpacing: "-0.02em",
               }}
             >
               {keyword ? `"${keyword}"` : "오늘의 뉴스"}
             </h1>
-            <p className="text-sm mt-1.5" style={{ color: "#5C5853" }}>
+            <p
+              className="text-sm mt-2 leading-relaxed"
+              style={{ color: "#5C5853", maxWidth: "480px" }}
+            >
               {keyword
                 ? "현재 로드된 데이터 내 검색 결과입니다"
-                : "AI 분석 전 최신 뉴스 목록입니다 — 클릭해서 AI 분석을 시작해보세요"}
+                : "AI 분석 전 최신 뉴스 목록 — 클릭하면 AI 분석을 시작할 수 있습니다"}
             </p>
           </div>
-          <div className="hidden md:flex flex-col items-end gap-0.5">
-            <p className="text-xs" style={{ color: "#9C9891" }}>
+
+          <div className="hidden md:flex flex-col items-end gap-1 shrink-0">
+            <p className="text-xs font-medium" style={{ color: "#9C9891" }}>
               {new Date().toLocaleDateString("ko-KR", {
                 year: "numeric",
                 month: "long",
@@ -350,14 +348,24 @@ export default function MainPage() {
               })}
             </p>
             {filteredNews.length > 0 && (
-              <p className="text-xs font-bold" style={{ color: "#5C5853" }}>
-                총 {filteredNews.length}개 기사
-              </p>
+              <div
+                className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold"
+                style={{ background: "#161311", color: "#fff" }}
+              >
+                <svg
+                  className="w-3 h-3"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
+                  <path d="M2 3a1 1 0 000 2h11a1 1 0 100-2H2zm0 4a1 1 0 000 2h7a1 1 0 100-2H2zm0 4a1 1 0 000 2h4a1 1 0 100-2H2z" />
+                </svg>
+                {filteredNews.length}개 기사
+              </div>
             )}
           </div>
         </div>
 
-        {/* 언론사 필터 — 수평 스크롤 pill 탭 */}
+        {/* 언론사 필터 */}
         <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
           {SOURCES.map((src) => {
             const isActive = selectedSource === src;
@@ -365,19 +373,19 @@ export default function MainPage() {
               <button
                 key={src}
                 onClick={() => setSelectedSource(src)}
-                className="px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap shrink-0 transition-all duration-200 border"
+                className="px-4 py-1.5 rounded-full text-sm font-bold whitespace-nowrap shrink-0 transition-all duration-200"
                 style={
                   isActive
                     ? {
                         background: "#161311",
                         color: "#fff",
-                        borderColor: "#161311",
-                        boxShadow: "0 2px 8px rgba(22,19,17,0.2)",
+                        border: "1.5px solid #161311",
+                        boxShadow: "0 2px 10px rgba(22,19,17,0.2)",
                       }
                     : {
                         background: "#fff",
                         color: "#5C5853",
-                        borderColor: "#E4DDD3",
+                        border: "1.5px solid #E4DDD3",
                       }
                 }
                 onMouseEnter={(e) => {
@@ -385,6 +393,8 @@ export default function MainPage() {
                     (e.currentTarget as HTMLElement).style.borderColor =
                       "#161311";
                     (e.currentTarget as HTMLElement).style.color = "#161311";
+                    (e.currentTarget as HTMLElement).style.background =
+                      "#f7f4ef";
                   }
                 }}
                 onMouseLeave={(e) => {
@@ -392,6 +402,7 @@ export default function MainPage() {
                     (e.currentTarget as HTMLElement).style.borderColor =
                       "#E4DDD3";
                     (e.currentTarget as HTMLElement).style.color = "#5C5853";
+                    (e.currentTarget as HTMLElement).style.background = "#fff";
                   }
                 }}
               >
@@ -402,19 +413,17 @@ export default function MainPage() {
         </div>
       </div>
 
-      {/* ─── 초기 로딩 스켈레톤 ──────────────────────────────────── */}
+      {/* ─── 초기 로딩 스켈레톤 ─────────────────────────────────── */}
       {loading && (
         <div className="flex flex-col gap-4">
           <SkeletonCard featured />
-          <SkeletonCard />
-          <SkeletonCard />
-          <SkeletonCard />
+          <SkeletonCard /> <SkeletonCard /> <SkeletonCard />
         </div>
       )}
 
       {/* ─── 뉴스 리스트 ─────────────────────────────────────────── */}
       {!loading && (
-        <div className="flex flex-col gap-3.5">
+        <div className="flex flex-col gap-4">
           {filteredNews.map((news, index) => {
             const displayImage =
               news.image_url || extractImageFromSummary(news.summary);
@@ -428,80 +437,102 @@ export default function MainPage() {
               "알 수 없음";
             const badgeClass = SOURCE_BADGE_CLASS[sourceKey] || "badge-default";
 
-            /* ── 피쳐드 첫 번째 카드 ── */
+            /* ── FEATURED 첫 번째 카드 ── */
             if (index === 0) {
               return (
                 <div
                   key={news.id}
                   ref={isLast ? lastElementRef : null}
-                  className="mb-4 group"
+                  className="mb-2 group"
                 >
                   <Link to={`/news/${news.id}`} className="block">
                     <article
-                      className="rounded-3xl overflow-hidden bg-white transition-all duration-400"
+                      className="overflow-hidden bg-white transition-all duration-350"
                       style={{
+                        borderRadius: "24px",
                         border: "1px solid #E4DDD3",
-                        boxShadow: "0 2px 20px rgba(22,19,17,0.08)",
+                        boxShadow: "0 2px 24px rgba(22,19,17,0.08)",
                       }}
                       onMouseEnter={(e) => {
                         (e.currentTarget as HTMLElement).style.boxShadow =
-                          "0 12px 48px rgba(22,19,17,0.16)";
+                          "0 16px 56px rgba(22,19,17,0.16)";
+                        (e.currentTarget as HTMLElement).style.transform =
+                          "translateY(-3px)";
                         (e.currentTarget as HTMLElement).style.borderColor =
-                          "rgba(193,48,38,0.25)";
+                          "rgba(193,48,38,0.2)";
                       }}
                       onMouseLeave={(e) => {
                         (e.currentTarget as HTMLElement).style.boxShadow =
-                          "0 2px 20px rgba(22,19,17,0.08)";
+                          "0 2px 24px rgba(22,19,17,0.08)";
+                        (e.currentTarget as HTMLElement).style.transform =
+                          "translateY(0)";
                         (e.currentTarget as HTMLElement).style.borderColor =
                           "#E4DDD3";
                       }}
                     >
-                      {/* 히어로 이미지 */}
+                      {/* Hero image */}
                       {displayImage ? (
-                        <div className="relative h-64 sm:h-80 md:h-96 overflow-hidden">
+                        <div
+                          className="relative overflow-hidden"
+                          style={{ height: "clamp(220px, 40vw, 420px)" }}
+                        >
                           <img
                             src={displayImage}
                             alt="뉴스 메인 이미지"
-                            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.04]"
                             onError={(e) => {
                               (
                                 e.target as HTMLImageElement
                               ).parentElement!.style.display = "none";
                             }}
                           />
+                          {/* Gradient overlay */}
                           <div
                             className="absolute inset-0"
                             style={{
                               background:
-                                "linear-gradient(to top, rgba(22,19,17,0.75) 0%, rgba(22,19,17,0.1) 60%, transparent 100%)",
+                                "linear-gradient(to top, rgba(16,13,11,0.88) 0%, rgba(16,13,11,0.2) 55%, transparent 100%)",
                             }}
                           />
-                          {/* 배지 (이미지 위) */}
-                          <div className="absolute top-4 left-5 flex items-center gap-2">
-                            <span
-                              className={`${badgeClass} text-[11px] font-black px-3 py-1.5 rounded-full`}
-                            >
-                              {sourceName}
-                            </span>
-                            {news.is_analyzed && (
+                          {/* FEATURED label */}
+                          <div className="absolute top-5 left-5 right-5 flex items-center justify-between">
+                            <div className="flex items-center gap-2">
                               <span
-                                className="text-[10px] font-black px-2.5 py-1 rounded-full"
-                                style={{
-                                  background: "rgba(255,255,255,0.9)",
-                                  color: "#C13026",
-                                }}
+                                className={`${badgeClass} text-[11px] font-black px-3 py-1.5 rounded-full`}
                               >
-                                AI 분석완료
+                                {sourceName}
                               </span>
-                            )}
+                              {news.is_analyzed && (
+                                <span
+                                  className="text-[10px] font-black px-2.5 py-1.5 rounded-full"
+                                  style={{
+                                    background: "rgba(255,255,255,0.9)",
+                                    color: "#C13026",
+                                  }}
+                                >
+                                  ✓ AI 분석완료
+                                </span>
+                              )}
+                            </div>
+                            <span
+                              className="text-[9px] font-black tracking-widest uppercase px-2.5 py-1.5 rounded-full"
+                              style={{
+                                background: "rgba(255,255,255,0.12)",
+                                color: "rgba(255,255,255,0.7)",
+                                border: "1px solid rgba(255,255,255,0.15)",
+                              }}
+                            >
+                              FEATURED
+                            </span>
                           </div>
-                          {/* 제목 (이미지 위) */}
-                          <div className="absolute bottom-5 left-5 right-5">
+                          {/* Title overlay */}
+                          <div className="absolute bottom-5 left-6 right-6">
                             <h2
-                              className="text-2xl sm:text-3xl font-black text-white line-clamp-2 leading-snug"
+                              className="font-black text-white line-clamp-2 leading-snug mb-1"
                               style={{
                                 fontFamily: "'Noto Serif KR', serif",
-                                textShadow: "0 2px 8px rgba(0,0,0,0.4)",
+                                fontSize: "clamp(18px, 3.5vw, 26px)",
+                                textShadow: "0 2px 12px rgba(0,0,0,0.4)",
                               }}
                             >
                               <HighlightText
@@ -512,7 +543,6 @@ export default function MainPage() {
                           </div>
                         </div>
                       ) : (
-                        /* 이미지 없을 때 — 어두운 배경 헤더 */
                         <div
                           className="px-8 py-10"
                           style={{ background: "#161311" }}
@@ -523,14 +553,6 @@ export default function MainPage() {
                             >
                               {sourceName}
                             </span>
-                            {news.is_analyzed && (
-                              <span
-                                className="text-[10px] font-black px-2.5 py-1 rounded-full"
-                                style={{ background: "#C13026", color: "#fff" }}
-                              >
-                                AI 분석완료
-                              </span>
-                            )}
                           </div>
                           <h2
                             className="text-2xl sm:text-3xl font-black text-white line-clamp-3 leading-snug"
@@ -544,11 +566,11 @@ export default function MainPage() {
                         </div>
                       )}
 
-                      {/* 본문 영역 */}
-                      <div className="p-6 md:p-8">
+                      {/* Body */}
+                      <div className="p-6 md:p-7">
                         <div className="flex items-center flex-wrap gap-2.5 mb-3">
                           <span
-                            className="text-xs"
+                            className="text-xs font-medium"
                             style={{ color: "#9C9891" }}
                           >
                             {news.published_at?.split("T")[0]}
@@ -560,16 +582,14 @@ export default function MainPage() {
                             />
                           )}
                         </div>
-                        {/* 이미지가 없을 때만 제목을 여기에 표시 */}
-                        {!displayImage && <></>}
                         {displaySummary && (
                           <p
-                            className="text-[15px] leading-relaxed line-clamp-2"
-                            style={{ color: "#3C3A36" }}
+                            className="leading-relaxed line-clamp-2"
+                            style={{ color: "#3C3A36", fontSize: "15px" }}
                           >
                             {news.ai_summary && (
                               <span
-                                className="inline-flex items-center gap-1 text-[10px] font-black text-white rounded mr-2 align-middle"
+                                className="inline-flex items-center gap-1 text-[10px] font-black text-white rounded-md mr-2 align-middle"
                                 style={{
                                   background: "#1A55A8",
                                   padding: "2px 7px",
@@ -585,7 +605,7 @@ export default function MainPage() {
                           </p>
                         )}
                         <div
-                          className="mt-5 inline-flex items-center gap-1.5 text-sm font-bold transition-all duration-200 group-hover:gap-2.5"
+                          className="mt-5 inline-flex items-center gap-2 text-sm font-bold transition-all duration-200 group-hover:gap-3"
                           style={{ color: "#C13026" }}
                         >
                           기사 읽기
@@ -619,25 +639,30 @@ export default function MainPage() {
               >
                 <Link to={`/news/${news.id}`} className="block">
                   <article
-                    className="flex bg-white rounded-2xl overflow-hidden transition-all duration-300"
+                    className="flex bg-white overflow-hidden transition-all duration-250"
                     style={{
+                      borderRadius: "18px",
                       border: "1px solid #E4DDD3",
                       boxShadow: "0 1px 6px rgba(22,19,17,0.05)",
                     }}
                     onMouseEnter={(e) => {
                       (e.currentTarget as HTMLElement).style.boxShadow =
-                        "0 6px 24px rgba(22,19,17,0.12)";
+                        "0 8px 28px rgba(22,19,17,0.12)";
                       (e.currentTarget as HTMLElement).style.borderColor =
-                        "rgba(193,48,38,0.3)";
+                        "rgba(193,48,38,0.25)";
+                      (e.currentTarget as HTMLElement).style.transform =
+                        "translateY(-2px)";
                     }}
                     onMouseLeave={(e) => {
                       (e.currentTarget as HTMLElement).style.boxShadow =
                         "0 1px 6px rgba(22,19,17,0.05)";
                       (e.currentTarget as HTMLElement).style.borderColor =
                         "#E4DDD3";
+                      (e.currentTarget as HTMLElement).style.transform =
+                        "translateY(0)";
                     }}
                   >
-                    {/* 왼쪽 컨텐츠 */}
+                    {/* Left content */}
                     <div className="flex-1 p-4 sm:p-5 flex flex-col justify-between min-w-0">
                       <div>
                         <div className="flex items-center flex-wrap gap-2 mb-2.5">
@@ -647,7 +672,7 @@ export default function MainPage() {
                             {sourceName}
                           </span>
                           <span
-                            className="text-[11px]"
+                            className="text-[11px] font-medium"
                             style={{ color: "#9C9891" }}
                           >
                             {news.published_at?.split("T")[0]}
@@ -660,7 +685,7 @@ export default function MainPage() {
                           )}
                         </div>
                         <h2
-                          className="font-bold leading-snug mb-2 line-clamp-2 transition-colors duration-200"
+                          className="font-bold leading-snug mb-2 line-clamp-2"
                           style={{
                             fontFamily: "'Noto Serif KR', serif",
                             fontSize: "16px",
@@ -692,18 +717,43 @@ export default function MainPage() {
                           </p>
                         )}
                       </div>
+                      {/* Read more indicator */}
+                      <div
+                        className="mt-2.5 flex items-center gap-1 text-[11px] font-bold opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                        style={{ color: "#C13026" }}
+                      >
+                        읽기
+                        <svg
+                          className="w-3 h-3"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2.5}
+                            d="M9 5l7 7-7 7"
+                          />
+                        </svg>
+                      </div>
                     </div>
-                    {/* 오른쪽 이미지 */}
+
+                    {/* Right image */}
                     {displayImage && (
                       <div
-                        className="w-28 sm:w-40 shrink-0 overflow-hidden relative"
-                        style={{ minHeight: "100px" }}
+                        className="w-28 sm:w-36 shrink-0 overflow-hidden relative"
+                        style={{
+                          minHeight: "110px",
+                          borderRadius: "0 18px 18px 0",
+                          background: "#f0ece4",
+                        }}
                       >
                         <img
                           src={displayImage}
                           alt="뉴스 썸네일"
-                          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                          style={{ minHeight: "100px" }}
+                          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.06]"
+                          style={{ minHeight: "110px" }}
                           onError={(e) => {
                             (
                               e.target as HTMLImageElement
@@ -720,19 +770,28 @@ export default function MainPage() {
         </div>
       )}
 
-      {/* ─── 검색 결과 없음 + 더 불러오기 ──────────────────────────── */}
+      {/* ─── 검색 결과 없음 ───────────────────────────────────────── */}
       {keyword &&
         filteredNews.length === 0 &&
         newsList.length > 0 &&
         hasMore && (
           <div
-            className="mt-4 py-12 flex flex-col items-center gap-4 rounded-3xl"
-            style={{ background: "#fff", border: "1px solid #E4DDD3" }}
+            className="mt-4 py-16 flex flex-col items-center gap-5"
+            style={{
+              background: "#fff",
+              border: "1px solid #E4DDD3",
+              borderRadius: "20px",
+            }}
           >
-            <span style={{ fontSize: "48px" }}>🔍</span>
-            <p className="font-medium" style={{ color: "#5C5853" }}>
-              현재 로드된 뉴스 중에는 검색 결과가 없습니다
-            </p>
+            <span style={{ fontSize: "52px" }}>🔍</span>
+            <div className="text-center">
+              <p className="font-bold mb-1" style={{ color: "#161311" }}>
+                검색 결과가 없습니다
+              </p>
+              <p className="text-sm" style={{ color: "#9C9891" }}>
+                현재 로드된 뉴스 중에는 일치하는 기사가 없어요
+              </p>
+            </div>
             <button
               onClick={() => setPage((p) => p + 1)}
               className="px-6 py-3 rounded-full text-sm font-black transition-all duration-200"
@@ -753,25 +812,21 @@ export default function MainPage() {
           </div>
         )}
 
-      {/* ─── 추가 로딩 중 스켈레톤 ──────────────────────────────────── */}
+      {/* ─── 추가 로딩 스켈레톤 ─────────────────────────────────── */}
       {isLoadingMore && (
-        <div className="flex flex-col gap-3.5 mt-3.5">
-          <SkeletonCard />
-          <SkeletonCard />
-          <SkeletonCard />
+        <div className="flex flex-col gap-4 mt-4">
+          <SkeletonCard /> <SkeletonCard /> <SkeletonCard />
         </div>
       )}
 
-      {/* ─── 기사 더보기 버튼 ────────────────────────────────────────
-           IntersectionObserver 로도 자동 로드되지만,
-           수동으로도 누를 수 있도록 명시적 버튼 제공               */}
+      {/* ─── 기사 더보기 버튼 ───────────────────────────────────── */}
       {!loading && !isLoadingMore && hasMore && filteredNews.length > 0 && (
-        <div className="flex justify-center mt-8 mb-4">
+        <div className="flex justify-center mt-10 mb-4">
           <button
             onClick={() => setPage((p) => p + 1)}
             className="group flex items-center gap-2.5 text-sm font-black rounded-full transition-all duration-300"
             style={{
-              padding: "14px 32px",
+              padding: "14px 36px",
               background: "#fff",
               color: "#161311",
               border: "2px solid #161311",
@@ -782,12 +837,16 @@ export default function MainPage() {
               (e.currentTarget as HTMLElement).style.color = "#fff";
               (e.currentTarget as HTMLElement).style.boxShadow =
                 "0 8px 28px rgba(22,19,17,0.2)";
+              (e.currentTarget as HTMLElement).style.transform =
+                "translateY(-2px)";
             }}
             onMouseLeave={(e) => {
               (e.currentTarget as HTMLElement).style.background = "#fff";
               (e.currentTarget as HTMLElement).style.color = "#161311";
               (e.currentTarget as HTMLElement).style.boxShadow =
                 "0 2px 8px rgba(22,19,17,0.08)";
+              (e.currentTarget as HTMLElement).style.transform =
+                "translateY(0)";
             }}
           >
             기사 더보기
@@ -808,18 +867,16 @@ export default function MainPage() {
         </div>
       )}
 
-      {/* ─── 마지막 상태 ──────────────────────────────────────────── */}
+      {/* ─── 마지막 상태 ─────────────────────────────────────────── */}
       {!hasMore && newsList.length > 0 && (
         <div
-          className="py-10 flex flex-col items-center gap-3"
+          className="py-12 flex flex-col items-center gap-3"
           style={{ color: "#9C9891" }}
         >
-          <div className="flex items-center gap-3">
-            <div className="h-px w-16" style={{ background: "#E4DDD3" }} />
+          <div className="divider-ornate w-full max-w-xs">
             <span className="text-sm font-medium">
               모든 뉴스를 불러왔습니다
             </span>
-            <div className="h-px w-16" style={{ background: "#E4DDD3" }} />
           </div>
         </div>
       )}

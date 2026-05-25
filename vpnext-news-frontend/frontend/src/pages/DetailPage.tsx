@@ -5,7 +5,6 @@ import LoadingModal from "../components/LoadingModal";
 
 type AnalysisStatus = "pending" | "analyzing" | "complete";
 
-// ─── 언론사 매핑 (원본 유지) ─────────────────────────────────────────────────
 const SOURCE_NAME_MAP: Record<string, string> = {
   hani: "한겨레",
   khan: "경향신문",
@@ -36,7 +35,6 @@ const SOURCE_BADGE_CLASS: Record<string, string> = {
   yonhap: "badge-yonhap",
 };
 
-// ─── 유틸 (원본 유지) ────────────────────────────────────────────────────────
 const extractImageFromSummary = (rawString: string): string | null => {
   if (!rawString) return null;
   const txt = document.createElement("textarea");
@@ -46,43 +44,54 @@ const extractImageFromSummary = (rawString: string): string | null => {
   return imgMatch ? imgMatch[1] : null;
 };
 
-const renderContent = (content: string) => {
-  return content
+const renderContent = (content: string) =>
+  content
     .split("\n")
     .map((line) => line.trim())
     .filter((line) => line.length > 0)
     .map((line, i) => (
       <p
         key={i}
-        className="mb-5 leading-loose"
         style={{
           color: "#2C2926",
           fontSize: "16px",
+          lineHeight: 1.95,
+          marginBottom: "1.35em",
           fontFamily: "'Noto Sans KR', sans-serif",
+          fontWeight: 400,
         }}
       >
         {line}
       </p>
     ));
-};
 
 const getScoreColor = (score: number) => {
   if (score >= 0.7)
     return {
-      text: "text-emerald-600",
+      text: "text-emerald-700",
       bg: "bg-emerald-50",
       border: "border-emerald-200",
+      hex: "#059669",
+      bgHex: "#ECFDF5",
     };
   if (score >= 0.4)
     return {
-      text: "text-amber-600",
+      text: "text-amber-700",
       bg: "bg-amber-50",
       border: "border-amber-200",
+      hex: "#D97706",
+      bgHex: "#FFFBEB",
     };
-  return { text: "text-red-600", bg: "bg-red-50", border: "border-red-200" };
+  return {
+    text: "text-red-700",
+    bg: "bg-red-50",
+    border: "border-red-200",
+    hex: "#DC2626",
+    bgHex: "#FEF2F2",
+  };
 };
 
-// ─── AnalysisCard 컴포넌트 (원본 로직 유지, 스타일만 개선) ───────────────────
+// ─── Analysis Card ────────────────────────────────────────────────────────────
 const AnalysisCard = ({
   icon,
   title,
@@ -93,10 +102,9 @@ const AnalysisCard = ({
   children,
 }: any) => (
   <div
-    className={`${bg} ${border} border rounded-2xl flex flex-col gap-3 overflow-hidden`}
-    style={{ boxShadow: "0 1px 8px rgba(22,19,17,0.06)" }}
+    className={`${bg} ${border} border overflow-hidden`}
+    style={{ borderRadius: "18px", boxShadow: "0 1px 8px rgba(22,19,17,0.06)" }}
   >
-    {/* 카드 헤더 */}
     <div
       className={`flex items-center gap-2.5 px-5 pt-5 pb-3 border-b ${border}`}
     >
@@ -105,12 +113,11 @@ const AnalysisCard = ({
         {title}
       </h3>
     </div>
-    {/* 카드 본문 */}
-    <div className="px-5 pb-5">
+    <div className="px-5 pb-5 pt-4">
       {status === "complete" ? (
         children
       ) : (
-        <p className={`text-sm ${textColor} opacity-50`}>
+        <p className={`text-sm ${textColor} opacity-40`}>
           아래 버튼을 눌러 AI 분석을 실행해주세요.
         </p>
       )}
@@ -118,7 +125,7 @@ const AnalysisCard = ({
   </div>
 );
 
-// ────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
 export default function DetailPage() {
   const { id } = useParams();
   const [news, setNews] = useState<any>(null);
@@ -132,14 +139,12 @@ export default function DetailPage() {
   const [progress, setProgress] = useState(0);
   const [loadingStatus, setLoadingStatus] = useState("");
 
-  // 👇 여기부터 추가
   const [showPromptInput, setShowPromptInput] = useState(false);
   const [customPrompt, setCustomPrompt] = useState("");
 
   const [searchTerm, setSearchTerm] = useState("");
   const [searchEngine, setSearchEngine] = useState("stdict");
 
-  // ── 기사 상세 Fetch (원본 유지) ──
   useEffect(() => {
     const fetchNewsDetail = async () => {
       try {
@@ -175,20 +180,15 @@ export default function DetailPage() {
     fetchNewsDetail();
   }, [id]);
 
-  // ── AI 분석 요청 (출처 파라미터 추가) ──
   const startAnalysis = async () => {
     if (!news?.url) return;
     setStatus("analyzing");
-
-    // 💡 백엔드에 넘겨줄 현재 기사의 언론사 이름 추출
     const sourceKey = news?.source?.toLowerCase();
     const currentSourceName =
       SOURCE_NAME_MAP[sourceKey] ||
       news?.source?.toUpperCase() ||
       "미상(외부 뉴스)";
-
     try {
-      // 💡 API URL에 source 파라미터 추가
       const response = await api.post(
         `/api/analyze?article_url=${encodeURIComponent(news.url)}&source=${encodeURIComponent(currentSourceName)}`,
       );
@@ -202,14 +202,10 @@ export default function DetailPage() {
     }
   };
 
-  // [수정] 만화 생성 버튼 핸들러 (커스텀 프롬프트 지원 + 로딩 프로그레스 추가)
-  // ── 만화 생성 (원본 유지) ──
   const handleGenerateComic = async (promptText?: string) => {
     setIsComicGenerating(true);
     setProgress(0);
     setLoadingStatus("만화 생성을 준비하고 있습니다...");
-
-    // Heuristic progress update (실제 진행률이 아닌 시각적 피드백용)
     const interval = setInterval(() => {
       setProgress((prev) => {
         if (prev < 30) {
@@ -219,7 +215,7 @@ export default function DetailPage() {
           return prev + 1;
         } else if (prev < 90) {
           setLoadingStatus("AI 이미지를 생성하고 있습니다... (약 1분 소요)");
-          return prev + 0.5; // 이미지 생성 단계는 조금 더 느리게 진행
+          return prev + 0.5;
         } else if (prev < 98) {
           setLoadingStatus("이미지 품질을 최적화하고 마무리 작업 중입니다...");
           return prev + 0.1;
@@ -227,20 +223,14 @@ export default function DetailPage() {
         return prev;
       });
     }, 500);
-
     try {
       const payload = promptText ? { custom_prompt: promptText } : {};
       const res = await api.post(`/api/news/${id}/comic`, payload);
-
       setProgress(100);
       setLoadingStatus("만화 생성 완료!");
-
-      // 사용자에게 100% 완료 상태를 잠시 보여주기 위해 대기
       await new Promise((resolve) => setTimeout(resolve, 800));
-
       setComicUrls(res.data.comic_urls);
     } catch (error) {
-      // alert("만화 생성 중 오류가 발생했습니다.");
       console.error("만화 생성 오류:", error);
       setLoadingStatus("오류가 발생했습니다. 잠시 후 다시 시도해 주세요.");
       await new Promise((resolve) => setTimeout(resolve, 2000));
@@ -250,22 +240,20 @@ export default function DetailPage() {
     }
   };
 
-  // ── 용어 검색 (원본 유지) ──
   const handleTermSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (!searchTerm.trim()) return;
     let url = "";
-    if (searchEngine === "stdict") {
+    if (searchEngine === "stdict")
       url = `https://stdict.korean.go.kr/search/searchResult.do?pageSize=10&searchKeyword=${encodeURIComponent(searchTerm)}`;
-    } else if (searchEngine === "opendict") {
+    else if (searchEngine === "opendict")
       url = `https://opendict.korean.go.kr/search/searchResult?query=${encodeURIComponent(searchTerm)}`;
-    } else if (searchEngine === "google") {
+    else if (searchEngine === "google")
       url = `https://www.google.com/search?q=${encodeURIComponent(searchTerm)}`;
-    }
     window.open(url, "_blank");
   };
 
-  // ─── 로딩 / 오류 상태 ────────────────────────────────────────────────────
+  // ─── 로딩 상태 ──────────────────────────────────────────────────────────────
   if (loading)
     return (
       <div
@@ -310,6 +298,8 @@ export default function DetailPage() {
           text: "text-slate-400",
           bg: "bg-slate-50",
           border: "border-slate-200",
+          hex: "#94A3B8",
+          bgHex: "#F8FAFC",
         };
 
   const sourceKey = news.source?.toLowerCase();
@@ -332,7 +322,7 @@ export default function DetailPage() {
       {/* ─── 뒤로가기 ────────────────────────────────────────────── */}
       <Link
         to="/"
-        className="inline-flex items-center gap-1.5 text-sm font-bold mb-6 transition-colors duration-200"
+        className="inline-flex items-center gap-1.5 text-sm font-bold mb-7 transition-colors duration-200"
         style={{ color: "#9C9891" }}
         onMouseEnter={(e) =>
           ((e.currentTarget as HTMLElement).style.color = "#161311")
@@ -359,7 +349,6 @@ export default function DetailPage() {
 
       {/* ─── 기사 헤더 ───────────────────────────────────────────── */}
       <header className="mb-10">
-        {/* 언론사 + 날짜 */}
         <div className="flex items-center flex-wrap gap-3 mb-5">
           <span
             className={`${badgeClass} text-xs font-black px-3.5 py-1.5 rounded-full`}
@@ -369,22 +358,34 @@ export default function DetailPage() {
           <span className="text-sm font-medium" style={{ color: "#9C9891" }}>
             {news.published_at?.split("T")[0]}
           </span>
+          {news.is_analyzed && (
+            <span
+              className="inline-flex items-center gap-1.5 text-[10px] font-black px-2.5 py-1.5 rounded-full"
+              style={{
+                background: "#ECFDF5",
+                color: "#065F46",
+                border: "1px solid #A7F3D0",
+              }}
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+              AI 분석완료
+            </span>
+          )}
         </div>
 
-        {/* 제목 */}
         <h1
           className="font-black leading-snug mb-6"
           style={{
             fontFamily: "'Noto Serif KR', serif",
-            fontSize: "clamp(24px, 4vw, 42px)",
+            fontSize: "clamp(22px, 4vw, 40px)",
             color: "#161311",
-            lineHeight: 1.35,
+            lineHeight: 1.3,
+            letterSpacing: "-0.02em",
           }}
         >
           {news.title}
         </h1>
 
-        {/* 원문 링크 */}
         <div
           className="flex items-center flex-wrap gap-4 pb-6"
           style={{ borderBottom: "1px solid #E4DDD3" }}
@@ -431,10 +432,11 @@ export default function DetailPage() {
           {/* 메인 이미지 */}
           {finalImage && (
             <figure
-              className="mb-8 rounded-2xl overflow-hidden"
+              className="mb-8 overflow-hidden"
               style={{
+                borderRadius: "18px",
                 border: "1px solid #E4DDD3",
-                boxShadow: "0 4px 20px rgba(22,19,17,0.08)",
+                boxShadow: "0 4px 24px rgba(22,19,17,0.08)",
               }}
             >
               <img
@@ -448,8 +450,12 @@ export default function DetailPage() {
           {/* AI 3줄 요약 */}
           {aiSummary && (
             <div
-              className="mb-8 p-5 rounded-2xl"
-              style={{ background: "#EFF6FF", border: "1px solid #BFDBFE" }}
+              className="mb-8 p-5"
+              style={{
+                background: "#EFF6FF",
+                border: "1px solid #BFDBFE",
+                borderRadius: "16px",
+              }}
             >
               <p
                 className="text-[11px] font-black uppercase tracking-widest mb-2.5 flex items-center gap-1.5"
@@ -467,13 +473,17 @@ export default function DetailPage() {
           )}
 
           {/* 기사 본문 */}
-          <div>
+          <div style={{ borderTop: "1px solid #E4DDD3", paddingTop: "28px" }}>
             {news.content ? (
               <div>{renderContent(news.content)}</div>
             ) : (
               <div
-                className="rounded-2xl p-12 text-center flex flex-col items-center gap-4"
-                style={{ background: "#F0F9FF", border: "1px solid #BAE6FD" }}
+                className="p-12 text-center flex flex-col items-center gap-4"
+                style={{
+                  background: "#F0F9FF",
+                  border: "1px solid #BAE6FD",
+                  borderRadius: "16px",
+                }}
               >
                 <div className="text-4xl">✨</div>
                 <h3 className="text-xl font-bold" style={{ color: "#161311" }}>
@@ -486,7 +496,7 @@ export default function DetailPage() {
             )}
           </div>
 
-          {/* ─── AI 분석 트리거 버튼 ── */}
+          {/* ─── AI 분석 버튼 ── */}
           <div
             className="mt-12 pt-8"
             style={{ borderTop: "1px solid #E4DDD3" }}
@@ -494,9 +504,10 @@ export default function DetailPage() {
             <button
               onClick={startAnalysis}
               disabled={status !== "pending"}
-              className="w-full py-5 rounded-2xl text-[17px] font-black flex items-center justify-center gap-3 transition-all duration-300"
-              style={
-                status === "analyzing"
+              className="w-full py-5 text-[17px] font-black flex items-center justify-center gap-3 transition-all duration-300"
+              style={{
+                borderRadius: "18px",
+                ...(status === "analyzing"
                   ? {
                       background: "#F3F0EB",
                       color: "#9C9891",
@@ -513,8 +524,8 @@ export default function DetailPage() {
                         background: "#161311",
                         color: "#fff",
                         boxShadow: "0 4px 20px rgba(22,19,17,0.2)",
-                      }
-              }
+                      }),
+              }}
               onMouseEnter={(e) => {
                 if (status === "pending") {
                   (e.currentTarget as HTMLElement).style.background = "#C13026";
@@ -550,11 +561,12 @@ export default function DetailPage() {
           {/* ─── AI 만화 생성 섹션 ── */}
           {status === "complete" && (
             <div
-              className="mt-8 p-8 rounded-3xl text-center flex flex-col items-center gap-4"
+              className="mt-8 p-8 flex flex-col items-center gap-5 text-center"
               style={{
                 background: "#FAF5FF",
                 border: "1px solid #E9D5FF",
-                boxShadow: "0 2px 12px rgba(109,40,217,0.08)",
+                borderRadius: "24px",
+                boxShadow: "0 2px 16px rgba(109,40,217,0.08)",
               }}
             >
               <div>
@@ -572,10 +584,11 @@ export default function DetailPage() {
               {comicUrls ? (
                 <Link
                   to={`/cartoons?newsId=${id}`}
-                  className="px-8 py-3.5 text-lg font-black rounded-2xl transition-all duration-200"
+                  className="px-8 py-3.5 text-lg font-black transition-all duration-200"
                   style={{
                     background: "#7C3AED",
                     color: "#fff",
+                    borderRadius: "16px",
                     boxShadow: "0 4px 16px rgba(124,58,237,0.3)",
                   }}
                   onMouseEnter={(e) => {
@@ -600,10 +613,11 @@ export default function DetailPage() {
                       <button
                         onClick={() => handleGenerateComic()}
                         disabled={isComicGenerating}
-                        className="px-6 py-3.5 text-lg font-black rounded-2xl transition-all duration-200 disabled:opacity-50"
+                        className="px-6 py-3.5 text-lg font-black transition-all duration-200 disabled:opacity-50"
                         style={{
                           background: "#161311",
                           color: "#fff",
+                          borderRadius: "14px",
                           boxShadow: "0 2px 12px rgba(22,19,17,0.2)",
                         }}
                         onMouseEnter={(e) => {
@@ -626,12 +640,12 @@ export default function DetailPage() {
                       <button
                         onClick={() => setShowPromptInput(true)}
                         disabled={isComicGenerating}
-                        className="px-6 py-3.5 text-lg font-black rounded-2xl transition-all duration-200 disabled:opacity-50"
+                        className="px-6 py-3.5 text-lg font-black transition-all duration-200 disabled:opacity-50"
                         style={{
                           background: "#fff",
                           color: "#4C1D95",
                           border: "2px solid #C4B5FD",
-                          boxShadow: "0 1px 6px rgba(109,40,217,0.1)",
+                          borderRadius: "14px",
                         }}
                         onMouseEnter={(e) => {
                           if (!isComicGenerating) {
@@ -657,11 +671,12 @@ export default function DetailPage() {
                         value={customPrompt}
                         onChange={(e) => setCustomPrompt(e.target.value)}
                         placeholder="예: 주인공을 고양이로 그려줘, 배경을 우주로 해줘..."
-                        className="w-full h-24 p-4 rounded-xl resize-none font-medium outline-none transition-all"
+                        className="w-full h-24 p-4 resize-none font-medium outline-none transition-all"
                         style={{
                           border: "2px solid #C4B5FD",
                           color: "#161311",
                           background: "#fff",
+                          borderRadius: "12px",
                         }}
                         onFocus={(e) =>
                           ((e.currentTarget as HTMLElement).style.borderColor =
@@ -696,10 +711,11 @@ export default function DetailPage() {
                             isComicGenerating ||
                             customPrompt.trim().length === 0
                           }
-                          className="px-6 py-2 font-black rounded-xl transition-all duration-200 disabled:opacity-50"
+                          className="px-6 py-2 font-black transition-all duration-200 disabled:opacity-50"
                           style={{
                             background: "#7C3AED",
                             color: "#fff",
+                            borderRadius: "10px",
                             boxShadow: "0 2px 12px rgba(124,58,237,0.25)",
                           }}
                           onMouseEnter={(e) => {
@@ -739,9 +755,10 @@ export default function DetailPage() {
           <div className="sticky top-24 flex flex-col gap-4">
             {/* 사이드바 헤더 */}
             <div
-              className="p-5 rounded-2xl"
+              className="p-5"
               style={{
                 background: "#161311",
+                borderRadius: "18px",
                 boxShadow: "0 4px 20px rgba(22,19,17,0.2)",
               }}
             >
@@ -750,7 +767,7 @@ export default function DetailPage() {
               </h2>
               <p
                 className="text-xs mt-1"
-                style={{ color: "rgba(255,255,255,0.45)" }}
+                style={{ color: "rgba(255,255,255,0.4)" }}
               >
                 AI가 분석한 기사 신뢰도 및 핵심 정보입니다.
               </p>
@@ -758,8 +775,11 @@ export default function DetailPage() {
 
             {/* ── 신뢰도 점수 패널 ── */}
             <div
-              className={`${scoreColor.bg} ${scoreColor.border} border rounded-2xl overflow-hidden`}
-              style={{ boxShadow: "0 1px 8px rgba(22,19,17,0.06)" }}
+              className={`${scoreColor.bg} ${scoreColor.border} border overflow-hidden`}
+              style={{
+                borderRadius: "18px",
+                boxShadow: "0 1px 8px rgba(22,19,17,0.06)",
+              }}
             >
               <div
                 className={`flex items-center gap-2.5 px-5 pt-5 pb-3 border-b ${scoreColor.border}`}
@@ -774,6 +794,7 @@ export default function DetailPage() {
               <div className="px-5 pb-5 pt-4">
                 {status === "complete" && analysisData?.credibility ? (
                   <>
+                    {/* Score display */}
                     <div className="flex items-end gap-3 mb-4">
                       <span
                         className={`text-5xl font-black ${scoreColor.text} tracking-tighter`}
@@ -795,12 +816,39 @@ export default function DetailPage() {
                         </span>
                       </div>
                     </div>
+
+                    {/* Score bar */}
+                    {analysisData.credibility.score != null && (
+                      <div className="mb-4">
+                        <div className="progress-bar-track mb-1">
+                          <div
+                            className="progress-bar-fill"
+                            style={{
+                              width: `${Math.round(analysisData.credibility.score * 100)}%`,
+                              background: scoreColor.hex,
+                            }}
+                          />
+                        </div>
+                        <div
+                          className="flex justify-between text-[10px] font-medium"
+                          style={{ color: "#9C9891" }}
+                        >
+                          <span>낮음</span>
+                          <span>높음</span>
+                        </div>
+                      </div>
+                    )}
+
                     <p
-                      className={`text-[14px] leading-relaxed font-medium p-3 rounded-xl ${scoreColor.text} mb-3`}
-                      style={{ background: "rgba(255,255,255,0.6)" }}
+                      className={`text-[14px] leading-relaxed font-medium p-3 mb-3 ${scoreColor.text}`}
+                      style={{
+                        background: "rgba(255,255,255,0.6)",
+                        borderRadius: "10px",
+                      }}
                     >
                       {analysisData.credibility.reason}
                     </p>
+
                     {analysisData.credibility.red_flags?.length > 0 && (
                       <div>
                         <p
@@ -814,11 +862,12 @@ export default function DetailPage() {
                             (flag: string, i: number) => (
                               <li
                                 key={i}
-                                className="text-xs px-2 py-0.5 rounded-full border"
+                                className="text-xs px-2 py-0.5 border"
                                 style={{
                                   background: "#FEF2F2",
                                   color: "#991B1B",
                                   borderColor: "#FECACA",
+                                  borderRadius: "999px",
                                 }}
                               >
                                 {flag}
@@ -837,10 +886,11 @@ export default function DetailPage() {
                           📝 3줄 요약
                         </p>
                         <p
-                          className="text-[13px] leading-relaxed p-3 rounded-xl"
+                          className="text-[13px] leading-relaxed p-3"
                           style={{
                             color: "#2C2926",
                             background: "rgba(255,255,255,0.6)",
+                            borderRadius: "10px",
                           }}
                         >
                           {analysisData.credibility.summary}
@@ -850,7 +900,7 @@ export default function DetailPage() {
                   </>
                 ) : (
                   <p
-                    className="text-sm opacity-50"
+                    className="text-sm opacity-40"
                     style={{ color: "#5C5853" }}
                   >
                     AI 분석을 실행해주세요.
@@ -876,7 +926,8 @@ export default function DetailPage() {
                         href={`https://stdict.korean.go.kr/search/searchResult.do?pageSize=10&searchKeyword=${encodeURIComponent(term.term)}`}
                         target="_blank"
                         rel="noreferrer"
-                        className="text-sky-700 bg-sky-100 hover:bg-sky-200 transition-colors px-1.5 py-0.5 rounded mr-1 inline-flex items-center gap-1 mb-1 font-bold cursor-pointer"
+                        className="text-sky-700 bg-sky-100 hover:bg-sky-200 transition-colors px-1.5 py-0.5 inline-flex items-center gap-1 mb-1 font-bold cursor-pointer"
+                        style={{ borderRadius: "6px" }}
                         title={`${term.term} 국립국어원에서 뜻 찾아보기`}
                       >
                         {term.term}
@@ -895,7 +946,10 @@ export default function DetailPage() {
                         </svg>
                       </a>
                       {term.category && (
-                        <span className="text-[11px] text-sky-500 bg-sky-50 border border-sky-100 px-1.5 py-0.5 rounded-full ml-1 align-text-bottom">
+                        <span
+                          className="text-[11px] text-sky-500 bg-sky-50 border border-sky-100 px-1.5 py-0.5 ml-1 align-text-bottom"
+                          style={{ borderRadius: "999px" }}
+                        >
                           {term.category}
                         </span>
                       )}
@@ -912,7 +966,6 @@ export default function DetailPage() {
                 </p>
               )}
 
-              {/* 수동 용어 검색 UI */}
               <div className="mt-5 pt-4 border-t border-sky-200/60">
                 <form
                   onSubmit={handleTermSearch}
@@ -925,7 +978,8 @@ export default function DetailPage() {
                     <select
                       value={searchEngine}
                       onChange={(e) => setSearchEngine(e.target.value)}
-                      className="text-[13px] bg-white border border-sky-200 rounded-lg px-2 py-1.5 text-slate-700 outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400 transition-all shrink-0"
+                      className="text-[13px] bg-white border border-sky-200 px-2 py-1.5 text-slate-700 outline-none focus:border-sky-400 transition-all shrink-0"
+                      style={{ borderRadius: "8px" }}
                     >
                       <option value="stdict">표준국어대사전</option>
                       <option value="opendict">우리말샘</option>
@@ -937,11 +991,13 @@ export default function DetailPage() {
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         placeholder="궁금한 단어 입력"
-                        className="flex-1 w-full text-[13px] border border-sky-200 rounded-lg px-3 py-1.5 outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400 transition-all"
+                        className="flex-1 w-full text-[13px] border border-sky-200 px-3 py-1.5 outline-none focus:border-sky-400 transition-all"
+                        style={{ borderRadius: "8px" }}
                       />
                       <button
                         type="submit"
-                        className="bg-sky-600 text-white text-[13px] font-bold px-3 py-1.5 rounded-lg hover:bg-sky-700 transition-colors shrink-0"
+                        className="bg-sky-600 text-white text-[13px] font-bold px-3 py-1.5 hover:bg-sky-700 transition-colors shrink-0"
+                        style={{ borderRadius: "8px" }}
                       >
                         검색
                       </button>

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import api from "../api";
 
-// ─── 타입 (원본 유지) ────────────────────────────────────────────────────────
+// ─── 타입 ────────────────────────────────────────────────────────────────────
 interface ComicScene {
   url: string;
   caption?: string;
@@ -33,7 +33,7 @@ const SOURCE_BADGE_CLASS: Record<string, string> = {
   연합뉴스: "badge-yonhap",
 };
 
-// ─── 만화 패널 컴포넌트 (원본 로직 유지, 스타일 개선) ────────────────────────
+// ─── 만화 패널 컴포넌트 ───────────────────────────────────────────────────────
 function SimpleComicPanel({ scene }: { scene: any }) {
   const imageUrl = typeof scene === "string" ? scene : scene.url;
   const [isLoading, setIsLoading] = useState(true);
@@ -42,46 +42,51 @@ function SimpleComicPanel({ scene }: { scene: any }) {
   return (
     <div
       className="relative w-full overflow-hidden"
-      style={{ background: "#0D0B09" }}
+      style={{ background: "#0A0806" }}
     >
       <div
         className="relative w-full flex items-center justify-center"
-        style={{ minHeight: "360px", background: "#0D0B09" }}
+        style={{ minHeight: "380px", background: "#0A0806" }}
       >
-        {/* 로딩 */}
+        {/* 로딩 상태 */}
         {isLoading && !hasError && (
           <div
             className="absolute inset-0 flex flex-col items-center justify-center gap-5 z-10"
-            style={{ background: "#0D0B09" }}
+            style={{ background: "#0A0806" }}
           >
-            {/* 스피너 */}
-            <div
-              className="w-12 h-12 rounded-full border-2 animate-spin"
-              style={{
-                borderColor: "rgba(255,255,255,0.1)",
-                borderTopColor: "#FBBF24",
-              }}
-            />
-            <div className="flex flex-col items-center gap-2">
-              <p
-                className="text-xs font-black uppercase tracking-widest animate-pulse"
+            <div className="relative">
+              <div
+                className="w-14 h-14 rounded-full border-2 animate-spin"
                 style={{
-                  color: "rgba(255,255,255,0.4)",
-                  letterSpacing: "0.25em",
+                  borderColor: "rgba(255,255,255,0.07)",
+                  borderTopColor: "#FBBF24",
                 }}
+              />
+              <div
+                className="absolute inset-0 rounded-full"
+                style={{ boxShadow: "0 0 24px rgba(251,191,36,0.2)" }}
+              />
+            </div>
+            <div className="flex flex-col items-center gap-2.5">
+              <p
+                className="text-[10px] font-black uppercase tracking-[0.25em] animate-pulse"
+                style={{ color: "rgba(255,255,255,0.35)" }}
               >
                 AI가 만화를 그리는 중...
               </p>
-              {/* 프로그레스 바 */}
               <div
-                className="w-40 h-1 rounded-full overflow-hidden"
-                style={{ background: "rgba(255,255,255,0.08)" }}
+                className="w-36 h-0.5 overflow-hidden"
+                style={{
+                  background: "rgba(255,255,255,0.07)",
+                  borderRadius: "999px",
+                }}
               >
                 <div
-                  className="h-full rounded-full animate-pulse"
+                  className="h-full animate-pulse"
                   style={{
                     background: "linear-gradient(90deg, #FBBF24, #F59E0B)",
                     width: "100%",
+                    borderRadius: "999px",
                   }}
                 />
               </div>
@@ -89,18 +94,18 @@ function SimpleComicPanel({ scene }: { scene: any }) {
           </div>
         )}
 
-        {/* 에러 */}
+        {/* 에러 상태 */}
         {hasError && (
           <div
             className="absolute inset-0 flex flex-col items-center justify-center gap-3 z-10"
-            style={{ background: "#0D0B09" }}
+            style={{ background: "#0A0806" }}
           >
-            <span className="text-5xl">🎨</span>
+            <span className="text-5xl opacity-40">🎨</span>
             <p
               className="text-sm font-bold"
-              style={{ color: "rgba(255,255,255,0.4)" }}
+              style={{ color: "rgba(255,255,255,0.3)" }}
             >
-              이미지를 불러올 수 없습니다.
+              이미지를 불러올 수 없습니다
             </p>
           </div>
         )}
@@ -135,7 +140,6 @@ function CartoonCard({
   const cardRef = useRef<HTMLDivElement>(null);
   const [isVisible, setIsVisible] = useState(highlight);
 
-  // 하이라이트 스크롤 (원본 유지)
   useEffect(() => {
     if (highlight && cardRef.current) {
       setTimeout(() => {
@@ -147,7 +151,6 @@ function CartoonCard({
     }
   }, [highlight]);
 
-  // IntersectionObserver fade-in (원본 유지)
   useEffect(() => {
     const currentRef = cardRef.current;
     const observer = new IntersectionObserver(
@@ -157,7 +160,7 @@ function CartoonCard({
           if (currentRef) observer.unobserve(currentRef);
         }
       },
-      { threshold: 0.1, rootMargin: "0px 0px -50px 0px" },
+      { threshold: 0.08, rootMargin: "0px 0px -40px 0px" },
     );
     if (currentRef) observer.observe(currentRef);
     return () => {
@@ -182,24 +185,26 @@ function CartoonCard({
     <article
       ref={cardRef}
       id={`comic-${item.news_id}`}
-      className="overflow-hidden transition-all duration-700"
+      className="overflow-hidden"
       style={{
         opacity: isVisible ? 1 : 0,
-        transform: isVisible ? "translateY(0)" : "translateY(40px)",
-        borderRadius: "24px",
-        border: highlight ? "3px solid #FBBF24" : "1px solid #E4DDD3",
+        transform: isVisible ? "translateY(0)" : "translateY(48px)",
+        transition:
+          "opacity 0.65s cubic-bezier(0.22,1,0.36,1), transform 0.65s cubic-bezier(0.22,1,0.36,1)",
+        borderRadius: "28px",
+        border: highlight ? "2px solid #FBBF24" : "1px solid #E4DDD3",
         boxShadow: highlight
-          ? "0 0 0 6px rgba(251,191,36,0.15), 0 12px 48px rgba(22,19,17,0.15)"
-          : "0 4px 24px rgba(22,19,17,0.1)",
+          ? "0 0 0 6px rgba(251,191,36,0.12), 0 16px 56px rgba(22,19,17,0.18)"
+          : "0 6px 32px rgba(22,19,17,0.1)",
         background: "#ffffff",
       }}
     >
-      {/* ─── 카드 상단 헤더 ─── */}
+      {/* ── 카드 헤더 (dark) ── */}
       <div style={{ background: "#141210" }}>
-        {/* 언론사 + 날짜 스트립 */}
+        {/* 상단 메타 스트립 */}
         <div
           className="flex items-center justify-between px-6 pt-5 pb-4"
-          style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}
+          style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}
         >
           <div className="flex items-center gap-2.5">
             <span
@@ -210,24 +215,23 @@ function CartoonCard({
             <span
               className="text-[11px] font-medium"
               style={{
-                color: "rgba(255,255,255,0.3)",
+                color: "rgba(255,255,255,0.28)",
                 fontFamily: "'Noto Sans KR', sans-serif",
               }}
             >
               {dateStr}
             </span>
           </div>
-          {/* AI Comics 라벨 */}
           <div className="flex items-center gap-1.5">
             <div
               className="w-1.5 h-1.5 rounded-full animate-pulse"
               style={{ background: "#FBBF24" }}
             />
             <span
-              className="text-[9px] font-black uppercase tracking-widest"
+              className="text-[9px] font-black uppercase"
               style={{
-                color: "rgba(255,255,255,0.25)",
-                letterSpacing: "0.2em",
+                color: "rgba(255,255,255,0.22)",
+                letterSpacing: "0.22em",
               }}
             >
               AI COMIC
@@ -235,14 +239,15 @@ function CartoonCard({
           </div>
         </div>
 
-        {/* 제목 */}
-        <div className="px-6 pt-5 pb-2">
+        {/* 제목 + 요약 + 링크 */}
+        <div className="px-6 pt-5 pb-6">
           <h2
-            className="font-black text-white leading-snug break-keep mb-4"
+            className="font-black text-white leading-snug break-keep mb-3"
             style={{
               fontFamily: "'Noto Serif KR', serif",
-              fontSize: "clamp(18px, 3vw, 24px)",
+              fontSize: "clamp(17px, 3vw, 23px)",
               lineHeight: 1.4,
+              letterSpacing: "-0.01em",
             }}
           >
             {item.title}
@@ -252,7 +257,7 @@ function CartoonCard({
             <p
               className="text-sm leading-relaxed line-clamp-2 mb-5"
               style={{
-                color: "rgba(255,255,255,0.45)",
+                color: "rgba(255,255,255,0.4)",
                 fontFamily: "'Noto Sans KR', sans-serif",
               }}
             >
@@ -262,11 +267,12 @@ function CartoonCard({
 
           <Link
             to={`/news/${item.news_id}`}
-            className="inline-flex items-center gap-2 text-[13px] font-black rounded-full transition-all duration-200 mb-6"
+            className="inline-flex items-center gap-2 text-[12px] font-black transition-all duration-200"
             style={{
               background: "#FBBF24",
               color: "#141210",
               padding: "8px 18px",
+              borderRadius: "999px",
             }}
             onMouseEnter={(e) => {
               (e.currentTarget as HTMLElement).style.background = "#F59E0B";
@@ -300,15 +306,12 @@ function CartoonCard({
         </div>
       </div>
 
-      {/* ─── 만화 영역 ─── */}
+      {/* ── 만화 영역 ── */}
       <div>
         {/* 섹션 타이틀 바 */}
         <div
           className="flex items-center justify-between px-5 py-2.5"
-          style={{
-            background: "#FBBF24",
-            borderTop: "none",
-          }}
+          style={{ background: "#FBBF24" }}
         >
           <span
             className="font-black text-[10px] uppercase tracking-widest"
@@ -318,25 +321,25 @@ function CartoonCard({
           </span>
           <span
             className="text-[9px] font-bold"
-            style={{ color: "rgba(20,18,16,0.5)", letterSpacing: "0.1em" }}
+            style={{ color: "rgba(20,18,16,0.45)", letterSpacing: "0.1em" }}
           >
             Generated by AI
           </span>
         </div>
 
-        {/* 패널 렌더링 */}
+        {/* 패널 */}
         {item.comic_urls.length > 0 && (
           <SimpleComicPanel scene={item.comic_urls[0]} />
         )}
 
-        {/* 하단 크레딧 */}
+        {/* 하단 크레딧 바 */}
         <div
           className="py-3.5 text-center"
           style={{ background: "#F7F4EF", borderTop: "1px solid #E4DDD3" }}
         >
           <span
             className="text-[9px] font-black uppercase tracking-widest"
-            style={{ color: "#9C9891", letterSpacing: "0.2em" }}
+            style={{ color: "#C9C3BA", letterSpacing: "0.2em" }}
           >
             AI Comic Engine · 뉴스 정보 나침반
           </span>
@@ -350,224 +353,122 @@ function CartoonCard({
 function SkeletonComicCard() {
   return (
     <div
-      className="overflow-hidden rounded-3xl"
+      className="overflow-hidden"
       style={{
+        borderRadius: "28px",
         border: "1px solid #E4DDD3",
-        boxShadow: "0 4px 24px rgba(22,19,17,0.08)",
+        boxShadow: "0 6px 32px rgba(22,19,17,0.08)",
       }}
     >
-      {/* 헤더 */}
       <div style={{ background: "#141210", padding: "24px" }}>
         <div className="flex items-center gap-2.5 mb-5">
           <div
-            className="shimmer h-6 w-16 rounded-full"
-            style={{ background: "rgba(255,255,255,0.08)" }}
-          />
-          <div
-            className="shimmer h-4 w-24 rounded"
-            style={{ background: "rgba(255,255,255,0.06)" }}
-          />
-        </div>
-        <div
-          className="shimmer h-7 w-full rounded mb-2.5"
-          style={{ background: "rgba(255,255,255,0.08)" }}
-        />
-        <div
-          className="shimmer h-7 w-4/5 rounded mb-4"
-          style={{ background: "rgba(255,255,255,0.06)" }}
-        />
-        <div
-          className="shimmer h-4 w-full rounded mb-1.5"
-          style={{ background: "rgba(255,255,255,0.05)" }}
-        />
-        <div
-          className="shimmer h-4 w-2/3 rounded mb-5"
-          style={{ background: "rgba(255,255,255,0.05)" }}
-        />
-        <div
-          className="shimmer h-9 w-32 rounded-full"
-          style={{ background: "rgba(255,255,255,0.08)" }}
-        />
-      </div>
-      {/* 이미지 영역 */}
-      <div
-        className="shimmer"
-        style={{ height: "380px", background: "#ede9e2" }}
-      />
-      {/* 하단 */}
-      <div style={{ height: "44px", background: "#F7F4EF" }} />
-    </div>
-  );
-}
-
-// ─── 메인 페이지 컴포넌트 ─────────────────────────────────────────────────────
-export default function CartoonsPage() {
-  const [cartoons, setCartoons] = useState<CartoonItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [searchParams] = useSearchParams();
-  const targetNewsId = searchParams.get("newsId");
-
-  // ── 데이터 Fetch (원본 로직 100% 유지) ──
-  useEffect(() => {
-    const fetchCartoons = async () => {
-      try {
-        const res = await api.get("/api/cartoons");
-
-        const sortedCartoons = res.data.sort(
-          (a: CartoonItem, b: CartoonItem) => {
-            const dateA = a.published_at
-              ? new Date(a.published_at).getTime()
-              : 0;
-            const dateB = b.published_at
-              ? new Date(b.published_at).getTime()
-              : 0;
-            return dateB - dateA;
-          },
-        );
-
-        setCartoons(sortedCartoons);
-      } catch (error) {
-        console.error("만화 로딩 실패:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchCartoons();
-  }, []);
-
-  // ─── 로딩 스켈레톤 ────────────────────────────────────────────────────────
-  if (loading) {
-    return (
-      <div
-        className="mt-8 pb-24"
-        style={{ fontFamily: "'Noto Sans KR', sans-serif" }}
-      >
-        {/* 페이지 헤더 */}
-        <PageHeader />
-        <div className="flex flex-col gap-10">
-          <SkeletonComicCard />
-          <SkeletonComicCard />
-        </div>
-      </div>
-    );
-  }
-
-  // ─────────────────────────────────────────────────────────────────────────
-  return (
-    <div
-      className="mt-8 pb-24"
-      style={{ fontFamily: "'Noto Sans KR', sans-serif" }}
-    >
-      {/* ─── 페이지 헤더 ─────────────────────────────────────────── */}
-      <PageHeader count={cartoons.length} />
-
-      {/* ─── 비어있는 상태 ───────────────────────────────────────── */}
-      {cartoons.length === 0 ? (
-        <div
-          className="text-center py-24 rounded-3xl flex flex-col items-center gap-5"
-          style={{
-            border: "2px dashed #D1CAC0",
-            background: "rgba(255,255,255,0.6)",
-          }}
-        >
-          <span style={{ fontSize: "64px" }}>🖌️</span>
-          <div>
-            <p className="text-lg font-black mb-2" style={{ color: "#2C2926" }}>
-              아직 생성된 만화가 없습니다
-            </p>
-            <p className="text-sm" style={{ color: "#9C9891" }}>
-              기사 상세 페이지에서 만화 생성 버튼을 눌러보세요!
-            </p>
-          </div>
-          <Link
-            to="/"
-            className="inline-flex items-center gap-2 text-sm font-black rounded-full transition-all duration-200"
+            className="h-6 w-16 rounded-full"
             style={{
-              background: "#161311",
-              color: "#fff",
-              padding: "12px 24px",
-              boxShadow: "0 4px 16px rgba(22,19,17,0.2)",
+              background: "rgba(255,255,255,0.08)",
+              animation: "shimmer 1.6s ease-in-out infinite",
+              backgroundImage:
+                "linear-gradient(90deg,rgba(255,255,255,0.05) 25%,rgba(255,255,255,0.12) 50%,rgba(255,255,255,0.05) 75%)",
+              backgroundSize: "900px 100%",
             }}
-            onMouseEnter={(e) => {
-              (e.currentTarget as HTMLElement).style.background = "#C13026";
-              (e.currentTarget as HTMLElement).style.transform =
-                "translateY(-2px)";
-            }}
-            onMouseLeave={(e) => {
-              (e.currentTarget as HTMLElement).style.background = "#161311";
-              (e.currentTarget as HTMLElement).style.transform =
-                "translateY(0)";
-            }}
-          >
-            📰 뉴스 목록으로
-          </Link>
-        </div>
-      ) : (
-        <div className="flex flex-col gap-12">
-          {cartoons.map((item) => (
-            <CartoonCard
-              key={item.news_id}
-              item={item}
-              highlight={targetNewsId === String(item.news_id)}
-            />
-          ))}
-
-          {/* 하단 마무리 */}
+          />
           <div
-            className="py-8 flex flex-col items-center gap-3"
-            style={{ color: "#9C9891" }}
-          >
-            <div className="flex items-center gap-3">
-              <div className="h-px w-16" style={{ background: "#E4DDD3" }} />
-              <span className="text-sm font-medium">
-                모든 만화를 불러왔습니다
-              </span>
-              <div className="h-px w-16" style={{ background: "#E4DDD3" }} />
-            </div>
-          </div>
+            className="h-4 w-24 rounded"
+            style={{
+              background: "rgba(255,255,255,0.06)",
+              animation: "shimmer 1.6s ease-in-out infinite 0.1s",
+              backgroundImage:
+                "linear-gradient(90deg,rgba(255,255,255,0.03) 25%,rgba(255,255,255,0.08) 50%,rgba(255,255,255,0.03) 75%)",
+              backgroundSize: "900px 100%",
+            }}
+          />
         </div>
-      )}
+        <div
+          className="h-7 w-full rounded mb-2.5"
+          style={{
+            background: "rgba(255,255,255,0.07)",
+            animation: "shimmer 1.6s ease-in-out infinite 0.2s",
+            backgroundImage:
+              "linear-gradient(90deg,rgba(255,255,255,0.04) 25%,rgba(255,255,255,0.10) 50%,rgba(255,255,255,0.04) 75%)",
+            backgroundSize: "900px 100%",
+          }}
+        />
+        <div
+          className="h-7 w-4/5 rounded mb-4"
+          style={{
+            background: "rgba(255,255,255,0.05)",
+            animation: "shimmer 1.6s ease-in-out infinite 0.3s",
+            backgroundImage:
+              "linear-gradient(90deg,rgba(255,255,255,0.03) 25%,rgba(255,255,255,0.08) 50%,rgba(255,255,255,0.03) 75%)",
+            backgroundSize: "900px 100%",
+          }}
+        />
+        <div
+          className="h-4 w-full rounded mb-1.5"
+          style={{ background: "rgba(255,255,255,0.04)" }}
+        />
+        <div
+          className="h-4 w-2/3 rounded mb-5"
+          style={{ background: "rgba(255,255,255,0.04)" }}
+        />
+        <div
+          className="h-9 w-32 rounded-full"
+          style={{ background: "rgba(255,255,255,0.07)" }}
+        />
+      </div>
+      <div className="shimmer" style={{ height: "400px" }} />
+      <div style={{ height: "46px", background: "#F7F4EF" }} />
     </div>
   );
 }
 
-// ─── 페이지 헤더 서브컴포넌트 ────────────────────────────────────────────────
+// ─── 페이지 헤더 ─────────────────────────────────────────────────────────────
 function PageHeader({ count }: { count?: number }) {
   return (
     <header className="mb-12">
-      {/* 배너 */}
+      {/* 메인 배너 */}
       <div
-        className="relative overflow-hidden rounded-3xl mb-8 flex flex-col items-center justify-center text-center py-14 px-6"
+        className="relative overflow-hidden mb-7 flex flex-col items-center justify-center text-center py-14 px-6"
         style={{
+          borderRadius: "28px",
           background:
-            "linear-gradient(135deg, #141210 0%, #1E1A16 50%, #141210 100%)",
-          boxShadow: "0 8px 40px rgba(22,19,17,0.2)",
+            "linear-gradient(145deg, #0E0C0A 0%, #1A1610 55%, #0E0C0A 100%)",
+          boxShadow: "0 12px 48px rgba(22,19,17,0.28)",
         }}
       >
-        {/* 배경 텍스처 — 장식 원 */}
+        {/* Decorative blobs */}
         <div
-          className="absolute top-0 right-0 w-72 h-72 rounded-full pointer-events-none"
+          className="absolute top-0 right-0 w-96 h-96 rounded-full pointer-events-none"
           style={{
             background:
-              "radial-gradient(circle, rgba(251,191,36,0.06) 0%, transparent 70%)",
+              "radial-gradient(circle, rgba(251,191,36,0.07) 0%, transparent 65%)",
             transform: "translate(30%, -30%)",
           }}
         />
         <div
-          className="absolute bottom-0 left-0 w-48 h-48 rounded-full pointer-events-none"
+          className="absolute bottom-0 left-0 w-64 h-64 rounded-full pointer-events-none"
           style={{
             background:
-              "radial-gradient(circle, rgba(124,58,237,0.08) 0%, transparent 70%)",
+              "radial-gradient(circle, rgba(124,58,237,0.09) 0%, transparent 65%)",
             transform: "translate(-30%, 30%)",
           }}
         />
-
-        {/* 배지 */}
         <div
-          className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 mb-5"
+          className="absolute top-1/2 left-1/2 w-80 h-80 rounded-full pointer-events-none"
           style={{
-            background: "rgba(251,191,36,0.12)",
-            border: "1px solid rgba(251,191,36,0.25)",
+            background:
+              "radial-gradient(circle, rgba(56,189,248,0.04) 0%, transparent 65%)",
+            transform: "translate(-50%, -50%)",
+          }}
+        />
+
+        {/* Badge */}
+        <div
+          className="inline-flex items-center gap-2 px-4 py-1.5 mb-5"
+          style={{
+            background: "rgba(251,191,36,0.1)",
+            border: "1px solid rgba(251,191,36,0.22)",
+            borderRadius: "999px",
           }}
         >
           <div
@@ -576,49 +477,51 @@ function PageHeader({ count }: { count?: number }) {
           />
           <span
             className="font-black text-[10px] uppercase"
-            style={{ color: "#FBBF24", letterSpacing: "0.22em" }}
+            style={{ color: "#FBBF24", letterSpacing: "0.24em" }}
           >
             AI COMICS GALLERY
           </span>
         </div>
 
-        {/* 타이틀 */}
+        {/* Title */}
         <h1
           className="font-black text-white mb-3"
           style={{
             fontFamily: "'Noto Serif KR', serif",
-            fontSize: "clamp(28px, 5vw, 48px)",
-            lineHeight: 1.2,
+            fontSize: "clamp(28px, 5vw, 50px)",
+            lineHeight: 1.15,
+            letterSpacing: "-0.02em",
           }}
         >
           AI 만화 모음집
         </h1>
         <p
-          className="max-w-sm leading-relaxed"
+          className="max-w-sm leading-relaxed mb-0"
           style={{
-            color: "rgba(255,255,255,0.4)",
+            color: "rgba(255,255,255,0.35)",
             fontSize: "14px",
             fontFamily: "'Noto Sans KR', sans-serif",
           }}
         >
-          AI가 뉴스를 읽고 직접 그린 웹툰 갤러리입니다.
+          AI가 뉴스를 읽고 직접 그린 웹툰 갤러리
           <br />
           이미지 생성에는 최대 1분이 걸릴 수 있습니다.
         </p>
 
-        {/* 카운트 */}
+        {/* Count pill */}
         {count !== undefined && count > 0 && (
           <div
-            className="mt-5 flex items-center gap-2 px-5 py-2 rounded-full"
+            className="mt-6 flex items-center gap-2 px-5 py-2.5"
             style={{
-              background: "rgba(255,255,255,0.06)",
+              background: "rgba(255,255,255,0.05)",
               border: "1px solid rgba(255,255,255,0.08)",
+              borderRadius: "999px",
             }}
           >
             <span className="text-2xl font-black text-white">{count}</span>
             <span
               className="text-sm"
-              style={{ color: "rgba(255,255,255,0.4)" }}
+              style={{ color: "rgba(255,255,255,0.35)" }}
             >
               개의 만화 수록
             </span>
@@ -626,7 +529,7 @@ function PageHeader({ count }: { count?: number }) {
         )}
       </div>
 
-      {/* 뉴스 목록으로 링크 */}
+      {/* Back link */}
       <div className="flex items-center justify-center">
         <Link
           to="/"
@@ -656,5 +559,130 @@ function PageHeader({ count }: { count?: number }) {
         </Link>
       </div>
     </header>
+  );
+}
+
+// ─── 메인 페이지 ─────────────────────────────────────────────────────────────
+export default function CartoonsPage() {
+  const [cartoons, setCartoons] = useState<CartoonItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchParams] = useSearchParams();
+  const targetNewsId = searchParams.get("newsId");
+
+  useEffect(() => {
+    const fetchCartoons = async () => {
+      try {
+        const res = await api.get("/api/cartoons");
+        const sortedCartoons = res.data.sort(
+          (a: CartoonItem, b: CartoonItem) => {
+            const dateA = a.published_at
+              ? new Date(a.published_at).getTime()
+              : 0;
+            const dateB = b.published_at
+              ? new Date(b.published_at).getTime()
+              : 0;
+            return dateB - dateA;
+          },
+        );
+        setCartoons(sortedCartoons);
+      } catch (error) {
+        console.error("만화 로딩 실패:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchCartoons();
+  }, []);
+
+  // ─── 로딩 상태 ──────────────────────────────────────────────────────────────
+  if (loading) {
+    return (
+      <div
+        className="mt-8 pb-24"
+        style={{ fontFamily: "'Noto Sans KR', sans-serif" }}
+      >
+        <PageHeader />
+        <div className="flex flex-col gap-10">
+          <SkeletonComicCard />
+          <SkeletonComicCard />
+        </div>
+      </div>
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  return (
+    <div
+      className="mt-8 pb-24"
+      style={{ fontFamily: "'Noto Sans KR', sans-serif" }}
+    >
+      <PageHeader count={cartoons.length} />
+
+      {/* 비어있는 상태 */}
+      {cartoons.length === 0 ? (
+        <div
+          className="text-center py-24 flex flex-col items-center gap-5"
+          style={{
+            border: "2px dashed #D1CAC0",
+            borderRadius: "24px",
+            background: "rgba(255,255,255,0.6)",
+          }}
+        >
+          <span style={{ fontSize: "64px" }}>🖌️</span>
+          <div>
+            <p className="text-lg font-black mb-2" style={{ color: "#2C2926" }}>
+              아직 생성된 만화가 없습니다
+            </p>
+            <p className="text-sm" style={{ color: "#9C9891" }}>
+              기사 상세 페이지에서 만화 생성 버튼을 눌러보세요!
+            </p>
+          </div>
+          <Link
+            to="/"
+            className="inline-flex items-center gap-2 text-sm font-black transition-all duration-200"
+            style={{
+              background: "#161311",
+              color: "#fff",
+              padding: "12px 24px",
+              borderRadius: "999px",
+              boxShadow: "0 4px 16px rgba(22,19,17,0.2)",
+            }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLElement).style.background = "#C13026";
+              (e.currentTarget as HTMLElement).style.transform =
+                "translateY(-2px)";
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLElement).style.background = "#161311";
+              (e.currentTarget as HTMLElement).style.transform =
+                "translateY(0)";
+            }}
+          >
+            📰 뉴스 목록으로
+          </Link>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-12">
+          {cartoons.map((item) => (
+            <CartoonCard
+              key={item.news_id}
+              item={item}
+              highlight={targetNewsId === String(item.news_id)}
+            />
+          ))}
+
+          <div
+            className="py-10 flex flex-col items-center"
+            style={{ color: "#9C9891" }}
+          >
+            <div className="divider-ornate w-full max-w-xs">
+              <span className="text-sm font-medium">
+                모든 만화를 불러왔습니다
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
