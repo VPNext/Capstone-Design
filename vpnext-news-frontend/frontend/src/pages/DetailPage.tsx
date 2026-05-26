@@ -3,6 +3,8 @@ import { useParams, Link } from "react-router-dom";
 import api from "../api";
 import LoadingModal from "../components/LoadingModal";
 
+// 디테일 페이지도 마찬가지로 컴포넌트화를 해야 읽기 좋고 기능을 추가나 변경할때도 편합니다.
+
 type AnalysisStatus = "pending" | "analyzing" | "complete";
 
 // [사전 정의] 언론사 ID 매핑 테이블 공유
@@ -92,6 +94,8 @@ const AnalysisCard = ({
   </div>
 );
 
+//??? any로 타입을 정의하면 타입스크립트를 쓰는 의미가 사라집니다.
+//전체적으로 인터페이스화 시킨 후 타입정의 부탁드립니다.
 export default function DetailPage() {
   const { id } = useParams();
   const [news, setNews] = useState<any>(null);
@@ -179,6 +183,7 @@ export default function DetailPage() {
     setLoadingStatus("만화 생성을 준비하고 있습니다...");
 
     // Heuristic progress update (실제 진행률이 아닌 시각적 피드백용)
+    // 이 부분은 enum으로 실제 진행률을 보이게 해주세요
     const interval = setInterval(() => {
       setProgress((prev) => {
         if (prev < 30) {

@@ -2,7 +2,13 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import api from "../api";
 
-// [사전 정의] 언론사 ID -> 한글명 매핑 맵
+// mainpage는 훅으로 기능을 나누어 훅들을 합쳐서 ui를 렌더하는 형식이여야 합니다.
+// ai로 만들었다 해도 기능부분과 오류 및 리팩토링은 점검을 부탁합니다.
+// 전체적으로 문제가 많습니다. 기능, 데이터정의, ui등 섞여있습니다.
+// 어떤방향성으로 해야하냐면 대충 1. 데이터 정의부분 따로 나누기, 2. 동일 기능은 훅으로 분리, 3. ui는 최대한 단순하게 렌더링하는 형태로 부탁합니다.
+
+// detailpafe에서도 사용하니 단일 관리 부탁드립니다.
+// [사전 정의] 언론사 ID -> 한글명 매핑 맵 
 const SOURCE_NAME_MAP: Record<string, string> = {
   hani: "한겨레",
   khan: "경향신문",
@@ -18,6 +24,7 @@ const SOURCE_NAME_MAP: Record<string, string> = {
   yonhap: "연합뉴스",
 };
 
+//이 부분도 detailpage랑 같이 사용하니 컴포넌트화 부탁드립니다.
 // [유틸] RSS 본문 HTML에서 이미지 태그 추출
 const extractImageFromSummary = (rawString: string): string | null => {
   if (!rawString) return null;
@@ -161,6 +168,8 @@ export default function MainPage() {
     [loading, isLoadingMore, hasMore],
   );
 
+
+  // 전체적으로 섞여서 가독성이 떨어집니다. 훅으로 관리 부탁드립니다.
   // [API] 뉴스 목록 Fetch
   const fetchNews = async (pageNumber: number, sourceName: string) => {
     try {
@@ -215,6 +224,7 @@ export default function MainPage() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
+  
   // 2. [Effect] 필터가 변경되었을 때 (1페이지부터 재요청)
   const isFilterFirstRun = useRef(true);
   useEffect(() => {
@@ -230,6 +240,7 @@ export default function MainPage() {
     fetchNews(1, selectedSource);
   }, [selectedSource]);
 
+  
   // 3. [Effect] 페이지 번호 변경 시 추가 데이터 로드 (무한 스크롤)
   const isPageFirstRun = useRef(true);
   useEffect(() => {

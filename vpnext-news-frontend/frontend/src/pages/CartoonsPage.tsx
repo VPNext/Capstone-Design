@@ -205,6 +205,7 @@ export default function CartoonsPage() {
 
         setCartoons(sortedCartoons);
       } catch (error) {
+        // 어디는 alert, 어디는 콘솔 에러네요 이것도 일관되게끔 부탁드립니다.
         console.error("만화 로딩 실패:", error);
       } finally {
         setLoading(false);
