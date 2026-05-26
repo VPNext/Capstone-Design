@@ -15,3 +15,10 @@ export const extractTextFromSummary = (rawString: string): string => {
   const doc = new DOMParser().parseFromString(decoded, "text/html");
   return (doc.body.textContent || "").replace(/\s+/g, " ").trim();
 };
+
+export const decodeHtmlEntities = (text: string | null): string => {
+  if (!text) return "";
+  const txt = document.createElement("textarea");
+  txt.innerHTML = text;
+  return txt.value;
+};

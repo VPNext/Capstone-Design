@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { SOURCE_NAME_MAP, SOURCE_BADGE_CLASS } from "../../constants/source";
-import { extractImageFromSummary, extractTextFromSummary } from "../../utils/summary";
+import { extractImageFromSummary, extractTextFromSummary, decodeHtmlEntities } from "../../utils/summary";
 import HighlightText from "../HighlightText";
 import CredibilityBadge from "../CredibilityBadge";
 import ScoreMeter from "../ScoreMeter";
@@ -93,7 +93,7 @@ export default function NewsCard({
                 className="font-bold text-[15px] sm:text-[17px] text-[#161311] leading-snug tracking-tight break-keep group-hover:text-[#C13026] transition-colors"
                 style={{ fontFamily: "'Noto Serif KR', serif" }}
               >
-                <HighlightText text={news.title} keyword={keyword} />
+                <HighlightText text={decodeHtmlEntities(news.title)} keyword={keyword} />
               </h2>
 
               <p

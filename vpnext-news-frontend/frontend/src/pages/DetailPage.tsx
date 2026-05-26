@@ -5,6 +5,7 @@ import { useNewsDetail } from "../hooks/useNewsDetail";
 import ArticleContent from "../components/detail/ArticleContent";
 import AnalysisAside from "../components/detail/AnalysisAside";
 import ComicViewer from "../components/detail/ComicViewer";
+import { decodeHtmlEntities } from "../utils/summary";
 
 // 기사 본문 텍스트 내 개행문(\n)을 단락별 <p> 태그로 묶어서 반환하는 렌더러
 const renderContent = (content: string) =>
@@ -119,7 +120,7 @@ export default function DetailPage() {
         </div>
 
         <h1 className="font-black leading-snug mb-6 font-serif text-[clamp(22px,4vw,40px)] text-[#161311] tracking-[-0.02em]">
-          {news.title}
+          {decodeHtmlEntities(news.title)}
         </h1>
 
         <div className="flex items-center flex-wrap gap-4 pb-6 border-b border-[#E4DDD3]">

@@ -1,7 +1,8 @@
 import type { FormEvent, ReactNode } from "react";
 import type { AnalysisData, DifficultTerm, KeyPerson } from "../../types/news";
 import DictionarySearchForm from "./DictionarySearchForm";
-import { parseAndRenderSummary } from "./ArticleContent";
+import { parseAndRenderSummary, replaceEnglishSourceNames } from "./ArticleContent";
+import { SOURCE_NAME_MAP } from "../../constants/source";
 
 type AnalysisStatus = "pending" | "analyzing" | "complete";
 
@@ -199,7 +200,7 @@ export default function AnalysisAside({
                     borderRadius: "10px",
                   }}
                 >
-                  {parseAndRenderSummary(credibility.reason)}
+                  {parseAndRenderSummary(credibility.reason, true)}
                 </div>
 
                 {credibility.red_flags && credibility.red_flags.length > 0 && (
@@ -211,20 +212,29 @@ export default function AnalysisAside({
                       ⚠️ 주의 표현
                     </p>
                     <ul className="flex flex-wrap gap-1.5">
-                      {credibility.red_flags.map((flag: string, i: number) => (
-                        <li
-                          key={i}
-                          className="text-xs px-2 py-0.5 border"
-                          style={{
-                            background: "#FEF2F2",
-                            color: "#991B1B",
-                            borderColor: "#FECACA",
-                            borderRadius: "999px",
-                          }}
-                        >
-                          {flag}
-                        </li>
-                      ))}
+                      {credibility.red_flags.map((flag: string, i: number) => {
+                        // 1. [mk](URL) 과 같은 마크다운 링크에서 주소를 지우고 언론사명만 추출 (한글 변환 적용)
+                        let cleanFlag = flag.replace(/\[([^\]]+)\]\(https?:\/\/[^\s)]+\)/g, (_, linkText) => {
+                          return SOURCE_NAME_MAP[linkText.toLowerCase()] || linkText;
+                        });
+                        // 2. 혹시 영어 텍스트로 들어있을 언론사명을 한글로 일괄 치환
+                        cleanFlag = replaceEnglishSourceNames(cleanFlag);
+
+                        return (
+                          <li
+                            key={i}
+                            className="text-xs px-3 py-1 border"
+                            style={{
+                              background: "#FEF2F2",
+                              color: "#991B1B",
+                              borderColor: "#FECACA",
+                              borderRadius: "999px",
+                            }}
+                          >
+                            {cleanFlag}
+                          </li>
+                        );
+                      })}
                     </ul>
                   </div>
                 )}
@@ -244,7 +254,7 @@ export default function AnalysisAside({
                         borderRadius: "10px",
                       }}
                     >
-                      {parseAndRenderSummary(credibility.summary)}
+                      {parseAndRenderSummary(credibility.summary, false)}
                     </div>
                   </div>
                 )}
