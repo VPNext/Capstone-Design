@@ -1,6 +1,7 @@
 import type { FormEvent, ReactNode } from "react";
 import type { AnalysisData, DifficultTerm, KeyPerson } from "../../types/news";
 import DictionarySearchForm from "./DictionarySearchForm";
+import { parseAndRenderSummary } from "./ArticleContent";
 
 type AnalysisStatus = "pending" | "analyzing" | "complete";
 
@@ -191,15 +192,15 @@ export default function AnalysisAside({
                   </div>
                 )}
 
-                <p
+                <div
                   className={`text-[14px] leading-relaxed font-medium p-3 mb-3 ${scoreColor.text}`}
                   style={{
                     background: "rgba(255,255,255,0.6)",
                     borderRadius: "10px",
                   }}
                 >
-                  {credibility.reason}
-                </p>
+                  {parseAndRenderSummary(credibility.reason)}
+                </div>
 
                 {credibility.red_flags && credibility.red_flags.length > 0 && (
                   <div>
@@ -235,7 +236,7 @@ export default function AnalysisAside({
                     >
                       📝 3줄 요약
                     </p>
-                    <p
+                    <div
                       className="text-[13px] leading-relaxed p-3"
                       style={{
                         color: "#2C2926",
@@ -243,8 +244,8 @@ export default function AnalysisAside({
                         borderRadius: "10px",
                       }}
                     >
-                      {credibility.summary}
-                    </p>
+                      {parseAndRenderSummary(credibility.summary)}
+                    </div>
                   </div>
                 )}
               </>

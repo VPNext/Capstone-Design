@@ -2,6 +2,62 @@ import type { ReactNode } from "react";
 import { extractImageFromSummary } from "../../utils/summary";
 import type { NewsDetail } from "../../types/news";
 
+// ── [프론트엔드 전용 요약문 보정, 중복 제거 및 링크 파서 함수] ──
+export const parseAndRenderSummary = (text: string | null): ReactNode => {
+  if (!text) return null;
+
+  // 1. 대괄호 [ 누락 상태 보정
+  let correctedText = text.trim();
+  if (correctedText.includes("보도 요약]") && !correctedText.startsWith("[")) {
+    correctedText = "[" + correctedText;
+  }
+
+  // 2. 마크다운 링크 수집 및 중복 제거 (URL 기준 고유 매핑)
+  const linkRegex = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g;
+  const linksMap = new Map<string, string>(); // URL -> 언론사명
+  let match;
+  while ((match = linkRegex.exec(correctedText)) !== null) {
+    const linkText = match[1];
+    const linkUrl = match[2];
+    linksMap.set(linkUrl, linkText); // 동일 URL은 하나로 중복 제거됨
+  }
+
+  // 3. 지저분한 "(참조 기사 하이퍼링크 ...)" 또는 "(참조 기사 ...)" 문자열을 정규식으로 완전히 제거
+  const cleanText = correctedText
+    .replace(/[\s\n]*\(참조 기사 하이퍼링크.*?\)/g, "")
+    .replace(/[\s\n]*\(참조 기사 하이퍼링크.*?$/g, "");
+
+  const uniqueLinks = Array.from(linksMap.entries()).map(([url, text]) => ({
+    text,
+    url,
+  }));
+
+  return (
+    <div>
+      {/* 본문 텍스트 */}
+      <p className="leading-relaxed mb-3">{cleanText}</p>
+      
+      {/* 고유 참조 링크 뱃지 리스트 */}
+      {uniqueLinks.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 pt-2 border-t border-slate-200/50 mt-2">
+          <span className="text-[11px] font-bold text-slate-500 self-center">🔗 참조 기사:</span>
+          {uniqueLinks.map((link, idx) => (
+            <a
+              key={idx}
+              href={link.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[11px] font-semibold px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition-all cursor-pointer"
+            >
+              {link.text}
+            </a>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 interface ArticleContentProps {
   news: NewsDetail;
   aiSummary: string | null;
@@ -14,55 +70,6 @@ export default function ArticleContent({
   renderContent,
 }: ArticleContentProps) {
   const finalImage = news.image_url || extractImageFromSummary(news.summary);
-
-  // ── [프론트엔드 전용 요약문 보정 및 링크 파서 함수] ──
-  const parseAndRenderSummary = (text: string | null): ReactNode => {
-    if (!text) return null;
-
-    // 1. 대괄호 [ 누락 상태 보정
-    let correctedText = text.trim();
-    if (correctedText.includes("보도 요약]") && !correctedText.startsWith("[")) {
-      correctedText = "[" + correctedText;
-    }
-
-    // 2. 마크다운 링크 정규식 매칭 및 <a> 태그 변환
-    const linkRegex = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g;
-    const parts = [];
-    let lastIndex = 0;
-    let match;
-
-    while ((match = linkRegex.exec(correctedText)) !== null) {
-      const matchIndex = match.index;
-      
-      // 링크 이전의 일반 텍스트 추가
-      if (matchIndex > lastIndex) {
-        parts.push(correctedText.substring(lastIndex, matchIndex));
-      }
-      
-      // 마크다운 링크를 <a> 태그 컴포넌트로 변환하여 추가
-      const linkText = match[1];
-      const linkUrl = match[2];
-      parts.push(
-        <a
-          key={matchIndex}
-          href={linkUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-[#1A55A8] hover:text-[#C13026] hover:underline font-bold inline-flex items-center gap-0.5 mx-0.5"
-        >
-          {linkText}
-        </a>
-      );
-      lastIndex = linkRegex.lastIndex;
-    }
-
-    // 매칭 완료 후 남은 일반 텍스트가 있다면 추가
-    if (lastIndex < correctedText.length) {
-      parts.push(correctedText.substring(lastIndex));
-    }
-
-    return parts.length > 0 ? <>{parts}</> : correctedText;
-  };
 
   return (
     <article className="flex-1 min-w-0">
