@@ -36,7 +36,7 @@ SELECTORS: Dict[str, Dict[str, str]] = {
     "chosun.com":    {"content": ".article-body",                                "title": "h1"},
     "joins.com":     {"content": "#article_body",                                "title": "h1.headline"},
     "joongang.co.kr":{"content": "#article_body",                                "title": "h1.headline"},
-    "donga.com":     {"content": ".article_txt",                                 "title": "h1.title"},
+    "donga.com":     {"content": ".news_view, .article_txt",                    "title": "h1.title, h1"},
     "mk.co.kr":      {"content": "#article_body, .art_txt",                      "title": "h1.top_title"},
     "hankyung.com":  {"content": "#articletxt, .article-body",                   "title": "h1.headline"},
 }
@@ -46,13 +46,13 @@ def _get_selectors(url: str) -> Dict[str, str]:
     for domain, sel in SELECTORS.items():   
         if domain in url:
             return sel
-    return {"content": "article, .article, .content, main", "title": "h1"}
+    return {"content": "article, .article, .content, main, .news_view", "title": "h1, .title, .headline"}
 
 
 def _generic_content(soup: BeautifulSoup) -> str:
     for tag in soup.find_all(["script", "style", "nav", "header", "footer", "aside", "iframe"]):
         tag.decompose()
-    candidates = soup.find_all(["article", "main", "div"],
+    candidates = soup.find_all(["article", "main", "div", "section"],
                                class_=lambda c: c and any(
                                    kw in str(c).lower()
                                    for kw in ["article", "content", "body", "text", "news"]
@@ -62,9 +62,17 @@ def _generic_content(soup: BeautifulSoup) -> str:
         paras = [p.get_text(strip=True) for p in best.find_all("p") if len(p.get_text(strip=True)) > 20]
         if paras:
             return "\n".join(paras)
-    return "\n".join(
-        p.get_text(strip=True) for p in soup.find_all("p") if len(p.get_text(strip=True)) > 30
-    )
+        # p 태그가 없는 경우 텍스트 직접 추출
+        text = best.get_text(separator="\n", strip=True)
+        if len(text) > 100:
+            return text
+
+    # 최종 fallback: 너무 짧지 않은 모든 p 태그 또는 전체 텍스트
+    all_paras = [p.get_text(strip=True) for p in soup.find_all("p") if len(p.get_text(strip=True)) > 30]
+    if all_paras:
+        return "\n".join(all_paras)
+    
+    return soup.get_text(separator="\n", strip=True)
 
 
 def scrape(url: str) -> Optional[Dict]:

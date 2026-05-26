@@ -52,9 +52,41 @@ async def run_full_analysis(
     content = scraped["content"]
     source_name = get_source_from_url(article_url)
 
-    # 3. 병렬 AI 분석 실행
+    # 3. 과거 유사 기사 검색 (비교 분석용)
+    import re
+    from datetime import datetime, timedelta
+    related_arts = []
+    is_old_article = False
+    
+    # 기사 발행일 확인 (1년 이상된 기사인지 체크)
+    # scraped 데이터에 날짜 정보가 없으면 DB의 created_at 활용
+    art_date = None
+    # 만약 scraped에 날짜 정보가 있다면 활용 (현재는 없으므로 DB 필드 등 고려)
+    # 여기서는 간단히 DB에 저장된 시간 또는 현재 시간 기준으로 시뮬레이션
+    
+    if title:
+        keywords = [w for w in re.findall(r'[가-힣A-Za-z0-9]+', title) if len(w) >= 2]
+        
+        search_query = db.query(Article).filter(Article.url != article_url)
+        if keywords:
+            from sqlalchemy import or_
+            filters = [Article.title.like(f"%{kw}%") for kw in keywords[:3]]
+            # 최소 5개 이상 교차 분석을 위해 limit을 7로 상향
+            similar_from_db = search_query.filter(or_(*filters)).order_by(Article.created_at.desc()).limit(7).all()
+            
+            for sa in similar_from_db:
+                related_arts.append({
+                    "title": sa.title,
+                    "source": sa.source,
+                    "url": sa.url,
+                    "summary": sa.ai_summary or sa.summary or ""
+                })
+        
+        logger.info(f"교차 분석용 기사 검색 완료: {len(related_arts)}건 발견")
+
+    # 4. 병렬 AI 분석 실행
     tasks = [
-        async_analyze_credibility(title, content, source_name),
+        async_analyze_credibility(title, content, source_name, related_arts, is_old_article),
         async_extract_persons(title, content),
         async_extract_terms(content)
     ]

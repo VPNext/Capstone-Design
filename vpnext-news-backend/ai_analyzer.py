@@ -19,32 +19,35 @@ class GroqClient:
     MODELS = [
         "llama-3.3-70b-versatile",
         "llama-3.1-8b-instant",
-        "mixtral-8x7b-32768",
-        "gemma2-9b-it"
     ]
 
     def __init__(self):
-        self.client = Groq(api_key=GROQ_API_KEY)
+        self.client = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
 
     def _parse_json(self, text: str) -> Optional[Dict[str, Any]]:
         if not text:
             return None
         try:
+            # JSON 코드 블록 추출 시도
             m = re.search(r"```json\s*(\{.*?\})\s*```", text, re.DOTALL)
             if m:
                 parsed = json.loads(m.group(1))
                 return parsed if isinstance(parsed, dict) else None
 
+            # 순수 JSON 추출 시도
             start_idx = text.find("{")
             end_idx = text.rfind("}") + 1
             if start_idx != -1 and end_idx > start_idx:
                 parsed = json.loads(text[start_idx:end_idx])
                 return parsed if isinstance(parsed, dict) else None
         except (json.JSONDecodeError, ValueError) as err:
-            logger.error(f"Groq JSON 파싱 실패: {err} \n[원본 텍스트 일부]: {text[:200]}...")
+            logger.error(f"JSON 파싱 실패: {err}")
         return None
 
     def call(self, prompt: str, max_retries: int = 2) -> Optional[Dict[str, Any]]:
+        if not self.client:
+            return None
+            
         last_error = None
         for model_id in self.MODELS:
             for attempt in range(max_retries):
@@ -59,87 +62,189 @@ class GroqClient:
                     parsed_data = self._parse_json(content)
                     if parsed_data is not None:
                         return parsed_data
-                    raise ValueError("JSON 파싱 실패")
+                    raise ValueError("JSON 파싱 불가")
                 except Exception as e:
                     error_msg = str(e).lower()
                     last_error = e
                     if any(x in error_msg for x in ["429", "rate limit", "tokens"]):
-                        logger.warning(f"Groq [{model_id}] 한도 초과. 다음 모델 시도.")
+                        logger.warning(f"Groq [{model_id}] 한도 초과. 다음 모델/API 시도.")
                         break
                     logger.warning(f"Groq [{model_id}] 시도 {attempt+1}/{max_retries} 실패: {e}")
-        logger.error(f"모든 Groq 모델 호출 실패. 마지막 에러: {last_error}")
         return None
 
 class GeminiClient:
     MODELS = [
-        "gemini-2.5-flash",
-        "gemini-3.1-flash-lite",
-        "gemini-2.5-flash-lite",
-        "gemini-3-flash"
+        "gemini-2.5-flash",       # 1순위: 가장 빠르고 똑똑한 메인 모델
+        "gemini-3.1-flash-lite",  # 2순위: 일일 한도가 넉넉한 라이트 모델
+        "gemini-2.5-flash-lite",  # 3순위: 백업용 구형 라이트 모델
+        "gemini-3-flash"          # 4순위: 최신 플래시 모델
     ]
 
     def __init__(self):
-        self.client = genai.Client(api_key=GEMINI_API_KEY)
+        self.client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
+        # 안전 설정 최대로 완화 (모든 카테고리 차단 해제)
+        # 뉴스 분석 시 민감한 사회 이슈(사건, 사고 등)로 인한 오차단 방지
+        self.safety_settings = [
+            {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
+            {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
+            {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
+            {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
+            {"category": "HARM_CATEGORY_CIVIC_INTEGRITY", "threshold": "BLOCK_NONE"},
+        ]
 
-    async def call(self, prompt: str) -> str:
+    async def call(self, prompt: str) -> Optional[str]:
+        if not self.client:
+            return None
+            
         last_error = None
         for model_id in self.MODELS:
             try:
+                # 안전 정책을 완전히 끄고 호출
                 response = await self.client.aio.models.generate_content(
                     model=model_id,
                     contents=prompt,
+                    config={
+                        "safety_settings": self.safety_settings,
+                        "temperature": 0.3,
+                    }
                 )
+                
+                # 안전 정책에 의해 일부 또는 전체가 차단된 경우
+                if not hasattr(response, 'text') or not response.text:
+                    logger.warning(f"Gemini {model_id} 차단됨 (Safety Filter Triggered)")
+                    continue
+                     
                 return response.text.strip()
             except Exception as e:
                 error_msg = str(e).lower()
                 last_error = e
-                if any(err in error_msg for err in ["503", "unavailable", "429", "quota", "exhausted"]):
+                # 차단 관련 에러 메시지 상세 로깅
+                if "safety" in error_msg or "blocked" in error_msg:
+                    logger.warning(f"Gemini {model_id} 안전 차단됨: {e}")
+                    continue
+                if any(err in error_msg for err in ["503", "unavailable", "429", "quota"]):
                     logger.warning(f"Gemini {model_id} 과부하/한도초과. 다음 모델 시도.")
                     continue
                 logger.error(f"Gemini {model_id} 오류: {e}")
-                raise e
-        raise Exception(f"모든 Gemini 모델 호출 실패. 마지막 에러: {last_error}")
+        return None
 
 # Global clients
 groq_client = GroqClient()
 gemini_client = GeminiClient()
 
+def call_ai(prompt: str) -> Optional[Dict[str, Any]]:
+    """Groq 우선 호출 후 실패 시 Gemini로 폴백"""
+    # 1. Groq 시도
+    result = groq_client.call(prompt)
+    if result:
+        return result
+        
+    # 2. Gemini 시도
+    logger.info("Groq 실패로 인해 Gemini API로 폴백합니다...")
+    try:
+        # 동기 환경에서 비동기 함수 호출을 위한 처리
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+        if loop.is_running():
+            # 이미 루프가 실행 중인 경우 (예: FastAPI 내부)
+            import nest_asyncio
+            nest_asyncio.apply()
+            content = loop.run_until_complete(gemini_client.call(prompt))
+        else:
+            content = loop.run_until_complete(gemini_client.call(prompt))
+            
+        if content:
+            return groq_client._parse_json(content)
+    except Exception as e:
+        logger.error(f"Gemini 폴백 호출 중 최종 실패: {e}")
+        
+    return None
+
 # --- Analysis Components ---
 
-def analyze_credibility(title: str, content: str, source: Optional[str] = None) -> Dict:
-    source_name = source if source else "미상(외부 뉴스)"
+def analyze_credibility(
+    title: str, 
+    content: str, 
+    source: Optional[str] = None, 
+    related_articles: Optional[List[Dict[str, str]]] = None,
+    is_old_article: bool = False
+) -> Dict:
+    source_name = source if source else "출처 불분명"
+    
+    # 관련 기사(과거 기사 포함) 텍스트 및 언론사 목록 구성
+    related_context = ""
+    related_names_links = "없음"
+    if related_articles:
+        links_list = []
+        related_context = "\n[교차 분석용 뉴스 데이터 (최소 5개 권장)]\n"
+        for i, art in enumerate(related_articles):
+            s_name = art.get('source', '알 수 없음')
+            s_url = art.get('url', '#')
+            links_list.append(f"[{s_name}]({s_url})")
+            related_context += f"기사 {i+1}: {art.get('title', '')} ({s_name}) - URL: {s_url}\n"
+            related_context += f"요약: {art.get('summary', '')[:200]}...\n\n"
+        related_names_links = ", ".join(list(set(links_list)))
+    else:
+        related_context = "\n[교차 분석용 데이터 없음]: 비교 가능한 기사가 충분하지 않습니다.\n"
+
+    time_context = "이 기사는 과거에 발행된 기사입니다. 제공된 관련 데이터를 바탕으로 현재 상황과 달라진 점이 있는지 확인하세요." if is_old_article else ""
+
     prompt = f"""
-당신은 뉴스 팩트체크 전문가입니다. 아래 기사를 분석해 신뢰도를 평가하세요.
-특히 기사의 출처({source_name}) 정보를 바탕으로 해당 매체의 신뢰성을 평가 및 분석에 반영하세요.
+당신은 뉴스 팩트체크 및 신뢰도 분석 전문가입니다. 
+제시된 기사의 제목과 본문을 분석하고, 제공된 '교차 분석용 뉴스 데이터' 및 당신이 학습한 정보를 바탕으로 신뢰도를 평가하세요.
 
-[출처] {source_name}
-[제목] {title}
-[본문] {content[:3000]}
+[분석 대상 기사 정보]
+출처: {source_name}
+제목: {title}
+본문: {content[:3000]}
+{time_context}
+{related_context}
 
-평가 기준:
-1. 사실과 의견의 구분: 기사가 객관적 사실을 전달하는지, 아니면 작성자의 주관적 의견을 담고 있는지 분석하세요.
-2. 제목과 본문의 일치성: 제목이 본문의 내용을 왜곡하거나 과장하지 않고 적절하게 반영하고 있는지 확인하세요.
-3. 과장된 표현: 자극적이거나 과장된 수식어를 사용하여 사실을 부풀리고 있는지 확인하세요.
-4. 미검증된 주장: 근거나 출처가 불분명한 주장을 포함하고 있는지 확인하세요.
-5. 감정적·선동적 표현: 독자의 감정을 자극하거나 편향된 시각을 유도하는 선동적인 언어를 사용하는지 확인하세요.
-6. 출처({source_name})의 신뢰성 검증: 해당 언론사의 보도 신뢰성 및 기존 뉴스와의 비교 결과를 판단 근거에 반영하세요.
+분석 및 판정 가이드라인:
+1. 분야 판별 (필수): 기사가 정치, 경제, 사회, 과학, 의학 등 팩트가 중요한 분야인지, 아니면 연예 가심, 단순 일상, 에세이, 리뷰인지 판별하세요.
+   - 가심/주관적 기사일 경우: 아래 JSON의 'is_subjective'를 true로 설정하세요.
+2. 교차 분석 (최소 5개 기사 대조): 제공된 데이터들과 내용을 대조하여 사실 여부 및 편향성을 분석하세요.
+3. 제목-내용 일치도 (낚시성 판별): 제목의 키워드가 본문의 핵심 내용과 괴리가 큰지 분석하여 '과장/낚시성' 여부를 판단하세요.
+4. 시계열 검증: 과거 기사인 경우 최신 데이터와 대조하여 현재 시점에서의 유효성을 판단하세요.
+5. 기준 날짜는 2026년 4월을 기준으로 하며, 그 이후의 사건이나 정보는 알지 못하다고 가정하세요.
+
+참조 표시: 비교 분석 시 활용한 기사의 출처는 반드시 Markdown 하이퍼링크 형식(예: [언론사명](URL))으로 'reason' 또는 'summary'에 포함하세요.
 
 아래 JSON 형식으로만 응답:
 ```json
 {{
-  "score": 0.85,
-  "label": "신뢰",
-  "reason": "출처인 {source_name}의 보도 신뢰성 및 기존 뉴스와의 비교 결과를 포함하여 3~4문장으로 작성",
+  "is_subjective": false,
+  "score": 0.00, 
+  "label": "신뢰/주의/허위 의심/과장/낚시성 중 선택",
+  "reason": "교차 분석 결과, 제목-본문 일치성, 과장 표현 유무를 종합하여 상세히 작성 (참조 기사 하이퍼링크 포함)",
   "red_flags": ["의심 표현1", "의심 표현2"],
-  "summary": "[{source_name} 보도 요약] 기사 핵심 내용을 바탕으로 3줄 요약"
+  "summary": "[{source_name} 보도 요약] 본문 요약 및 (과거 기사인 경우) 현재 상황과 달라진 점을 포함하여 3~4줄로 작성 (참조 기사 하이퍼링크 {related_names_links} 활용)"
 }}
 ```
 score 범위: 0.7이상→신뢰, 0.4~0.7→주의, 0.4미만→허위 의심
+(가심/주관적 기사(is_subjective: true)인 경우 score는 1.0으로 설정하고 reason에 '해당 기사는 주관적 의견이나 단순 가심을 다루고 있어 별도의 신뢰도 검증이 필요하지 않습니다.'라는 문구를 포함하세요.)
 """
-    result = groq_client.call(prompt)
+    result = call_ai(prompt)
+    
+    # 가심성 기사 처리 로직
+    if result and result.get("is_subjective"):
+        result["summary"] = "⚠️ 해당 기사는 주관적 의견이나 단순 가심을 다루고 있어 별도의 신뢰도 검증이 필요하지 않습니다.\n" + result.get("summary", "")
+        result["label"] = "주관적/가심"
+        result["score"] = 1.0
+
+    # 출처 불분명 보정
+    if result and not result.get("is_subjective") and source_name == "출처 불분명" and result.get("score", 1.0) > 0.6:
+        result["score"] = 0.6
+        result["label"] = "주의"
+        result["reason"] = "[시스템 보정] 출처가 불분명하여 신뢰도를 하향 조정함. " + result.get("reason", "")
+
     return result or {
-        "score": 0.5, "label": "분석 불가",
-        "reason": "AI 분석 중 오류 발생", "red_flags": [], "summary": "",
+        "score": 0.3, "label": "분석 불가",
+        "reason": "모든 AI 분석 도구 호출 실패", "red_flags": [], "summary": "",
     }
 
 def extract_terms(content: str) -> List[Dict]:
@@ -161,7 +266,7 @@ def extract_terms(content: str) -> List[Dict]:
 }}
 ```
 """
-    result = groq_client.call(prompt)
+    result = call_ai(prompt)
     return result.get("terms", []) if result else []
 
 def extract_persons(title: str, content: str) -> List[Dict]:
@@ -185,25 +290,30 @@ def extract_persons(title: str, content: str) -> List[Dict]:
 }}
 ```
 """
-    result = groq_client.call(prompt)
+    result = call_ai(prompt)
     return result.get("persons", []) if result else []
 
 def generate_comic_script(title: str, content: str) -> str:
     prompt = f"""
-아래 뉴스 기사를 4컷 만화로 만들기 위한 장면 스크립트를 생성하세요.
-어린이도 이해할 수 있게 쉽고 재미있게 구성하세요.
+당신은 뉴스 기사를 4컷 만화 시나리오로 변환하는 전문가입니다.
+아래 기사 내용을 바탕으로 4컷 만화 스크립트를 생성하세요.
 
-[제목] {title}
-[본문] {content[:1500]}
+[중요 지침]
+- 기사 내용에 사건, 사고, 범죄 등 민감한 내용이 포함되어 있더라도, 이를 직접적으로 묘사하거나 자극적인 언어를 사용하지 마세요.
+- 대신 상황을 객관적으로 설명하거나 비유적인 표현을 사용하여 안전 정책(AI Safety Policy)에 저촉되지 않도록 하세요.
+- 어린이도 이해할 수 있도록 쉽고 유익하게 구성하세요.
+
+[기사 제목] {title}
+[기사 본문] {content[:1500]}
 
 아래 JSON 형식으로만 응답:
 ```json
 {{
-  "comic_title": "만화 제목",
+  "comic_title": "만화 제목 (공익적/객관적 문구)",
   "panels": [
     {{
       "panel": 1,
-      "scene_prompt": "이미지 생성 AI용 영어 프롬프트",
+      "scene_prompt": "이미지 생성 AI용 영어 프롬프트 (안전하고 비폭력적인 묘사)",
       "dialogue": "등장인물 대사 또는 나레이션 (한국어)",
       "description": "장면 요약 (한국어)"
     }}
@@ -211,12 +321,18 @@ def generate_comic_script(title: str, content: str) -> str:
 }}
 ```
 """
-    result = groq_client.call(prompt)
+    result = call_ai(prompt)
     return json.dumps(result, ensure_ascii=False, indent=2) if result else "{}"
 
 # async로 호출할 수 있도록 래핑
-async def async_analyze_credibility(title: str, content: str, source: Optional[str] = None) -> Dict:
-    return await asyncio.to_thread(analyze_credibility, title, content, source)
+async def async_analyze_credibility(
+    title: str, 
+    content: str, 
+    source: Optional[str] = None,
+    related_articles: Optional[List[Dict[str, str]]] = None,
+    is_old_article: bool = False
+) -> Dict:
+    return await asyncio.to_thread(analyze_credibility, title, content, source, related_articles, is_old_article)
 
 async def async_extract_terms(content: str) -> List[Dict]:
     return await asyncio.to_thread(extract_terms, content)
