@@ -66,6 +66,8 @@ async def generate_comic_data(news_id: int, news_title: str, news_body: str, cus
 
     async with httpx.AsyncClient(timeout=65.0) as http_client:
         payload = {
+            #시연용 모델 :gemini-3-pro-image-preview
+            #테스트용 모델 : gpt-image-1-mini
             "model": "gpt-image-1-mini", 
             "prompt": final_integrated_prompt,
             "quality": "high", 
