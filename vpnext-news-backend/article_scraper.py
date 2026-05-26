@@ -32,7 +32,7 @@ SELECTORS: Dict[str, Dict[str, str]] = {
     "sbs.co.kr":     {"content": ".article_cont_wrap, #news_body_id",            "title": "h1.sbs_title"},
     "jtbc.co.kr":    {"content": ".article_content, .news-text",                 "title": ".article-title"},
     "hani.co.kr":    {"content": ".article-text, .text",                         "title": "h4.title"},
-    "khan.co.kr":    {"content": ".art_body",                                    "title": "h1.headline"},
+    "khan.co.kr":    {"content": ".art_body",                                    "title": "article header h1"},
     "chosun.com":    {"content": ".article-body",                                "title": "h1"},
     "joins.com":     {"content": "#article_body",                                "title": "h1.headline"},
     "joongang.co.kr":{"content": "#article_body",                                "title": "h1.headline"},
@@ -73,7 +73,8 @@ def scrape(url: str) -> Optional[Dict]:
         try:
             resp = requests.get(url, headers=HEADERS, timeout=REQUEST_TIMEOUT, allow_redirects=True)
             resp.raise_for_status()
-            resp.encoding = resp.apparent_encoding
+            if resp.encoding is None or resp.encoding.lower() == 'iso-8859-1':
+                resp.encoding = resp.apparent_encoding
             soup = BeautifulSoup(resp.text, "lxml")
             sel  = _get_selectors(url)
 

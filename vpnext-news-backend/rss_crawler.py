@@ -31,7 +31,7 @@ def crawl_feed(name: str, url: str) -> List[Dict]:
     try:
         resp = requests.get(url, headers={"User-Agent": USER_AGENT}, timeout=REQUEST_TIMEOUT)
         resp.encoding = "utf-8"  # 강제 UTF-8
-        feed = feedparser.parse(resp.content)
+        feed = feedparser.parse(resp.text)
 
         if feed.bozo:
             logger.warning(f"[{name}] RSS 파싱 경고: {feed.bozo_exception}")

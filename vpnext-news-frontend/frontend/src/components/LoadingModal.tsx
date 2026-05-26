@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState, Fragment } from "react";
 
 interface LoadingModalProps {
   isOpen: boolean;
@@ -6,23 +6,26 @@ interface LoadingModalProps {
   status: string;
 }
 
-const LoadingModal: React.FC<LoadingModalProps> = ({
+export default function LoadingModal({
   isOpen,
   progress,
   status,
-}) => {
-  const [visible, setVisible] = useState(false);
+}: LoadingModalProps) {
+  const [visible, setVisible] = useState(isOpen);
 
   useEffect(() => {
     if (isOpen) {
       setVisible(true);
-    } else {
-      const t = setTimeout(() => setVisible(false), 400);
-      return () => clearTimeout(t);
     }
   }, [isOpen]);
 
   if (!visible) return null;
+
+  const handleTransitionEnd = () => {
+    if (!isOpen) {
+      setVisible(false);
+    }
+  };
 
   const circumference = 2 * Math.PI * 42;
   const strokeDashoffset = circumference - (progress / 100) * circumference;
@@ -32,22 +35,15 @@ const LoadingModal: React.FC<LoadingModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center"
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-[#161311]/75 backdrop-blur-[16px] transition-opacity duration-[350ms] ease-out"
       style={{
-        background: "rgba(22, 19, 17, 0.75)",
-        backdropFilter: "blur(16px)",
-        WebkitBackdropFilter: "blur(16px)",
         opacity: isOpen ? 1 : 0,
-        transition: "opacity 0.35s ease",
       }}
+      onTransitionEnd={handleTransitionEnd}
     >
       <div
-        className="relative w-full mx-4 overflow-hidden"
+        className="relative w-full mx-4 overflow-hidden max-w-[420px] bg-white rounded-[28px] shadow-[0_32px_80px_rgba(22,19,17,0.3)]"
         style={{
-          maxWidth: "420px",
-          background: "#ffffff",
-          borderRadius: "28px",
-          boxShadow: "0 32px 80px rgba(22, 19, 17, 0.3)",
           transform: isOpen
             ? "translateY(0) scale(1)"
             : "translateY(20px) scale(0.96)",
@@ -55,10 +51,7 @@ const LoadingModal: React.FC<LoadingModalProps> = ({
         }}
       >
         {/* Top accent bar */}
-        <div
-          className="absolute top-0 left-0 right-0 h-1 rounded-t-[28px] overflow-hidden"
-          style={{ background: "#f7f4ef" }}
-        >
+        <div className="absolute top-0 left-0 right-0 h-1 rounded-t-[28px] overflow-hidden bg-[#f7f4ef]">
           <div
             className="h-full rounded-full"
             style={{
@@ -120,12 +113,12 @@ const LoadingModal: React.FC<LoadingModalProps> = ({
 
             {/* Center content */}
             <div className="absolute flex flex-col items-center gap-0.5">
-              <span style={{ fontSize: "26px", lineHeight: 1 }}>
+              <span className="text-[26px]" style={{ lineHeight: 1 }}>
                 {stageIcon}
               </span>
               <span
-                className="font-black tabular-nums"
-                style={{ fontSize: "13px", color: "#161311", lineHeight: 1 }}
+                className="font-black tabular-nums text-[13px] text-[#161311]"
+                style={{ lineHeight: 1 }}
               >
                 {Math.round(progress)}%
               </span>
@@ -135,20 +128,15 @@ const LoadingModal: React.FC<LoadingModalProps> = ({
           {/* Title */}
           <div className="text-center">
             <h3
-              className="font-black mb-2"
+              className="font-black mb-2 text-[20px] text-[#161311]"
               style={{
                 fontFamily: "'Noto Serif KR', serif",
-                fontSize: "20px",
-                color: "#161311",
                 letterSpacing: "-0.02em",
               }}
             >
               AI 만화 생성 중
             </h3>
-            <p
-              className="text-sm leading-relaxed min-h-[40px] flex items-center justify-center"
-              style={{ color: "#9C9891" }}
-            >
+            <p className="text-sm leading-relaxed min-h-[40px] flex items-center justify-center text-[#9C9891]">
               {status}
             </p>
           </div>
@@ -169,7 +157,7 @@ const LoadingModal: React.FC<LoadingModalProps> = ({
                   return progress >= t && progress < next;
                 });
               return (
-                <React.Fragment key={step.label}>
+                <Fragment key={step.label}>
                   <div className="flex flex-col items-center gap-1.5 shrink-0">
                     <div
                       className="w-6 h-6 rounded-full flex items-center justify-center transition-all duration-500"
@@ -226,16 +214,13 @@ const LoadingModal: React.FC<LoadingModalProps> = ({
                       }}
                     />
                   )}
-                </React.Fragment>
+                </Fragment>
               );
             })}
           </div>
 
           {/* Footer note */}
-          <p
-            className="text-[11px] text-center leading-relaxed"
-            style={{ color: "#cec7bc" }}
-          >
+          <p className="text-[11px] text-center leading-relaxed text-[#cec7bc]">
             AI가 뉴스를 분석하고 이미지를 생성합니다
             <br />
             보통 30초 ~ 1분 정도 소요됩니다
@@ -244,6 +229,4 @@ const LoadingModal: React.FC<LoadingModalProps> = ({
       </div>
     </div>
   );
-};
-
-export default LoadingModal;
+}

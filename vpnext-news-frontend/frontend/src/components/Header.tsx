@@ -15,7 +15,6 @@ export default function Header() {
     return () => window.removeEventListener("scroll", handler);
   }, []);
 
-  // Close mobile menu on route change
   useEffect(() => {
     setMobileMenuOpen(false);
   }, [location.pathname]);
@@ -47,105 +46,59 @@ export default function Header() {
     {
       to: "/",
       label: "홈",
-      activeColor: "#ffffff",
-      activeBg: "rgba(255,255,255,0.12)",
-      dot: null,
+      activeClass: "text-white bg-white/12 border-white/20",
+      dotClass: "",
     },
     {
       to: "/analyzed",
       label: "AI 분석 뉴스",
-      activeColor: "#38BDF8",
-      activeBg: "rgba(56,189,248,0.1)",
-      dot: "#38BDF8",
+      activeClass: "text-[#38BDF8] bg-[#38BDF8]/10 border-[#38BDF8]/20",
+      dotClass: "bg-[#38BDF8] shadow-[0_0_6px_#38BDF8]",
     },
     {
       to: "/cartoons",
       label: "AI 만화",
-      activeColor: "#FBBF24",
-      activeBg: "rgba(251,191,36,0.1)",
-      dot: "#FBBF24",
+      activeClass: "text-[#FBBF24] bg-[#FBBF24]/10 border-[#FBBF24]/20",
+      dotClass: "bg-[#FBBF24] shadow-[0_0_6px_#FBBF24]",
     },
   ];
 
   return (
     <>
       <header
-        className="sticky top-0 z-50"
-        style={{
-          background: scrolled ? "rgba(14, 12, 10, 0.92)" : "#0E0C0A",
-          backdropFilter: scrolled ? "blur(20px) saturate(180%)" : "none",
-          WebkitBackdropFilter: scrolled ? "blur(20px) saturate(180%)" : "none",
-          borderBottom: "1px solid rgba(255,255,255,0.06)",
-          boxShadow: scrolled ? "0 4px 32px rgba(0,0,0,0.4)" : "none",
-          transition: "box-shadow 0.35s ease, background 0.35s ease",
-          fontFamily: "'Noto Sans KR', sans-serif",
-        }}
+        className={`sticky top-0 z-50 transition-all duration-300 font-sans border-b border-white/6 ${
+          scrolled
+            ? "bg-[#0E0C0A]/92 backdrop-blur-[20px] backdrop-saturate-[180%] shadow-[0_4px_32px_rgba(0,0,0,0.4)]"
+            : "bg-[#0E0C0A]"
+        }`}
       >
-        {/* ── Date strip ── */}
-        <div
-          style={{
-            borderBottom: "1px solid rgba(255,255,255,0.05)",
-            background: "rgba(255,255,255,0.02)",
-          }}
-        >
+        {/* Date strip */}
+        <div className="border-b border-white/5 bg-white/[0.02]">
           <div className="max-w-6xl mx-auto px-4 sm:px-6 py-2 flex justify-between items-center">
-            <span
-              className="text-[10px] tracking-[0.22em] uppercase font-medium"
-              style={{ color: "rgba(255,255,255,0.22)" }}
-            >
+            <span className="text-[10px] tracking-[0.22em] uppercase font-medium text-white/22">
               {todayStr}
             </span>
             <div className="hidden sm:flex items-center gap-3">
-              <span
-                className="inline-flex items-center gap-1.5 text-[10px] font-black tracking-widest uppercase"
-                style={{ color: "rgba(255,255,255,0.2)" }}
-              >
-                <span
-                  className="w-1 h-1 rounded-full"
-                  style={{ background: "#38BDF8", opacity: 0.7 }}
-                />
+              <span className="inline-flex items-center gap-1.5 text-[10px] font-black tracking-widest uppercase text-white/20">
+                <span className="w-1 h-1 rounded-full bg-[#38BDF8] opacity-70" />
                 AI 기반 뉴스 정보 플랫폼
               </span>
             </div>
           </div>
         </div>
 
-        {/* ── Main bar ── */}
+        {/* Main bar */}
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3.5 flex justify-between items-center gap-6">
           {/* Logo + Nav */}
           <div className="flex items-center gap-8">
             {/* Logo */}
             <Link to="/" className="flex flex-col leading-none group shrink-0">
-              <span
-                className="font-medium"
-                style={{
-                  color: "rgba(255,255,255,0.28)",
-                  fontSize: "8px",
-                  letterSpacing: "0.28em",
-                  textTransform: "uppercase",
-                  marginBottom: "3px",
-                }}
-              >
+              <span className="text-white/28 text-[8px] tracking-[0.28em] uppercase mb-[3px]">
                 THE DAILY
               </span>
-              <span
-                className="flex items-center gap-1.5"
-                style={{
-                  fontFamily: "'Noto Serif KR', serif",
-                  fontSize: "17px",
-                  fontWeight: 900,
-                  color: "#ffffff",
-                  letterSpacing: "-0.02em",
-                  transition: "color 0.2s",
-                }}
-              >
-                뉴스 정보
-                <span
-                  style={{
-                    color: "#38BDF8",
-                    textShadow: "0 0 20px rgba(56,189,248,0.4)",
-                  }}
-                >
+              <span className="font-serif text-[17px] font-black text-white tracking-[-0.02em] transition-colors duration-200">
+                뉴스 정보{" "}
+                <span className="text-[#38BDF8] [text-shadow:0_0_20px_rgba(56,189,248,0.4)]">
                   나침반
                 </span>
               </span>
@@ -159,40 +112,17 @@ export default function Header() {
                   <Link
                     key={item.to}
                     to={item.to}
-                    className="relative flex items-center gap-1.5 text-sm font-bold px-3.5 py-2 rounded-full transition-all duration-250"
-                    style={{
-                      color: isActive
-                        ? item.activeColor
-                        : "rgba(255,255,255,0.45)",
-                      background: isActive ? item.activeBg : "transparent",
-                      border: isActive
-                        ? `1px solid ${item.activeColor}20`
-                        : "1px solid transparent",
-                    }}
-                    onMouseEnter={(e) => {
-                      if (!isActive) {
-                        (e.currentTarget as HTMLElement).style.color = "#fff";
-                        (e.currentTarget as HTMLElement).style.background =
-                          "rgba(255,255,255,0.06)";
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (!isActive) {
-                        (e.currentTarget as HTMLElement).style.color =
-                          "rgba(255,255,255,0.45)";
-                        (e.currentTarget as HTMLElement).style.background =
-                          "transparent";
-                      }
-                    }}
+                    className={`relative flex items-center gap-1.5 text-sm font-bold px-3.5 py-2 rounded-full transition-all duration-250 hover:text-white hover:bg-white/6 ${
+                      isActive
+                        ? `${item.activeClass} border`
+                        : "text-white/45 border border-transparent"
+                    }`}
                   >
-                    {item.dot && (
+                    {item.dotClass && (
                       <span
-                        className="w-1.5 h-1.5 rounded-full shrink-0"
-                        style={{
-                          background: item.dot,
-                          boxShadow: isActive ? `0 0 6px ${item.dot}` : "none",
-                          opacity: isActive ? 1 : 0.5,
-                        }}
+                        className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                          isActive ? "opacity-100" : "opacity-50"
+                        } ${item.dotClass}`}
                       />
                     )}
                     {item.label}
@@ -207,19 +137,9 @@ export default function Header() {
             {/* Search — desktop */}
             <div className="hidden sm:flex items-center">
               {searchOpen ? (
-                <div
-                  className="flex items-center gap-2.5 rounded-full px-4 py-2.5"
-                  style={{
-                    background: "rgba(255,255,255,0.08)",
-                    border: "1px solid rgba(255,255,255,0.18)",
-                    width: "270px",
-                    backdropFilter: "blur(12px)",
-                    transition: "width 0.3s ease",
-                  }}
-                >
+                <div className="flex items-center gap-2.5 rounded-full px-4 py-2.5 bg-white/8 border border-white/18 w-[270px] backdrop-blur-[12px] transition-all duration-300">
                   <svg
-                    className="w-3.5 h-3.5 shrink-0"
-                    style={{ color: "rgba(255,255,255,0.35)" }}
+                    className="w-3.5 h-3.5 shrink-0 text-white/35"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -238,73 +158,26 @@ export default function Header() {
                     onChange={(e) => setKeyword(e.target.value)}
                     onKeyDown={handleKeyDown}
                     placeholder="키워드 검색..."
-                    className="flex-1 bg-transparent text-sm outline-none"
-                    style={{ color: "#ffffff" }}
+                    className="flex-1 bg-transparent text-sm outline-none text-white"
                   />
                   <button
                     onClick={() => {
                       setSearchOpen(false);
                       setKeyword("");
                     }}
-                    className="flex items-center justify-center w-5 h-5 rounded-full transition-all"
-                    style={{ color: "rgba(255,255,255,0.3)" }}
-                    onMouseEnter={(e) => {
-                      (e.currentTarget as HTMLElement).style.color = "#fff";
-                      (e.currentTarget as HTMLElement).style.background =
-                        "rgba(255,255,255,0.1)";
-                    }}
-                    onMouseLeave={(e) => {
-                      (e.currentTarget as HTMLElement).style.color =
-                        "rgba(255,255,255,0.3)";
-                      (e.currentTarget as HTMLElement).style.background =
-                        "transparent";
-                    }}
+                    className="flex items-center justify-center w-5 h-5 rounded-full transition-all text-white/30 hover:text-white hover:bg-white/10"
                   >
-                    <svg
-                      className="w-3.5 h-3.5"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2.5}
-                        d="M6 18L18 6M6 6l12 12"
-                      />
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
                     </svg>
                   </button>
                 </div>
               ) : (
                 <button
                   onClick={() => setSearchOpen(true)}
-                  className="flex items-center gap-2 text-sm font-semibold px-3.5 py-2 rounded-full transition-all duration-200"
-                  style={{
-                    color: "rgba(255,255,255,0.4)",
-                    border: "1px solid transparent",
-                  }}
-                  onMouseEnter={(e) => {
-                    (e.currentTarget as HTMLElement).style.color = "#fff";
-                    (e.currentTarget as HTMLElement).style.background =
-                      "rgba(255,255,255,0.07)";
-                    (e.currentTarget as HTMLElement).style.borderColor =
-                      "rgba(255,255,255,0.1)";
-                  }}
-                  onMouseLeave={(e) => {
-                    (e.currentTarget as HTMLElement).style.color =
-                      "rgba(255,255,255,0.4)";
-                    (e.currentTarget as HTMLElement).style.background =
-                      "transparent";
-                    (e.currentTarget as HTMLElement).style.borderColor =
-                      "transparent";
-                  }}
+                  className="flex items-center gap-2 text-sm font-semibold px-3.5 py-2 rounded-full transition-all duration-200 text-white/40 hover:text-white hover:bg-white/7 border border-transparent hover:border-white/10"
                 >
-                  <svg
-                    className="w-4 h-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path
                       strokeLinecap="round"
                       strokeLinejoin="round"
@@ -319,50 +192,37 @@ export default function Header() {
 
             {/* Mobile menu button */}
             <button
-              className="md:hidden flex flex-col justify-center items-center gap-1.5 w-9 h-9 rounded-lg transition-all"
+              className="md:hidden flex flex-col justify-center items-center gap-1.5 w-9 h-9 rounded-lg transition-all text-white/55"
               onClick={() => setMobileMenuOpen((v) => !v)}
-              style={{ color: "rgba(255,255,255,0.55)" }}
             >
               <span
-                className="block h-px w-5 rounded-full transition-all duration-300"
+                className="block h-px w-5 rounded-full transition-all duration-300 bg-current"
                 style={{
-                  background: "currentColor",
                   transformOrigin: "center",
-                  transform: mobileMenuOpen
-                    ? "translateY(5px) rotate(45deg)"
-                    : "none",
+                  transform: mobileMenuOpen ? "translateY(5px) rotate(45deg)" : "none",
                 }}
               />
               <span
-                className="block h-px w-4 rounded-full transition-all duration-200"
-                style={{
-                  background: "currentColor",
-                  opacity: mobileMenuOpen ? 0 : 1,
-                }}
+                className={`block h-px w-4 rounded-full transition-all duration-200 bg-current ${
+                  mobileMenuOpen ? "opacity-0" : "opacity-100"
+                }`}
               />
               <span
-                className="block h-px w-5 rounded-full transition-all duration-300"
+                className="block h-px w-5 rounded-full transition-all duration-300 bg-current"
                 style={{
-                  background: "currentColor",
                   transformOrigin: "center",
-                  transform: mobileMenuOpen
-                    ? "translateY(-5px) rotate(-45deg)"
-                    : "none",
+                  transform: mobileMenuOpen ? "translateY(-5px) rotate(-45deg)" : "none",
                 }}
               />
             </button>
           </div>
         </div>
 
-        {/* ── Mobile nav dropdown ── */}
+        {/* Mobile nav dropdown */}
         <div
-          className="md:hidden overflow-hidden transition-all duration-300"
-          style={{
-            maxHeight: mobileMenuOpen ? "280px" : "0",
-            borderTop: mobileMenuOpen
-              ? "1px solid rgba(255,255,255,0.06)"
-              : "none",
-          }}
+          className={`md:hidden overflow-hidden transition-all duration-300 ${
+            mobileMenuOpen ? "max-h-[280px] border-t border-white/6" : "max-h-0 border-t-0"
+          }`}
         >
           <div className="px-4 py-4 flex flex-col gap-1">
             {navItems.map((item) => {
@@ -371,19 +231,12 @@ export default function Header() {
                 <Link
                   key={item.to}
                   to={item.to}
-                  className="flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all"
-                  style={{
-                    color: isActive
-                      ? item.activeColor
-                      : "rgba(255,255,255,0.5)",
-                    background: isActive ? item.activeBg : "transparent",
-                  }}
+                  className={`flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${
+                    isActive ? item.activeClass : "text-white/50 bg-transparent"
+                  }`}
                 >
-                  {item.dot && (
-                    <span
-                      className="w-2 h-2 rounded-full shrink-0"
-                      style={{ background: item.dot }}
-                    />
+                  {item.dotClass && (
+                    <span className={`w-2 h-2 rounded-full shrink-0 ${isActive ? "opacity-100" : "opacity-50"} ${item.dotClass}`} />
                   )}
                   {item.label}
                 </Link>
@@ -391,16 +244,9 @@ export default function Header() {
             })}
 
             {/* Mobile search */}
-            <div
-              className="flex items-center gap-2.5 mt-3 rounded-xl px-4 py-3"
-              style={{
-                background: "rgba(255,255,255,0.06)",
-                border: "1px solid rgba(255,255,255,0.08)",
-              }}
-            >
+            <div className="flex items-center gap-2.5 mt-3 rounded-xl px-4 py-3 bg-white/6 border border-white/8">
               <svg
-                className="w-4 h-4 shrink-0"
-                style={{ color: "rgba(255,255,255,0.3)" }}
+                className="w-4 h-4 shrink-0 text-white/30"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -418,8 +264,7 @@ export default function Header() {
                 onChange={(e) => setKeyword(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="키워드 검색..."
-                className="flex-1 bg-transparent text-sm outline-none font-medium"
-                style={{ color: "#fff" }}
+                className="flex-1 bg-transparent text-sm outline-none font-medium text-white"
               />
             </div>
           </div>

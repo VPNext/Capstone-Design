@@ -59,62 +59,6 @@ body::before {
 }
 
 /* ─────────────────────────────────────────────────────────
-   SOURCE BADGE COLORS
-───────────────────────────────────────────────────────── */
-.badge-hani {
-  background: #d11b1b;
-  color: #fff;
-}
-.badge-khan {
-  background: #1b5ac9;
-  color: #fff;
-}
-.badge-chosun {
-  background: #1a1a1a;
-  color: #fff;
-}
-.badge-joongang {
-  background: #c45a00;
-  color: #fff;
-}
-.badge-donga {
-  background: #6b1fc7;
-  color: #fff;
-}
-.badge-mbc {
-  background: #0b8c32;
-  color: #fff;
-}
-.badge-kbs {
-  background: #0b4ea3;
-  color: #fff;
-}
-.badge-sbs {
-  background: #c41515;
-  color: #fff;
-}
-.badge-ytn {
-  background: #cc8800;
-  color: #fff;
-}
-.badge-hankyung {
-  background: #0b7a7a;
-  color: #fff;
-}
-.badge-mk {
-  background: #3d12c7;
-  color: #fff;
-}
-.badge-yonhap {
-  background: #525252;
-  color: #fff;
-}
-.badge-default {
-  background: #374151;
-  color: #fff;
-}
-
-/* ─────────────────────────────────────────────────────────
    SHIMMER SKELETON
 ───────────────────────────────────────────────────────── */
 @keyframes shimmer {
@@ -388,19 +332,4 @@ mark {
     rgba(13, 11, 9, 0.4) 40%,
     transparent 100%
   );
-}
-
-/* ─────────────────────────────────────────────────────────
-   LEGACY VITE SCAFFOLD (unused but kept for safety)
-───────────────────────────────────────────────────────── */
-.hero {
-  position: relative;
-}
-#center {
-  display: flex;
-  flex-direction: column;
-  gap: 25px;
-  place-content: center;
-  place-items: center;
-  flex-grow: 1;
 }

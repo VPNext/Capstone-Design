@@ -87,6 +87,7 @@ def list_news(
     size: int = Query(20, ge=1, le=100),
     source: Optional[str] = None,
     keyword: Optional[str] = None,
+    is_analyzed: Optional[bool] = None,
     db: Session = Depends(get_db),
 ):
     q = db.query(Article).order_by(Article.published_at.desc())
@@ -94,6 +95,8 @@ def list_news(
         q = q.filter(Article.source.contains(source))
     if keyword:
         q = q.filter(Article.title.contains(keyword))
+    if is_analyzed is not None:
+        q = q.filter(Article.is_analyzed == is_analyzed)
     total    = q.count()
     articles = q.offset((page - 1) * size).limit(size).all()
     return {
