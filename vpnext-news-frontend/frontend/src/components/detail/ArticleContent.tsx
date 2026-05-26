@@ -15,6 +15,55 @@ export default function ArticleContent({
 }: ArticleContentProps) {
   const finalImage = news.image_url || extractImageFromSummary(news.summary);
 
+  // ── [프론트엔드 전용 요약문 보정 및 링크 파서 함수] ──
+  const parseAndRenderSummary = (text: string | null): ReactNode => {
+    if (!text) return null;
+
+    // 1. 대괄호 [ 누락 상태 보정
+    let correctedText = text.trim();
+    if (correctedText.includes("보도 요약]") && !correctedText.startsWith("[")) {
+      correctedText = "[" + correctedText;
+    }
+
+    // 2. 마크다운 링크 정규식 매칭 및 <a> 태그 변환
+    const linkRegex = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g;
+    const parts = [];
+    let lastIndex = 0;
+    let match;
+
+    while ((match = linkRegex.exec(correctedText)) !== null) {
+      const matchIndex = match.index;
+      
+      // 링크 이전의 일반 텍스트 추가
+      if (matchIndex > lastIndex) {
+        parts.push(correctedText.substring(lastIndex, matchIndex));
+      }
+      
+      // 마크다운 링크를 <a> 태그 컴포넌트로 변환하여 추가
+      const linkText = match[1];
+      const linkUrl = match[2];
+      parts.push(
+        <a
+          key={matchIndex}
+          href={linkUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-[#1A55A8] hover:text-[#C13026] hover:underline font-bold inline-flex items-center gap-0.5 mx-0.5"
+        >
+          {linkText}
+        </a>
+      );
+      lastIndex = linkRegex.lastIndex;
+    }
+
+    // 매칭 완료 후 남은 일반 텍스트가 있다면 추가
+    if (lastIndex < correctedText.length) {
+      parts.push(correctedText.substring(lastIndex));
+    }
+
+    return parts.length > 0 ? <>{parts}</> : correctedText;
+  };
+
   return (
     <article className="flex-1 min-w-0">
       {/* 메인 이미지 */}
@@ -49,7 +98,7 @@ export default function ArticleContent({
             className="text-[15px] leading-relaxed"
             style={{ color: "#1E3A5F" }}
           >
-            {aiSummary}
+            {parseAndRenderSummary(aiSummary)}
           </p>
         </div>
       )}
