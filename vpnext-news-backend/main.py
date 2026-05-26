@@ -1,31 +1,15 @@
 """
-뉴스 정보 나침반 - FastAPI 백엔드
+뉴스 정보 나침반 - FastAPI 백엔드 (리팩토링 버전)
 """
 import sys
 import asyncio
 import logging
-import re
 from datetime import datetime
-from typing import Optional
-import json
-import os
-import httpx
-
-
-
-from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Query
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from sqlalchemy.orm import Session
-
-
-from ai_analyzer import full_analysis, generate_comic_data
-from article_scraper import scrape, get_source_from_url
 from config import APP_HOST, APP_PORT
-from database import Article, SessionLocal, get_db, init_db
-from dictionary_api import enrich
-from rss_crawler import crawl_all
-import urllib.parse
+from database import init_db
+from routers import news, analyze, cartoons
 
 # Windows 환경일 경우 aiodns 충돌 방지를 위해 SelectorEventLoop 정책 설정
 if sys.platform == 'win32':
@@ -37,8 +21,10 @@ logger = logging.getLogger(__name__)
 app = FastAPI(
     title="뉴스 정보 나침반 API",
     description="허위뉴스 판별 + 뉴스 이해도 향상 서비스 (VPNext / 팀4)",
-    version="1.1.0",
+    version="1.2.0",
 )
+
+# CORS 설정
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -46,303 +32,20 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# 라우터 등록
+app.include_router(news.router)
+app.include_router(analyze.router)
+app.include_router(cartoons.router)
 
 @app.on_event("startup")
 def on_startup():
     init_db()
-    logger.info("DB 초기화 완료")
+    logger.info("DB 초기화 완료 및 서비스 시작")
 
-
-# ─── 수집 ────────────────────────────────────────────────────────────────────
-
-def _crawl_and_save():
-    db = SessionLocal()
-    try:
-        articles = crawl_all()
-        saved = 0
-        for a in articles:
-            if not db.query(Article).filter(Article.url == a["url"]).first():
-                db.add(Article(**a))
-                saved += 1
-        db.commit()
-        logger.info(f"크롤링 완료: {saved}건 저장")
-    except Exception as e:
-        logger.error(f"크롤링 저장 오류: {e}")
-        db.rollback()
-    finally:
-        db.close()
-
-
-@app.post("/api/crawl", summary="RSS 크롤링 즉시 실행")
-async def trigger_crawl(bg: BackgroundTasks):
-    bg.add_task(_crawl_and_save)
-    return {"message": "백그라운드 크롤링 시작"}
-
-
-# ─── 조회 ────────────────────────────────────────────────────────────────────
-
-@app.get("/api/news", summary="뉴스 목록")
-def list_news(
-    page: int = Query(1, ge=1),
-    size: int = Query(20, ge=1, le=100),
-    source: Optional[str] = None,
-    keyword: Optional[str] = None,
-    is_analyzed: Optional[bool] = None,
-    db: Session = Depends(get_db),
-):
-    q = db.query(Article).order_by(Article.published_at.desc())
-    if source:
-        q = q.filter(Article.source.contains(source))
-    if keyword:
-        q = q.filter(Article.title.contains(keyword))
-    if is_analyzed is not None:
-        q = q.filter(Article.is_analyzed == is_analyzed)
-    total    = q.count()
-    articles = q.offset((page - 1) * size).limit(size).all()
-    return {
-        "total": total,
-        "page": page,
-        "size": size,
-        "items": [
-            {
-                "id":                a.id,
-                "title":             a.title,
-                "url":               a.url,
-                "source":            a.source,
-                "summary":           a.summary,
-                "ai_summary":        a.ai_summary,
-                "image_url":         a.image_url,
-                "published_at":      a.published_at,
-                "credibility_score": a.credibility_score,
-                "credibility_label": a.credibility_label,
-                "is_analyzed":       a.is_analyzed,
-            }
-            for a in articles
-        ],
-    }
-
-
-@app.get("/api/news/{article_id}", summary="뉴스 상세")
-def get_news(article_id: int, db: Session = Depends(get_db)):
-    a = db.query(Article).filter(Article.id == article_id).first()
-    if not a:
-        raise HTTPException(404, "기사를 찾을 수 없습니다.")
-    return {
-        "id":                  a.id,
-        "title":               a.title,
-        "url":                 a.url,
-        "source":              a.source,
-        "summary":             a.summary,
-        "content":             a.content,
-        "image_url":           a.image_url,
-        "published_at":        a.published_at,
-        "created_at":          a.created_at,
-        "credibility_score":   a.credibility_score,
-        "credibility_label":   a.credibility_label,
-        "credibility_reason":  a.credibility_reason,
-        "red_flags":           a.red_flags,
-        "ai_summary":          a.ai_summary,
-        "key_persons":         a.key_persons,
-        "difficult_terms":     a.difficult_terms,
-        "comic_script":        a.comic_script,
-        "is_analyzed":         a.is_analyzed,
-    }
-
-
-# ─── AI 분석 ─────────────────────────────────────────────────────────────────
-
-@app.post("/api/analyze", summary="기사 AI 분석")
-async def analyze(
-    article_url: str,
-    include_comic: bool = False,
-    db: Session = Depends(get_db),
-):
-    # 1. 기존 분석 데이터가 있는지 확인 (캐시)
-    cached_art = db.query(Article).filter(
-        Article.url == article_url,
-        Article.is_analyzed == True,
-    ).first()
-    if cached_art:
-        return {
-            "cached": True,
-            "credibility": {
-                "score":     cached_art.credibility_score,
-                "label":     cached_art.credibility_label,
-                "reason":    cached_art.credibility_reason,
-                "red_flags": cached_art.red_flags or [],
-                "summary":   cached_art.ai_summary or "",
-            },
-            "key_persons":     cached_art.key_persons or [],
-            "difficult_terms": cached_art.difficult_terms or [],
-            "comic_script":    cached_art.comic_script,
-        }
-
-    # 2. 본문 및 메타데이터 스크래핑
-    scraped = scrape(article_url)
-    if not scraped or not scraped.get("content"):
-        raise HTTPException(422, "기사 본문을 가져올 수 없습니다. 해당 언론사 사이트에서 직접 확인해 주세요.")
-
-    # 3. URL로부터 언론사(출처)명 추출
-    source_name = get_source_from_url(article_url)
-
-    # 4. AI 전체 분석 실행 (출처 정보 포함)
-    analysis = full_analysis(
-        title=scraped["title"], 
-        content=scraped["content"], 
-        include_comic=include_comic,
-        source=source_name
-    )
-
-    # 5. 어려운 용어 보완 (사전 링크 등)
-    if analysis.get("difficult_terms"):
-        analysis["difficult_terms"] = enrich(analysis["difficult_terms"])
-
-    # 6. DB 저장 (이미 존재하는 기사라면 업데이트, 없으면 생성)
-    art = db.query(Article).filter(Article.url == article_url).first()
-    if not art:
-        art = Article(title=scraped["title"], url=article_url)
-        db.add(art)
-
-    # 기본 정보 업데이트
-    art.source    = source_name or art.source
-    art.content   = scraped.get("content", art.content)
-    art.title     = scraped.get("title") or art.title
-    if scraped.get("image_url"):
-        art.image_url = scraped["image_url"]
-
-    # AI 분석 결과 업데이트
-    cred = analysis.get("credibility", {})
-    art.credibility_score  = cred.get("score")
-    art.credibility_label  = cred.get("label")
-    art.credibility_reason = cred.get("reason")
-    art.red_flags          = cred.get("red_flags", [])
-    art.ai_summary         = cred.get("summary")
-    art.key_persons        = analysis.get("key_persons", [])
-    art.difficult_terms    = analysis.get("difficult_terms", [])
-    art.comic_script       = analysis.get("comic_script")
-    art.is_analyzed        = True
-    
-    db.commit()
-
-    return {"cached": False, **analysis}
-
-
-
-# ─── 검색 ─────────────────────────────────────────────────────────────────────
-
-@app.get("/api/search", summary="뉴스 검색")
-def search(
-    q: str = Query(..., min_length=1),
-    page: int = Query(1, ge=1),
-    size: int = Query(20, ge=1, le=50),
-    db: Session = Depends(get_db),
-):
-    query = (
-        db.query(Article)
-        .filter(Article.title.contains(q) | Article.content.contains(q))
-        .order_by(Article.published_at.desc())
-    )
-    total    = query.count()
-    articles = query.offset((page - 1) * size).limit(size).all()
-    return {
-        "query": q,
-        "total": total,
-        "page":  page,
-        "items": [
-            {
-                "id":                a.id,
-                "title":             a.title,
-                "source":            a.source,
-                "url":               a.url,
-                "published_at":      a.published_at,
-                "credibility_label": a.credibility_label,
-                "image_url":         a.image_url,
-            }
-            for a in articles
-        ],
-    }
-
-
-# [추가] 프론트엔드에서 전달받을 만화 생성 옵션 스키마
-class ComicGenerateRequest(BaseModel):
-    custom_prompt: Optional[str] = None
-
-
-# 1. 만화 생성 API (상세 페이지에서 호출)
-@app.post("/api/news/{news_id}/comic")
-async def generate_comic(
-    news_id: int, 
-    bg: BackgroundTasks, 
-    payload: Optional[ComicGenerateRequest] = None,  # 👈 추가된 부분: 클라이언트의 요청 바디 수신
-    db: Session = Depends(get_db)
-):
-    article = db.query(Article).filter(Article.id == news_id).first()
-    if not article:
-        raise HTTPException(status_code=404, detail="기사를 찾을 수 없습니다.")
-
-    news_title = article.title or ""
-    news_summary = article.ai_summary or ""
-    news_content = article.content or article.summary or ""
-    combined_body = (news_summary + "\n\n" + news_content).strip()
-    news_body = combined_body[:1500] if combined_body else news_title
-
-    # 👈 추가된 부분: 프론트엔드에서 커스텀 프롬프트를 보냈다면 꺼내고, 아니면 None 처리
-    custom_prompt = payload.custom_prompt if payload else None
-
-    try:
-        # 👈 추가된 부분: custom_prompt를 ai_analyzer로 전달
-        comic_data, raw_urls = await generate_comic_data(news_id, news_title, news_body, custom_prompt)
-    except Exception as e:
-        logger.error(f"만화 생성 실패: {e}")
-        raise HTTPException(status_code=500, detail="만화 시나리오 생성 중 오류가 발생했습니다.")
-
-    # DB에 저장
-    article.comic_script = json.dumps(comic_data, ensure_ascii=False)
-    db.commit()
-
-    return {
-        "message": "만화 생성 완료",
-        "comic_urls": comic_data,
-        "prewarming": False,  
-    }
-
-
-# 2. 만화 모음집 조회 API (AI 만화 모음집 페이지에서 호출)
-@app.get("/api/cartoons")
-def get_cartoons(db: Session = Depends(get_db)):
-    articles = (
-        db.query(Article)
-        .filter(Article.comic_script.isnot(None))
-        .order_by(Article.created_at.desc()) 
-        .all()
-    )
-
-    result = []
-    for a in articles:
-        try:
-            urls = json.loads(a.comic_script)
-            if urls:
-                result.append({
-                    "news_id":    a.id,
-                    "title":      a.title,
-                    "source":     a.source,
-                    "summary":    a.ai_summary or a.summary or "",
-                    "comic_urls": urls,
-                    "published_at": a.published_at,
-                })
-        except Exception:
-            continue
-
-    return result
-
-
-# ─── 헬스체크 ─────────────────────────────────────────────────────────────────
-
-@app.get("/health")
+@app.get("/health", tags=["system"])
 def health():
     return {"status": "ok", "timestamp": datetime.now().isoformat()}
 
-
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host=APP_HOST, port=APP_PORT, reload=False)
+    uvicorn.run("main:app", host=APP_HOST, port=APP_PORT, reload=True)
