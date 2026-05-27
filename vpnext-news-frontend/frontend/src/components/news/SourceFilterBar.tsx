@@ -19,7 +19,7 @@ export default function SourceFilterBar({
           <button
             key={src}
             onClick={() => onChange(src)}
-            className="px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap shrink-0 transition-all duration-200"
+            className="px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap shrink-0 transition-all duration-200 hover:text-[var(--hover-color)] hover:border-[var(--hover-color)] hover:bg-[#f7f4ef]"
             style={
               isActive
                 ? {
@@ -32,22 +32,9 @@ export default function SourceFilterBar({
                     background: "#fff",
                     color: "#5C5853",
                     border: "1.5px solid #E4DDD3",
-                  }
+                    "--hover-color": activeBgColor, // CSS 변수 선언적 주입
+                  } as React.CSSProperties
             }
-            onMouseEnter={(e) => {
-              if (!isActive) {
-                (e.currentTarget as HTMLElement).style.borderColor = activeBgColor;
-                (e.currentTarget as HTMLElement).style.color = activeBgColor;
-                (e.currentTarget as HTMLElement).style.background = "#f7f4ef";
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (!isActive) {
-                (e.currentTarget as HTMLElement).style.borderColor = "#E4DDD3";
-                (e.currentTarget as HTMLElement).style.color = "#5C5853";
-                (e.currentTarget as HTMLElement).style.background = "#fff";
-              }
-            }}
           >
             {src === "전체" ? "📰 전체" : src}
           </button>

@@ -3,41 +3,55 @@ import { extractImageFromSummary } from "../../utils/summary";
 import type { NewsDetail } from "../../types/news";
 import { SOURCE_NAME_MAP } from "../../constants/source";
 
-// URL로부터 한글 언론사명을 유추하는 헬퍼 함수
+const DOMAIN_TO_KOR_MAP: Record<string, string> = {
+  "hani.co.kr": "한겨레",
+  "khan.co.kr": "경향신문",
+  "chosun.com": "조선일보",
+  "joongang.co.kr": "중앙일보",
+  "donga.com": "동아일보",
+  "sbs.co.kr": "SBS",
+  "kbs.co.kr": "KBS",
+  "mbc.co.kr": "MBC",
+  "ytn.co.kr": "YTN",
+  "hankyung.com": "한국경제",
+  "mk.co.kr": "매일경제",
+  "yonhapnewstv.co.kr": "연합뉴스",
+  "yna.co.kr": "연합뉴스",
+  "cstimes.com": "컨슈머타임스",
+  "fsnews.co.kr": "급식뉴스",
+};
+
+// URL로부터 한글 언론사명을 유추하는 선언형 헬퍼 함수
 export const getSourceNameFromUrl = (url: string): string => {
   const lowercaseUrl = url.toLowerCase();
-  if (lowercaseUrl.includes("hani.co.kr")) return "한겨레";
-  if (lowercaseUrl.includes("khan.co.kr")) return "경향신문";
-  if (lowercaseUrl.includes("chosun.com")) return "조선일보";
-  if (lowercaseUrl.includes("joongang.co.kr")) return "중앙일보";
-  if (lowercaseUrl.includes("donga.com")) return "동아일보";
-  if (lowercaseUrl.includes("sbs.co.kr")) return "SBS";
-  if (lowercaseUrl.includes("kbs.co.kr")) return "KBS";
-  if (lowercaseUrl.includes("mbc.co.kr")) return "MBC";
-  if (lowercaseUrl.includes("ytn.co.kr")) return "YTN";
-  if (lowercaseUrl.includes("hankyung.com")) return "한국경제";
-  if (lowercaseUrl.includes("mk.co.kr")) return "매일경제";
-  if (lowercaseUrl.includes("yonhapnewstv.co.kr") || lowercaseUrl.includes("yna.co.kr")) return "연합뉴스";
-  if (lowercaseUrl.includes("cstimes.com")) return "컨슈머타임스";
-  if (lowercaseUrl.includes("fsnews.co.kr")) return "급식뉴스";
+  
+  const matchedDomain = Object.keys(DOMAIN_TO_KOR_MAP).find(domain => 
+    lowercaseUrl.includes(domain)
+  );
+  
+  if (matchedDomain) {
+    return DOMAIN_TO_KOR_MAP[matchedDomain];
+  }
 
   try {
-    const domain = new URL(url).hostname.replace("www.", "");
-    return domain;
+    return new URL(url).hostname.replace("www.", "");
   } catch (e) {
     return "참조 기사";
   }
 };
 
+// 영어 언론사 키워드를 일괄 매칭하기 위한 pre-compiled 정규식
+const ENGLISH_SOURCES_REGEX = new RegExp(
+  `\\b(${Object.keys(SOURCE_NAME_MAP).join("|")})\\b`,
+  "gi"
+);
+
 // 영어 언론사명을 가독성 좋은 한글명/대문자명으로 일괄 치환하는 헬퍼
 export const replaceEnglishSourceNames = (text: string): string => {
-  let result = text;
-  Object.entries(SOURCE_NAME_MAP).forEach(([eng, kor]) => {
-    // 단어 앞뒤 경계를 감안하여 매칭 (예: yonhap -> 연합뉴스)
-    const regex = new RegExp(`\\b${eng}\\b`, "gi");
-    result = result.replace(regex, kor);
+  if (!text) return "";
+  return text.replace(ENGLISH_SOURCES_REGEX, (match) => {
+    return SOURCE_NAME_MAP[match.toLowerCase()] || match;
   });
-  return result;
 };
 
 // ── [프론트엔드 전용 요약문 보정, 중복 제거 및 링크 파서 함수] ──

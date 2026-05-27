@@ -17,10 +17,11 @@ export function useCartoons() {
       try {
         const data = await fetchCartoons();
         // 최신 생성 날짜 순서대로 정렬 (내림차순)
+        // ISO 날짜 문자열은 단순 문자열 비교만으로 정렬이 가능하므로 Date 변환 생략
         const sortedCartoons = data.sort((a, b) => {
-          const dateA = a.published_at ? new Date(a.published_at).getTime() : 0;
-          const dateB = b.published_at ? new Date(b.published_at).getTime() : 0;
-          return dateB - dateA;
+          const dateA = a.published_at || "";
+          const dateB = b.published_at || "";
+          return dateB.localeCompare(dateA);
         });
         setCartoons(sortedCartoons);
       } catch (error) {
