@@ -48,4 +48,11 @@ def health():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host=APP_HOST, port=APP_PORT, reload=True)
+    uvicorn.run(
+        "main:app", 
+        host=APP_HOST, 
+        port=APP_PORT, 
+        reload=True, 
+        reload_includes=["*.py"],
+        reload_excludes=["*.db", "news_compass.db*", "*.db-journal", "*.db-wal", "*.db-shm", "server.log"]
+    )

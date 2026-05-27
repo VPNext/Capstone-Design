@@ -23,7 +23,7 @@ HEADERS = {
 
 # 사이트별 본문 / 제목 CSS 선택자
 SELECTORS: Dict[str, Dict[str, str]] = {
-    "naver.com":     {"content": "#dic_area, .go_trans._article_content",       "title": ".media_end_head_headline"},
+    "naver.com":     {"content": "#dic_area, .go_trans._article_content, #articleBodyContents, #newsEndContents", "title": ".media_end_head_headline, h2.media_end_head_headline, #articleTitle, h2.media_end_head_title"},
     "daum.net":      {"content": ".article_view, #harmonyContainer",             "title": ".tit_view"},
     "yonhap":        {"content": ".story-news article",                          "title": "h1.tit"},
     "ytn.co.kr":     {"content": ".article-txt, #CmAdContent",                  "title": "h1.tit"},

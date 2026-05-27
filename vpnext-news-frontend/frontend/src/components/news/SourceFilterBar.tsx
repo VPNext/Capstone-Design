@@ -12,14 +12,14 @@ export default function SourceFilterBar({
   activeBgColor = "#161311",
 }: SourceFilterBarProps) {
   return (
-    <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+    <div className="flex items-center gap-2 overflow-x-auto pt-1 pb-3 scrollbar-thin">
       {SOURCES.map((src) => {
         const isActive = selectedSource === src;
         return (
           <button
             key={src}
             onClick={() => onChange(src)}
-            className="px-4 py-1.5 rounded-full text-sm font-bold whitespace-nowrap shrink-0 transition-all duration-200"
+            className="px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap shrink-0 transition-all duration-200"
             style={
               isActive
                 ? {

@@ -43,13 +43,30 @@ async def run_full_analysis(
             "comic_script":    cached_art.comic_script,
         }
 
-    # 2. 스크래핑
+    # 2. 스크래핑 및 폴백 예외 처리 (안정성 보장)
     scraped = scrape(article_url)
-    if not scraped or not scraped.get("content"):
-        raise ValueError("기사 본문을 가져올 수 없습니다.")
+    title = ""
+    content = ""
+    image_url = None
+    
+    # DB에 기존 적재된 정보 조회 (폴백 대조용)
+    existing_art = db.query(Article).filter(Article.url == article_url).first()
+    
+    if scraped and scraped.get("content") and len(scraped["content"].strip()) > 100:
+        title = scraped["title"] or (existing_art.title if existing_art else "제목 없음")
+        content = scraped["content"]
+        image_url = scraped.get("image_url")
+    else:
+        # 스크래핑 실패 시 폴백 처리 (외부 언론사 차단 방어)
+        logger.warning(f"기사 본문 스크래핑 실패 ({article_url}). 기존 수집 요약본으로 분석을 지속합니다.")
+        if existing_art:
+            title = existing_art.title
+            content = existing_art.summary if existing_art.summary else f"본문 크롤링이 불가능한 기사입니다. 제목인 '{title}'을 기준으로 신뢰도를 판별해 주세요."
+            image_url = existing_art.image_url
+        else:
+            title = "기사 제목 없음"
+            content = "기사 본문 스크래핑 실패로 인한 분석 데이터 부재"
 
-    title = scraped["title"]
-    content = scraped["content"]
     source_name = get_source_from_url(article_url)
 
     # 3. 과거 유사 기사 검색 (비교 분석용)
@@ -114,8 +131,8 @@ async def run_full_analysis(
     art.source    = source_name or art.source
     art.content   = content
     art.title     = title
-    if scraped.get("image_url"):
-        art.image_url = scraped["image_url"]
+    if image_url:
+        art.image_url = image_url
 
     art.credibility_score  = credibility.get("score")
     art.credibility_label  = credibility.get("label")

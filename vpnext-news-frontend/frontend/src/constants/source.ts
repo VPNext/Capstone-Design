@@ -1,4 +1,6 @@
 export const SOURCE_NAME_MAP: Record<string, string> = {
+  naver: "네이버 뉴스",
+  jtbc: "JTBC",
   hani: "한겨레",
   khan: "경향신문",
   chosun: "조선일보",
@@ -14,6 +16,8 @@ export const SOURCE_NAME_MAP: Record<string, string> = {
 };
 
 export const SOURCE_BADGE_CLASS: Record<string, string> = {
+  naver: "bg-[#03c75a] text-white",
+  jtbc: "bg-[#1f619e] text-white",
   hani: "bg-[#d11b1b] text-white",
   khan: "bg-[#1b5ac9] text-white",
   chosun: "bg-[#1a1a1a] text-white",
@@ -29,6 +33,8 @@ export const SOURCE_BADGE_CLASS: Record<string, string> = {
 };
 
 export const SOURCE_BADGE_CLASS_KO: Record<string, string> = {
+  "네이버 뉴스": "bg-[#03c75a] text-white",
+  "JTBC": "bg-[#1f619e] text-white",
   "한겨레": "bg-[#d11b1b] text-white",
   "경향신문": "bg-[#1b5ac9] text-white",
   "조선일보": "bg-[#1a1a1a] text-white",
@@ -44,3 +50,4 @@ export const SOURCE_BADGE_CLASS_KO: Record<string, string> = {
 };
 
 export const SOURCES = ["전체", ...Object.values(SOURCE_NAME_MAP)];
+
