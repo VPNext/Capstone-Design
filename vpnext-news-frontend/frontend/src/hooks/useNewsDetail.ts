@@ -111,7 +111,7 @@ export function useNewsDetail() {
     // 만화 생성이 비동기로 이루어지므로 진행률이 99%에 가까워질수록 증가폭이 완만하게 줄어드는 감속(Decay) 로직 적용
     const interval = setInterval(() => {
       setProgress((prev) => {
-        const nextVal = prev + (99 - prev) * 0.05;
+        const nextVal = prev + (97 - prev) * 0.05;
         
         if (nextVal < 30) {
           setLoadingStatus("뉴스를 분석하여 만화 시나리오를 작성하고 있습니다...");
