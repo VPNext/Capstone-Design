@@ -1,5 +1,4 @@
 import { useAnalyzedNews } from "../hooks/useAnalyzedNews";
-import { extractTextFromSummary } from "../utils/summary";
 import SourceFilterBar from "../components/news/SourceFilterBar";
 import FeaturedNewsCard from "../components/news/FeaturedNewsCard";
 import NewsCard from "../components/news/NewsCard";
@@ -18,16 +17,6 @@ export default function AnalyzedNewsPage() {
     handleLoadMoreClick,
     handleSourceChange,
   } = useAnalyzedNews();
-
-  // 검색어가 설정된 경우, 현재 불러온 리스트 중에서 검색어가 포함된 기사들만 필터링
-  const filteredNews = keyword
-    ? newsList.filter((news) => {
-        const titleMatch = news.title.includes(keyword);
-        const plainSummary = extractTextFromSummary(news.summary);
-        const summaryMatch = (news.ai_summary || plainSummary).includes(keyword);
-        return titleMatch || summaryMatch;
-      })
-    : newsList;
 
   return (
     <div
@@ -95,7 +84,7 @@ export default function AnalyzedNewsPage() {
                 AI 분석이 완료된 뉴스 — 신뢰도, 요약, 핵심 인물 정보를 확인하세요
               </p>
             </div>
-            {filteredNews.length > 0 && (
+            {newsList.length > 0 && (
               <div
                 className="flex items-center gap-3 px-5 py-3 shrink-0"
                 style={{
@@ -104,7 +93,7 @@ export default function AnalyzedNewsPage() {
                   borderRadius: "16px",
                 }}
               >
-                <span className="text-3xl font-black text-white">{filteredNews.length}</span>
+                <span className="text-3xl font-black text-white">{newsList.length}</span>
                 <span className="text-sm leading-tight" style={{ color: "rgba(255,255,255,0.4)" }}>
                   개
                   <br />
@@ -150,8 +139,8 @@ export default function AnalyzedNewsPage() {
       {/* 뉴스 리스트 */}
       {!loading && (
         <div className="flex flex-col gap-4">
-          {filteredNews.map((news, index) => {
-            const isLast = filteredNews.length === index + 1;
+          {newsList.map((news, index) => {
+            const isLast = newsList.length === index + 1;
 
             if (index === 0) {
               return (
@@ -176,7 +165,7 @@ export default function AnalyzedNewsPage() {
           })}
 
           {/* 빈 결과 상태 */}
-          {filteredNews.length === 0 && (
+          {newsList.length === 0 && (
             <div
               className="py-24 text-center border border-dashed rounded-[20px]"
               style={{

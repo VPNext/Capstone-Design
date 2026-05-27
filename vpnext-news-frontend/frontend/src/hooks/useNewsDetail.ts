@@ -108,20 +108,20 @@ export function useNewsDetail() {
     setProgress(0);
     setLoadingStatus("만화 생성을 준비하고 있습니다...");
     
-    // 만화 생성이 비동기로 이루어지므로 진행 단계별로 로딩 메시지와 바를 부드럽게 채움
+    // 만화 생성이 비동기로 이루어지므로 진행률이 99%에 가까워질수록 증가폭이 완만하게 줄어드는 감속(Decay) 로직 적용
     const interval = setInterval(() => {
       setProgress((prev) => {
-        if (prev < 30) {
+        const nextVal = prev + (99 - prev) * 0.05;
+        
+        if (nextVal < 30) {
           setLoadingStatus("뉴스를 분석하여 만화 시나리오를 작성하고 있습니다...");
-          return prev + 1;
-        } else if (prev < 90) {
-          setLoadingStatus("AI 이미지를 생성하고 있습니다... (약 1분 소요)");
-          return prev + 0.5;
-        } else if (prev < 98) {
-          setLoadingStatus("이미지 품질을 최적화하고 마무리 작업 중입니다...");
-          return prev + 0.1;
+        } else if (nextVal < 80) {
+          setLoadingStatus("AI 컷 이미지를 순차적으로 생성하고 있습니다... (약 30초 소요)");
+        } else {
+          setLoadingStatus("말풍선 위치를 정렬하고 만화 컷을 최종 보정하고 있습니다...");
         }
-        return prev;
+        
+        return nextVal;
       });
     }, 500);
     

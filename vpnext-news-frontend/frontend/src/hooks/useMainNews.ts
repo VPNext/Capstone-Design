@@ -32,6 +32,9 @@ export function useMainNews() {
   );
   const [loading, setLoading] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [autoLoadCount, setAutoLoadCount] = useState(0);
+  const [showLoadMoreBtn, setShowLoadMoreBtn] = useState(false);
+  const MAX_AUTO_LOAD = 2;
 
   const observer = useRef<IntersectionObserver | null>(null);
 
@@ -85,19 +88,33 @@ export function useMainNews() {
   // 무한 스크롤 감지용 마지막 요소 Ref 콜백 (마지막 카드가 화면에 등장하면 자동 다음 페이지 페칭)
   const lastElementRef = useCallback(
     (node: HTMLDivElement | null) => {
-      if (loading || isLoadingMore) return;
+      if (loading || isLoadingMore || showLoadMoreBtn) return;
       if (observer.current) observer.current.disconnect();
       observer.current = new IntersectionObserver((entries) => {
         if (entries[0].isIntersecting && hasMore) {
-          const nextPage = page + 1;
-          setPage(nextPage);
-          fetchNews(nextPage, selectedSource, keyword);
+          if (autoLoadCount >= MAX_AUTO_LOAD) {
+            setShowLoadMoreBtn(true);
+          } else {
+            setAutoLoadCount((prev) => prev + 1);
+            const nextPage = page + 1;
+            setPage(nextPage);
+            fetchNews(nextPage, selectedSource, keyword);
+          }
         }
       });
       if (node) observer.current.observe(node);
     },
-    [loading, isLoadingMore, hasMore, page, selectedSource, keyword],
+    [loading, isLoadingMore, hasMore, showLoadMoreBtn, autoLoadCount, page, selectedSource, keyword],
   );
+
+  // '뉴스 더 불러오기' 수동 클릭 시 호출
+  const handleLoadMoreClick = () => {
+    setShowLoadMoreBtn(false);
+    setAutoLoadCount(0);
+    const nextPage = page + 1;
+    setPage(nextPage);
+    fetchNews(nextPage, selectedSource, keyword);
+  };
 
   const navType = useNavigationType();
 
@@ -106,6 +123,8 @@ export function useMainNews() {
     setNewsList([]);
     setPage(1);
     setHasMore(true);
+    setAutoLoadCount(0);
+    setShowLoadMoreBtn(false);
 
     // 사용자가 뒤로가기(POP)를 통해 목록으로 돌아온 경우, 세션스토리지에 있는 뉴스 캐시와 스크롤 위치 복원
     if (!keyword && navType === "POP") {
@@ -152,8 +171,10 @@ export function useMainNews() {
     selectedSource,
     loading,
     isLoadingMore,
+    showLoadMoreBtn,
     keyword,
     lastElementRef,
+    handleLoadMoreClick,
     handleSourceChange,
     setPage,
   };

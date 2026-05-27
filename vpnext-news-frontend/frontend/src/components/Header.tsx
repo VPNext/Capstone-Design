@@ -22,7 +22,11 @@ export default function Header() {
   const handleSearch = () => {
     const trimmed = keyword.trim();
     if (!trimmed) return;
-    navigate(`/?q=${encodeURIComponent(trimmed)}`);
+    
+    // 분석 뉴스 페이지에서는 검색을 해도 해당 페이지 컨텍스트를 유지
+    const targetPath = location.pathname === "/analyzed" ? "/analyzed" : "/";
+    navigate(`${targetPath}?q=${encodeURIComponent(trimmed)}`);
+    
     setSearchOpen(false);
     setKeyword("");
   };

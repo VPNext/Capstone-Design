@@ -1,5 +1,4 @@
 import { useMainNews } from "../hooks/useMainNews";
-import { extractTextFromSummary } from "../utils/summary";
 import SourceFilterBar from "../components/news/SourceFilterBar";
 import FeaturedNewsCard from "../components/news/FeaturedNewsCard";
 import NewsCard from "../components/news/NewsCard";
@@ -12,20 +11,12 @@ export default function MainPage() {
     selectedSource,
     loading,
     isLoadingMore,
+    showLoadMoreBtn,
     keyword,
     lastElementRef,
+    handleLoadMoreClick,
     handleSourceChange,
   } = useMainNews();
-
-  // 검색 키워드가 있는 경우, 기사 제목 또는 요약문에서 해당 검색어가 포함된 기사만 필터링
-  const filteredNews = keyword
-    ? newsList.filter((news) => {
-        const titleMatch = news.title.includes(keyword);
-        const plainSummary = extractTextFromSummary(news.summary);
-        const summaryMatch = (news.ai_summary || plainSummary).includes(keyword);
-        return titleMatch || summaryMatch;
-      })
-    : newsList;
 
   return (
     <div className="flex flex-col mt-8 font-sans">
@@ -56,12 +47,12 @@ export default function MainPage() {
                 day: "numeric",
               })}
             </p>
-            {filteredNews.length > 0 && (
+            {newsList.length > 0 && (
               <div className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-[#161311] text-white">
                 <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                   <path d="M2 3a1 1 0 000 2h11a1 1 0 100-2H2zm0 4a1 1 0 000 2h7a1 1 0 100-2H2zm0 4a1 1 0 000 2h4a1 1 0 100-2H2z" />
                 </svg>
-                {filteredNews.length}개 기사
+                {newsList.length}개 기사
               </div>
             )}
           </div>
@@ -88,8 +79,8 @@ export default function MainPage() {
       {/* 뉴스 카드 목록 렌더링 */}
       {!loading && (
         <div className="flex flex-col gap-4">
-          {filteredNews.map((news, index) => {
-            const isLast = filteredNews.length === index + 1;
+          {newsList.map((news, index) => {
+            const isLast = newsList.length === index + 1;
 
             // 목록의 첫 번째 뉴스만 Featured 카드(대형 카드)로 크게 렌더링
             if (index === 0) {
@@ -116,7 +107,7 @@ export default function MainPage() {
           })}
 
           {/* 검색이나 필터 결과가 없을 때의 예외 화면 */}
-          {filteredNews.length === 0 && (
+          {newsList.length === 0 && (
             <div className="py-24 text-center border border-dashed rounded-[20px] border-[#E4DDD3] text-[#9C9891]">
               <p className="text-5xl mb-4">🔍</p>
               <p className="text-base font-bold">검색 결과가 없습니다.</p>
@@ -129,6 +120,30 @@ export default function MainPage() {
             <div className="flex flex-col gap-4 mt-2">
               <SkeletonCard />
               <SkeletonCard />
+            </div>
+          )}
+
+          {/* 더보기 버튼 */}
+          {showLoadMoreBtn && (
+            <div className="flex justify-center mt-6">
+              <button
+                onClick={handleLoadMoreClick}
+                className="px-8 py-3 rounded-full text-sm font-bold text-white transition-all duration-200"
+                style={{
+                  background: "#161311",
+                  boxShadow: "0 2px 12px rgba(22,19,17,0.3)",
+                }}
+                onMouseEnter={(e) => {
+                  (e.currentTarget as HTMLElement).style.background = "#C13026";
+                  (e.currentTarget as HTMLElement).style.transform = "translateY(-1px)";
+                }}
+                onMouseLeave={(e) => {
+                  (e.currentTarget as HTMLElement).style.background = "#161311";
+                  (e.currentTarget as HTMLElement).style.transform = "translateY(0)";
+                }}
+              >
+                뉴스 더 불러오기
+              </button>
             </div>
           )}
         </div>
