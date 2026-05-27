@@ -90,6 +90,21 @@ def parse_naver_date(date_str: str) -> Optional[datetime]:
 
 
 def _parse_date(entry) -> Optional[datetime]:
+    # JTBC 등 YYYY.MM.DD 형태의 pubDate 직접 파싱
+    published_raw = getattr(entry, "published", None)
+    if published_raw:
+        published_raw = published_raw.strip()
+        m = re.match(r'^(\d{4})\.(\d{2})\.(\d{2})(?:\s+(\d{2}):(\d{2}):(\d{2}))?$', published_raw)
+        if m:
+            try:
+                year, month, day = map(int, m.groups()[:3])
+                hour = int(m.group(4)) if m.group(4) else 0
+                minute = int(m.group(5)) if m.group(5) else 0
+                second = int(m.group(6)) if m.group(6) else 0
+                return datetime(year, month, day, hour, minute, second)
+            except Exception as e:
+                logger.warning(f"날짜 정규식 파싱 오류 ({published_raw}): {e}")
+
     for attr in ("published_parsed", "updated_parsed"):
         val = getattr(entry, attr, None)
         if val:
@@ -98,6 +113,7 @@ def _parse_date(entry) -> Optional[datetime]:
             except Exception:
                 pass
     return datetime.now()
+
 
 
 def crawl_feed(name: str, url: str) -> List[Dict]:
@@ -162,17 +178,14 @@ def crawl_naver_news(query: str, display: int = 20) -> List[Dict]:
 
         from article_scraper import get_source_from_url
         
-        # 한국어 언론사명 -> 영어 소스 키 역매핑 딕셔너리
+        # 한국어 언론사명 -> 영어 소스 키 역매핑 딕셔너리 (중앙일보, MBC, YTN 제외)
         reverse_source_map = {
             "한겨레": "hani",
             "경향신문": "khan",
             "조선일보": "chosun",
-            "중앙일보": "joongang",
             "동아일보": "donga",
-            "MBC": "mbc",
             "KBS": "kbs",
             "SBS": "sbs",
-            "YTN": "ytn",
             "한국경제": "hankyung",
             "매일경제": "mk",
             "연합뉴스": "yonhap",
@@ -199,12 +212,17 @@ def crawl_naver_news(query: str, display: int = 20) -> List[Dict]:
             # 도메인 기반 언론사 식별 (반드시 원본 링크 도메인을 기준으로 파싱하여 식별)
             source_kor = get_source_from_url(orig_link if orig_link else link)
             
+            # 중앙일보, MBC, YTN 기사 수집 차단 및 제외
+            if any(name in source_kor for name in ["중앙일보", "MBC", "YTN"]):
+                continue
+
             # 식별된 한국어 명칭을 영문 매핑 키값으로 변환
             source_key = "naver"
             for kor_name, eng_key in reverse_source_map.items():
                 if kor_name in source_kor:
                     source_key = eng_key
                     break
+
 
             articles.append({
                 "source":       source_key,
