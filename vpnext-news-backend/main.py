@@ -11,9 +11,6 @@ from config import APP_HOST, APP_PORT
 from database import init_db
 from routers import news, analyze, cartoons
 
-# Windows 환경일 경우 aiodns 충돌 방지를 위해 SelectorEventLoop 정책 설정
-if sys.platform == 'win32':
-    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
@@ -48,11 +45,4 @@ def health():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(
-        "main:app", 
-        host=APP_HOST, 
-        port=APP_PORT, 
-        reload=True, 
-        reload_includes=["*.py"],
-        reload_excludes=["*.db", "news_compass.db*", "*.db-journal", "*.db-wal", "*.db-shm", "server.log"]
-    )
+    uvicorn.run("main:app", host=APP_HOST, port=APP_PORT, reload=True)
