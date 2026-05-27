@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { SOURCE_NAME_MAP, SOURCE_BADGE_CLASS } from "../../constants/source";
 import { extractImageFromSummary, extractTextFromSummary, decodeHtmlEntities } from "../../utils/summary";
+import { getScoreColor } from "../../utils/score";
 import HighlightText from "../HighlightText";
 import CredibilityBadge from "../CredibilityBadge";
 import ScoreMeter from "../ScoreMeter";
@@ -12,12 +13,6 @@ interface NewsCardProps {
   isAnalyzedPage?: boolean;
   innerRef?: (node: HTMLDivElement | null) => void;
 }
-
-const getScoreColor = (score: number) => {
-  if (score >= 0.7) return "#10B981";
-  if (score >= 0.4) return "#F59E0B";
-  return "#EF4444";
-};
 
 export default function NewsCard({
   news,
@@ -35,7 +30,7 @@ export default function NewsCard({
   // 신뢰도 컬러바 색상 계산 (분석페이지 전용)
   const scoreColor =
     isAnalyzedPage && news.credibility_score != null
-      ? getScoreColor(news.credibility_score)
+      ? getScoreColor(news.credibility_score).hex
       : "transparent";
 
   // 호버 테두리 색상 분기

@@ -2,8 +2,14 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { useSearchParams, useNavigationType } from "react-router-dom";
 import { SOURCE_NAME_MAP } from "../constants/source";
 import { fetchNewsList } from "../services/newsService";
-import { storage, STORAGE_KEYS } from "../utils/storage";
+import { storage } from "../utils/storage";
 import type { NewsItem } from "../types/news";
+
+interface UseNewsListProps {
+  isAnalyzed: boolean;
+  cacheKey: string;
+  scrollKey: string;
+}
 
 interface NewsCache {
   newsList?: NewsItem[];
@@ -12,23 +18,23 @@ interface NewsCache {
   selectedSource?: string;
 }
 
-// AI 분석이 완료된 뉴스 목록 페칭 및 페이징(무한 스크롤 + 더보기 버튼 제어) 훅
-export function useAnalyzedNews() {
+export function useNewsList({ isAnalyzed, cacheKey, scrollKey }: UseNewsListProps) {
   const [searchParams] = useSearchParams();
   const keyword = searchParams.get("q") || "";
+  const navType = useNavigationType();
 
-  // 검색어가 없을 때만 기존 저장된 분석 뉴스 캐시 로드
+  // 검색어가 없을 때만 기존 저장된 뉴스 캐시 로드
   const [newsList, setNewsList] = useState<NewsItem[]>(() =>
-    keyword ? [] : storage.get<NewsCache>(STORAGE_KEYS.ANALYZED_NEWS_CACHE, {}).newsList || [],
+    keyword ? [] : storage.get<NewsCache>(cacheKey, {}).newsList || []
   );
   const [page, setPage] = useState<number>(() =>
-    keyword ? 1 : storage.get<NewsCache>(STORAGE_KEYS.ANALYZED_NEWS_CACHE, {}).page || 1
+    keyword ? 1 : storage.get<NewsCache>(cacheKey, {}).page || 1
   );
   const [hasMore, setHasMore] = useState<boolean>(() =>
-    keyword ? true : storage.get<NewsCache>(STORAGE_KEYS.ANALYZED_NEWS_CACHE, {}).hasMore ?? true
+    keyword ? true : storage.get<NewsCache>(cacheKey, {}).hasMore ?? true
   );
   const [selectedSource, setSelectedSource] = useState<string>(() =>
-    storage.get<NewsCache>(STORAGE_KEYS.ANALYZED_NEWS_CACHE, {}).selectedSource || "전체"
+    storage.get<NewsCache>(cacheKey, {}).selectedSource || "전체"
   );
   const [loading, setLoading] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -40,18 +46,18 @@ export function useAnalyzedNews() {
 
   const observer = useRef<IntersectionObserver | null>(null);
 
-  // 분석 뉴스 API 호출 함수 (isAnalyzed=true 조건 전달)
+  // 뉴스 목록 API 호출 함수
   const fetchNews = async (pageNumber: number, sourceName: string, queryKeyword?: string) => {
     try {
       if (pageNumber === 1) setLoading(true);
       else setIsLoadingMore(true);
-      
+
       const sourceId = Object.keys(SOURCE_NAME_MAP).find(
-        (key) => SOURCE_NAME_MAP[key] === sourceName,
+        (key) => SOURCE_NAME_MAP[key] === sourceName
       );
       const sourceParam = sourceId ? sourceId : undefined;
-      
-      const response = await fetchNewsList(pageNumber, sourceParam, true, queryKeyword);
+
+      const response = await fetchNewsList(pageNumber, sourceParam, isAnalyzed, queryKeyword);
       const newItems = response.items || [];
 
       let nextNewsList = newItems;
@@ -70,7 +76,7 @@ export function useAnalyzedNews() {
       }
 
       if (!queryKeyword) {
-        storage.set(STORAGE_KEYS.ANALYZED_NEWS_CACHE, {
+        storage.set(cacheKey, {
           newsList: nextNewsList,
           page: pageNumber,
           hasMore: nextHasMore,
@@ -78,21 +84,20 @@ export function useAnalyzedNews() {
         });
       }
     } catch (err) {
-      console.error("분석 뉴스 로드 오류:", err);
+      console.error("뉴스 로드 오류:", err);
     } finally {
       setLoading(false);
       setIsLoadingMore(false);
     }
   };
 
-  // 목록 끝에 도달했을 때 무한 스크롤 또는 더보기 버튼 활성화를 제어하는 Ref
+  // 무한 스크롤 감지용 마지막 요소 Ref 콜백 (마지막 카드가 화면에 등장하면 자동 다음 페이지 페칭)
   const lastElementRef = useCallback(
     (node: HTMLDivElement | null) => {
       if (loading || isLoadingMore || showLoadMoreBtn) return;
       if (observer.current) observer.current.disconnect();
       observer.current = new IntersectionObserver((entries) => {
         if (entries[0].isIntersecting && hasMore) {
-          // 최대 자동 로딩 횟수를 넘었으면 더보기 버튼 출력
           if (autoLoadCount >= MAX_AUTO_LOAD) {
             setShowLoadMoreBtn(true);
           } else {
@@ -105,7 +110,7 @@ export function useAnalyzedNews() {
       });
       if (node) observer.current.observe(node);
     },
-    [loading, isLoadingMore, hasMore, showLoadMoreBtn, autoLoadCount, page, selectedSource, keyword],
+    [loading, isLoadingMore, hasMore, showLoadMoreBtn, autoLoadCount, page, selectedSource, keyword]
   );
 
   // '뉴스 더 불러오기' 수동 클릭 시 호출
@@ -117,8 +122,6 @@ export function useAnalyzedNews() {
     fetchNews(nextPage, selectedSource, keyword);
   };
 
-  const navType = useNavigationType();
-
   // 검색어, 언론사, 혹은 뒤로가기(POP) 발생 시 목록 다시 동기화
   useEffect(() => {
     setNewsList([]);
@@ -128,7 +131,7 @@ export function useAnalyzedNews() {
     setShowLoadMoreBtn(false);
 
     if (!keyword && navType === "POP") {
-      const cached = sessionStorage.getItem(STORAGE_KEYS.ANALYZED_NEWS_CACHE);
+      const cached = sessionStorage.getItem(cacheKey);
       if (cached) {
         try {
           const parsed = JSON.parse(cached);
@@ -137,7 +140,7 @@ export function useAnalyzedNews() {
             setPage(parsed.page || 1);
             setHasMore(parsed.hasMore !== undefined ? parsed.hasMore : true);
             setTimeout(() => {
-              const scrollY = storage.get<string>(STORAGE_KEYS.ANALYZED_NEWS_SCROLL, "0");
+              const scrollY = storage.get<string>(scrollKey, "0");
               if (scrollY) window.scrollTo(0, parseInt(scrollY, 10));
             }, 100);
             return;
@@ -149,16 +152,21 @@ export function useAnalyzedNews() {
     fetchNews(1, selectedSource, keyword);
   }, [keyword, selectedSource, navType]);
 
-  // 스크롤 발생 시 실시간 Y축 기록
+  // 스크롤 발생 시 실시간 Y축 기록 (requestAnimationFrame을 활용하여 브라우저 페인팅 주기당 최대 1회만 쓰기 처리하도록 최적화)
   useEffect(() => {
+    let ticking = false;
     const handleScroll = () => {
-      if (!keyword) {
-        storage.set(STORAGE_KEYS.ANALYZED_NEWS_SCROLL, window.scrollY.toString());
+      if (!keyword && !ticking) {
+        window.requestAnimationFrame(() => {
+          storage.set(scrollKey, window.scrollY.toString());
+          ticking = false;
+        });
+        ticking = true;
       }
     };
-    window.addEventListener("scroll", handleScroll);
+    window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
-  }, [keyword]);
+  }, [keyword, scrollKey]);
 
   const handleSourceChange = (src: string) => {
     setSelectedSource(src);

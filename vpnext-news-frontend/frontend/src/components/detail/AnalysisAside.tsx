@@ -3,6 +3,7 @@ import type { AnalysisData, DifficultTerm, KeyPerson } from "../../types/news";
 import DictionarySearchForm from "./DictionarySearchForm";
 import { parseAndRenderSummary, replaceEnglishSourceNames } from "./ArticleContent";
 import { SOURCE_NAME_MAP } from "../../constants/source";
+import { getScoreColor } from "../../utils/score";
 
 type AnalysisStatus = "pending" | "analyzing" | "complete";
 
@@ -15,32 +16,6 @@ interface AnalysisAsideProps {
   setSearchEngine: (value: string) => void;
   handleTermSearch: (e: FormEvent) => void;
 }
-
-const getScoreColor = (score: number) => {
-  if (score >= 0.7)
-    return {
-      text: "text-emerald-700",
-      bg: "bg-emerald-50",
-      border: "border-emerald-200",
-      hex: "#059669",
-      bgHex: "#ECFDF5",
-    };
-  if (score >= 0.4)
-    return {
-      text: "text-amber-700",
-      bg: "bg-amber-50",
-      border: "border-amber-200",
-      hex: "#D97706",
-      bgHex: "#FFFBEB",
-    };
-  return {
-    text: "text-red-700",
-    bg: "bg-red-50",
-    border: "border-red-200",
-    hex: "#DC2626",
-    bgHex: "#FEF2F2",
-  };
-};
 
 interface AnalysisCardProps {
   icon: string | ReactNode;

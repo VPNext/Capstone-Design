@@ -1,16 +1,30 @@
-let cachedTextarea: HTMLTextAreaElement | null = null;
+const ENTITY_MAP: Record<string, string> = {
+  "&amp;": "&",
+  "&lt;": "<",
+  "&gt;": ">",
+  "&quot;": '"',
+  "&#39;": "'",
+  "&apos;": "'",
+  "&nbsp;": " ",
+};
 
-// HTML 엔티티를 디코딩하여 문자열로 변환하는 캐시 기반 헬퍼 함수
+// HTML 엔티티를 디코딩하여 문자열로 변환하는 고속 헬퍼 함수
 export const decodeHtmlEntities = (text: string | null): string => {
   if (!text) return "";
-  if (typeof document === "undefined") return text; // SSR 환경 방어 코드
   
-  if (!cachedTextarea) {
-    cachedTextarea = document.createElement("textarea");
-  }
-  cachedTextarea.innerHTML = text;
+  let decoded = text.replace(/&[#a-zA-Z0-9]+;/g, (match) => {
+    if (ENTITY_MAP[match]) return ENTITY_MAP[match];
+    
+    if (match.startsWith("&#")) {
+      const code = match.slice(2, -1);
+      if (code.startsWith("x")) {
+        return String.fromCharCode(parseInt(code.slice(1), 16));
+      }
+      return String.fromCharCode(parseInt(code, 10));
+    }
+    return match;
+  });
   
-  let decoded = cachedTextarea.value;
   // 타이틀 및 일반 텍스트에서도 지저분한 마크다운 기호를 정제
   return decoded.replace(/\[([^\]]+)\]\([^)]+\)/g, "$1");
 };
