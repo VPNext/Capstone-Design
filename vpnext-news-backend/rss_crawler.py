@@ -25,7 +25,8 @@ logger = logging.getLogger(__name__)
 
 def convert_naver_pc_to_mobile(url: str) -> str:
     """네이버 PC 뉴스 URL을 모바일 뉴스 URL로 변환하여 안정적인 스크래핑을 지원"""
-    if "news.naver.com" in url and ("oid=" in url and "aid=" in url):
+    # news.naver.com 외에도 sports.naver.com, entertain.naver.com 등 모든 네이버 뉴스 도메인 대응
+    if "naver.com" in url and ("oid=" in url and "aid=" in url):
         try:
             # 쿼리 파라미터 파싱
             parsed_url = urllib.parse.urlparse(url)
@@ -188,12 +189,7 @@ def crawl_naver_news(query: str, display: int = 20) -> List[Dict]:
             link = convert_naver_pc_to_mobile(link)
             orig_link = convert_naver_pc_to_mobile(orig_link)
 
-            # [수집 필터링 최적화] AI 분석 및 이미지 추출의 신뢰성 보장을 위해 
-            # 네이버 자체 기사(naver.com 도메인을 가지는 기사)가 유입되는 주소만 선택해 수집합니다.
-            # 아웃링크 매체 뉴스(naver.com이 없는 일반 기타 웹 사이트)는 크롤링 차단 및 본문 유실 우려가 커 배제합니다.
-            if "naver.com" not in link and "naver.com" not in orig_link:
-                continue
-
+            # [수집 필터링 해제] 아웃링크 기사도 본문 스크래핑을 진행하기 위해 필터링을 해제합니다.
             # 본문 추출이 용이한 네이버 뉴스 다이렉트 링크(n.news.naver.com) 우선 선택
             article_url = link if "naver.com" in link else (orig_link if orig_link else link)
 
