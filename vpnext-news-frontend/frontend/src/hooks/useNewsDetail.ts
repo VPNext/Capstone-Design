@@ -17,7 +17,19 @@ export function useNewsDetail() {
   
   // AI 분석 상태 ("pending": 미분석, "analyzing": 분석중, "complete": 완료)
   const [status, setStatus] = useState<AnalysisStatus>("pending");
-  const [analysisData, setAnalysisData] = useState<AnalysisData | null>(null);
+
+  // news 객체로부터 실시간 파생 (Computed Value)
+  const analysisData: AnalysisData | null = news && news.is_analyzed ? {
+    credibility: {
+      score: news.credibility_score,
+      label: news.credibility_label,
+      reason: news.credibility_reason,
+      red_flags: news.red_flags || [],
+      summary: news.ai_summary || "",
+    },
+    difficult_terms: news.difficult_terms || [],
+    key_persons: news.key_persons || [],
+  } : null;
 
   // 4컷 만화 생성용 상태값
   const [isComicGenerating, setIsComicGenerating] = useState(false);
@@ -41,19 +53,8 @@ export function useNewsDetail() {
         const data = await fetchNewsDetail(id);
         setNews(data);
         
-        // 이미 백엔드에서 분석이 끝난 뉴스라면 관련 정보를 상태에 넣어줌
+        // 이미 백엔드에서 분석이 끝난 뉴스라면 상태 완료로 변경
         if (data.is_analyzed) {
-          setAnalysisData({
-            credibility: {
-              score: data.credibility_score,
-              label: data.credibility_label,
-              reason: data.credibility_reason,
-              red_flags: data.red_flags || [],
-              summary: data.ai_summary || "",
-            },
-            difficult_terms: data.difficult_terms || [],
-            key_persons: data.key_persons || [],
-          });
           setStatus("complete");
         }
         // 이미 생성된 만화가 있다면 파싱해서 할당
@@ -84,11 +85,13 @@ export function useNewsDetail() {
       news?.source?.toUpperCase() ||
       "미상(외부 뉴스)";
     try {
-      const data = await analyzeNews(news.url, currentSourceName);
-      setAnalysisData(data);
-      setStatus("complete");
+      // AI 분석 요청 전송
+      await analyzeNews(news.url, currentSourceName);
+      
+      // 기사 상세를 백엔드로부터 한 번만 새로 조회하여 상태 업데이트
       const updatedData = await fetchNewsDetail(id);
       setNews(updatedData);
+      setStatus("complete");
       
       // 기사 분석이 완료되면 메인/분석뉴스 목록 페이지의 캐시를 무효화하여 최신 상태로 새로고침되도록 유도
       storage.remove(STORAGE_KEYS.MAIN_NEWS_CACHE);
