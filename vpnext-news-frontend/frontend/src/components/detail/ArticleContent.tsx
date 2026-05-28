@@ -51,7 +51,10 @@ export default function ArticleContent({
             className="text-[11px] font-black uppercase tracking-widest mb-2.5 flex items-center gap-1.5"
             style={{ color: "#1A55A8" }}
           >
-            <span>✨</span> AI 3줄 요약
+            <svg className="w-3.5 h-3.5 text-[#1A55A8]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+            AI 3줄 요약
           </p>
           <div
             className="text-[15px] leading-relaxed"
@@ -70,7 +73,9 @@ export default function ArticleContent({
           <div
             className="p-12 text-center flex flex-col items-center gap-4 bg-[#F0F9FF] border border-[#BAE6FD] rounded-[16px]"
           >
-            <div className="text-4xl">✨</div>
+            <svg className="w-10 h-10 text-sky-500 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
             <h3 className="text-xl font-bold" style={{ color: "#161311" }}>
               본문이 아직 수집되지 않았습니다
             </h3>

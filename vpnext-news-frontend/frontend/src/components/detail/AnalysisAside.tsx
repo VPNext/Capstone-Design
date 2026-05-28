@@ -20,7 +20,7 @@ interface AnalysisAsideProps {
 }
 
 interface AnalysisCardProps {
-  icon: string | ReactNode;
+  icon: ReactNode;
   title: string;
   bg: string;
   border: string;
@@ -39,13 +39,15 @@ const AnalysisCard = ({
   children,
 }: AnalysisCardProps) => (
   <div
-    className={`${bg} ${border} border overflow-hidden`}
-    style={{ borderRadius: "18px", boxShadow: "0 1px 8px rgba(22,19,17,0.06)" }}
+    className={`${bg} ${border} border overflow-hidden transition-all duration-300`}
+    style={{ borderRadius: "18px", boxShadow: "0 4px 12px rgba(22,19,17,0.03)" }}
   >
     <div
-      className={`flex items-center gap-2.5 px-5 pt-5 pb-3 border-b ${border}`}
+      className={`flex items-center gap-2 px-5 pt-5 pb-3.5 border-b ${border}`}
     >
-      <span className="text-xl">{icon}</span>
+      <div className="flex items-center justify-center shrink-0">
+        {icon}
+      </div>
       <h3 className={`font-bold ${textColor} text-[14px] tracking-tight`}>
         {title}
       </h3>
@@ -54,7 +56,7 @@ const AnalysisCard = ({
       {status === "complete" ? (
         children
       ) : (
-        <p className={`text-sm ${textColor} opacity-40`}>
+        <p className={`text-sm ${textColor} opacity-50`}>
           아래 버튼을 눌러 AI 분석을 실행해주세요.
         </p>
       )}
@@ -104,8 +106,11 @@ export default function AnalysisAside({
             boxShadow: "0 4px 20px rgba(22,19,17,0.2)",
           }}
         >
-          <h2 className="text-[15px] font-bold text-white flex items-center gap-2.5">
-            🤖 AI 나침반 리포트
+          <h2 className="text-[15px] font-bold text-white flex items-center gap-2">
+            <svg className="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+            </svg>
+            AI 나침반 리포트
           </h2>
           <p
             className="text-xs mt-1"
@@ -124,9 +129,11 @@ export default function AnalysisAside({
           }}
         >
           <div
-            className={`flex items-center gap-2.5 px-5 pt-5 pb-3 border-b ${scoreColor.border}`}
+            className={`flex items-center gap-2 px-5 pt-5 pb-3.5 border-b ${scoreColor.border}`}
           >
-            <span className="text-xl">🔍</span>
+            <svg className={`w-4 h-4 ${scoreColor.text}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+            </svg>
             <h3
               className={`font-bold ${scoreColor.text} text-[14px] tracking-tight`}
             >
@@ -180,7 +187,7 @@ export default function AnalysisAside({
                 )}
 
                 <div
-                  className={`text-[14px] leading-relaxed font-medium p-3 mb-3 ${scoreColor.text}`}
+                  className={`text-[14px] leading-relaxed font-medium p-4 mb-4 ${scoreColor.text}`}
                   style={{
                     background: "rgba(255,255,255,0.6)",
                     borderRadius: "10px",
@@ -190,12 +197,15 @@ export default function AnalysisAside({
                 </div>
 
                 {credibility.red_flags && credibility.red_flags.length > 0 && (
-                  <div>
+                  <div className="mb-4">
                     <p
-                      className="text-xs font-bold mb-1.5"
+                      className="text-xs font-semibold mb-1.5 flex items-center gap-1.5"
                       style={{ color: "#5C5853" }}
                     >
-                      ⚠️ 주의 표현
+                      <svg className="w-3.5 h-3.5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                      </svg>
+                      주의 표현
                     </p>
                     <ul className="flex flex-wrap gap-1.5">
                       {credibility.red_flags.map((flag: string, i: number) => {
@@ -225,15 +235,18 @@ export default function AnalysisAside({
                   </div>
                 )}
                 {aiSummary && (
-                  <div className="mt-3">
+                  <div className="mt-3 border-t border-dashed border-slate-200/60 pt-3">
                     <p
-                      className="text-xs font-bold mb-1.5"
+                      className="text-xs font-semibold mb-1.5 flex items-center gap-1.5"
                       style={{ color: "#5C5853" }}
                     >
-                      📝 3줄 요약
+                      <svg className="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 6h16M4 12h16M4 18h7" />
+                      </svg>
+                      3줄 요약
                     </p>
                     <div
-                      className="text-[13px] leading-relaxed p-3"
+                      className="text-[13px] leading-relaxed p-4"
                       style={{
                         color: "#2C2926",
                         background: "rgba(255,255,255,0.6)",
@@ -255,7 +268,11 @@ export default function AnalysisAside({
 
         {/* ── 용어 풀이 ── */}
         <AnalysisCard
-          icon="📖"
+          icon={
+            <svg className="w-4.5 h-4.5 text-sky-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+            </svg>
+          }
           title="용어 풀이"
           bg="bg-sky-50/80"
           border="border-sky-100"
@@ -264,45 +281,44 @@ export default function AnalysisAside({
         >
           {analysisData?.difficult_terms &&
           analysisData.difficult_terms.length > 0 ? (
-            <ul className="text-[14px] space-y-4">
+            <ul className="text-[14px] space-y-3">
               {analysisData.difficult_terms.map(
                 (term: DifficultTerm, i: number) => {
                   const definitionText = term.definition || term.explanation || "";
                   return (
-                    <li key={i} className="leading-relaxed">
-                      <a
-                        href={`https://stdict.korean.go.kr/search/searchResult.do?pageSize=10&searchKeyword=${encodeURIComponent(term.term)}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-sky-700 bg-sky-100 hover:bg-sky-200 transition-colors px-1.5 py-0.5 inline-flex items-center gap-1 mb-1 font-bold cursor-pointer"
-                        style={{ borderRadius: "6px" }}
-                        title={`${term.term} 국립국어원에서 뜻 찾아보기`}
-                      >
-                        {term.term}
-                        <svg
-                          className="w-3 h-3 opacity-60"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
+                    <li key={i} className="p-3 bg-white/60 border border-sky-100/50 rounded-xl shadow-[0_1px_3px_rgba(0,0,0,0.02)] transition-all duration-200 hover:shadow-md hover:bg-white">
+                      <div className="flex items-center justify-between gap-2 mb-1.5">
+                        <a
+                          href={`https://stdict.korean.go.kr/search/searchResult.do?pageSize=10&searchKeyword=${encodeURIComponent(term.term)}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-sky-700 hover:text-sky-900 transition-colors inline-flex items-center gap-1 font-bold text-[14px] cursor-pointer"
+                          title={`${term.term} 국립국어원에서 뜻 찾아보기`}
                         >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                          />
-                        </svg>
-                      </a>
-                      {term.category && (
-                        <span
-                          className="text-[11px] text-sky-500 bg-sky-50 border border-sky-100 px-1.5 py-0.5 ml-1 align-text-bottom"
-                          style={{ borderRadius: "999px" }}
-                        >
-                          {term.category}
-                        </span>
-                      )}
-                      <br />
-                      <span className="text-slate-700">{definitionText}</span>
+                          {term.term}
+                          <svg
+                            className="w-3 h-3 opacity-60"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                            />
+                          </svg>
+                        </a>
+                        {term.category && (
+                          <span
+                            className="text-[10px] font-semibold text-sky-600 bg-sky-50 border border-sky-100/60 px-2 py-0.5 rounded-full animate-pulse-subtle"
+                          >
+                            {term.category}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[13px] text-slate-600 leading-relaxed">{definitionText}</p>
                     </li>
                   );
                 },
@@ -325,7 +341,11 @@ export default function AnalysisAside({
 
         {/* ── 핵심 인물 ── */}
         <AnalysisCard
-          icon="👤"
+          icon={
+            <svg className="w-4.5 h-4.5 text-emerald-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+            </svg>
+          }
           title="핵심 인물 프로필"
           bg="bg-emerald-50/80"
           border="border-emerald-100"
@@ -333,46 +353,49 @@ export default function AnalysisAside({
           status={status}
         >
           {analysisData?.key_persons && analysisData.key_persons.length > 0 ? (
-            <ul className="text-[14px] space-y-4">
+            <ul className="text-[14px] space-y-3">
               {analysisData.key_persons.map((person: KeyPerson, i: number) => (
                 <li
                   key={i}
-                  className="leading-relaxed border-l-2 border-emerald-300 pl-3"
+                  className="p-3 bg-white/60 border border-emerald-100/50 rounded-xl shadow-[0_1px_3px_rgba(0,0,0,0.02)] transition-all duration-200 hover:shadow-md hover:bg-white"
                 >
-                  <a
-                    href={`https://www.google.com/search?q=${encodeURIComponent(person.name)}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1 text-emerald-800 text-[15px] mb-0.5 font-bold hover:text-emerald-600 hover:underline cursor-pointer"
-                    title={`${person.name} 구글에서 검색하기`}
-                  >
-                    {person.name}
-                    <svg
-                      className="w-3 h-3 opacity-60"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
+                  <div className="flex items-center justify-between gap-2 mb-1.5">
+                    <a
+                      href={`https://www.google.com/search?q=${encodeURIComponent(person.name)}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1 text-emerald-800 hover:text-emerald-900 transition-colors text-[14px] font-bold cursor-pointer"
+                      title={`${person.name} 구글에서 검색하기`}
                     >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                      />
-                    </svg>
-                  </a>
-                  {person.role && (
-                    <span className="text-xs text-emerald-600 font-semibold block mb-0.5">
-                      {person.role}
-                    </span>
-                  )}
-                  <span className="text-slate-700 block">
+                      {person.name}
+                      <svg
+                        className="w-3 h-3 opacity-60"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                        />
+                      </svg>
+                    </a>
+                    {person.role && (
+                      <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 border border-emerald-100/60 px-2 py-0.5 rounded-full">
+                        {person.role}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[13px] text-slate-700 leading-relaxed">
                     {person.description}
-                  </span>
+                  </p>
                   {person.relation && (
-                    <span className="block text-xs text-slate-500 mt-1 italic">
-                      이 기사에서: {person.relation}
-                    </span>
+                    <div className="text-[11px] text-slate-500 mt-2.5 pt-2 border-t border-emerald-100/30 flex items-center gap-1.5">
+                      <span className="font-semibold text-emerald-700/80">이 기사에서</span>
+                      <span className="text-slate-600 font-medium">{person.relation}</span>
+                    </div>
                   )}
                 </li>
               ))}
