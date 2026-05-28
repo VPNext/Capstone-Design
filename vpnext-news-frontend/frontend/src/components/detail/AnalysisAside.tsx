@@ -1,7 +1,8 @@
+import { useMemo } from "react";
 import type { FormEvent, ReactNode } from "react";
 import type { AnalysisData, DifficultTerm, KeyPerson } from "../../types/news";
 import DictionarySearchForm from "./DictionarySearchForm";
-import { parseAndRenderSummary, replaceEnglishSourceNames } from "./ArticleContent";
+import { parseAndRenderSummary, replaceEnglishSourceNames } from "../../utils/source";
 import { SOURCE_NAME_MAP } from "../../constants/source";
 import { getScoreColor } from "../../utils/score";
 
@@ -70,6 +71,14 @@ export default function AnalysisAside({
   handleTermSearch,
 }: AnalysisAsideProps) {
   const credibility = analysisData?.credibility;
+
+  const parsedReason = useMemo(() => {
+    return credibility?.reason ? parseAndRenderSummary(credibility.reason, true) : null;
+  }, [credibility?.reason]);
+
+  const parsedSummary = useMemo(() => {
+    return credibility?.summary ? parseAndRenderSummary(credibility.summary, false) : null;
+  }, [credibility?.summary]);
   const scoreColor =
     credibility?.score != null
       ? getScoreColor(credibility.score)
@@ -175,7 +184,7 @@ export default function AnalysisAside({
                     borderRadius: "10px",
                   }}
                 >
-                  {parseAndRenderSummary(credibility.reason, true)}
+                  {parsedReason}
                 </div>
 
                 {credibility.red_flags && credibility.red_flags.length > 0 && (
@@ -229,7 +238,7 @@ export default function AnalysisAside({
                         borderRadius: "10px",
                       }}
                     >
-                      {parseAndRenderSummary(credibility.summary, false)}
+                      {parsedSummary}
                     </div>
                   </div>
                 )}

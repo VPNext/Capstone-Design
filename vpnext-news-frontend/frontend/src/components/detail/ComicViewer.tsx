@@ -52,21 +52,7 @@ export default function ComicViewer({
       {comicUrls ? (
         <Link
           to={`/cartoons?newsId=${id}`}
-          className="px-8 py-3.5 text-lg font-black transition-all duration-200 inline-block"
-          style={{
-            background: "#7C3AED",
-            color: "#fff",
-            borderRadius: "16px",
-            boxShadow: "0 4px 16px rgba(124,58,237,0.3)",
-          }}
-          onMouseEnter={(e) => {
-            (e.currentTarget as HTMLElement).style.background = "#6D28D9";
-            (e.currentTarget as HTMLElement).style.transform = "translateY(-2px)";
-          }}
-          onMouseLeave={(e) => {
-            (e.currentTarget as HTMLElement).style.background = "#7C3AED";
-            (e.currentTarget as HTMLElement).style.transform = "translateY(0)";
-          }}
+          className="px-8 py-3.5 text-lg font-black transition-all duration-200 inline-block bg-[#7C3AED] text-white rounded-[16px] hover:bg-[#6D28D9] hover:-translate-y-0.5 active:translate-y-0 shadow-[0_4px_16px_rgba(124,58,237,0.3)]"
         >
           보러가기 (AI 만화 모음집)
         </Link>
@@ -77,46 +63,14 @@ export default function ComicViewer({
               <button
                 onClick={() => handleGenerateComic()}
                 disabled={isComicGenerating}
-                className="px-6 py-3.5 text-lg font-black transition-all duration-200 disabled:opacity-50"
-                style={{
-                  background: "#161311",
-                  color: "#fff",
-                  borderRadius: "14px",
-                  boxShadow: "0 2px 12px rgba(22,19,17,0.2)",
-                }}
-                onMouseEnter={(e) => {
-                  if (!isComicGenerating) {
-                    (e.currentTarget as HTMLElement).style.background = "#7C3AED";
-                    (e.currentTarget as HTMLElement).style.transform = "translateY(-2px)";
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLElement).style.background = "#161311";
-                  (e.currentTarget as HTMLElement).style.transform = "translateY(0)";
-                }}
+                className="px-6 py-3.5 text-lg font-black transition-all duration-200 disabled:opacity-50 bg-[#161311] text-white rounded-[14px] shadow-[0_2px_12px_rgba(22,19,17,0.2)] hover:bg-[#7C3AED] hover:-translate-y-0.5 active:translate-y-0 disabled:hover:bg-[#161311] disabled:hover:translate-y-0 cursor-pointer"
               >
                 {isComicGenerating ? "생성 중... ⏳" : "AI 자동 생성"}
               </button>
               <button
                 onClick={() => setShowPromptInput(true)}
                 disabled={isComicGenerating}
-                className="px-6 py-3.5 text-lg font-black transition-all duration-200 disabled:opacity-50"
-                style={{
-                  background: "#fff",
-                  color: "#4C1D95",
-                  border: "2px solid #C4B5FD",
-                  borderRadius: "14px",
-                }}
-                onMouseEnter={(e) => {
-                  if (!isComicGenerating) {
-                    (e.currentTarget as HTMLElement).style.borderColor = "#7C3AED";
-                    (e.currentTarget as HTMLElement).style.transform = "translateY(-2px)";
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLElement).style.borderColor = "#C4B5FD";
-                  (e.currentTarget as HTMLElement).style.transform = "translateY(0)";
-                }}
+                className="px-6 py-3.5 text-lg font-black transition-all duration-200 disabled:opacity-50 bg-white text-[#4C1D95] border-2 border-[#C4B5FD] rounded-[14px] hover:border-[#7C3AED] hover:-translate-y-0.5 active:translate-y-0 disabled:hover:border-[#C4B5FD] disabled:hover:translate-y-0 cursor-pointer"
               >
                 직접 디렉팅
               </button>
@@ -127,48 +81,21 @@ export default function ComicViewer({
                 value={customPrompt}
                 onChange={(e) => setCustomPrompt(e.target.value)}
                 placeholder="예: 주인공을 고양이로 그려줘, 배경을 우주로 해줘..."
-                className="w-full h-24 p-4 resize-none font-medium outline-none transition-all"
-                style={{
-                  border: "2px solid #C4B5FD",
-                  color: "#161311",
-                  background: "#fff",
-                  borderRadius: "12px",
-                }}
-                onFocus={(e) => ((e.currentTarget as HTMLElement).style.borderColor = "#7C3AED")}
-                onBlur={(e) => ((e.currentTarget as HTMLElement).style.borderColor = "#C4B5FD")}
+                className="w-full h-24 p-4 resize-none font-medium outline-none transition-all border-2 border-[#C4B5FD] text-[#161311] bg-white rounded-[12px] focus:border-[#7C3AED] focus:outline-none"
                 disabled={isComicGenerating}
               />
               <div className="flex justify-end gap-3">
                 <button
                   onClick={() => setShowPromptInput(false)}
                   disabled={isComicGenerating}
-                  className="px-4 py-2 font-bold transition-colors duration-200"
-                  style={{ color: "#9C9891" }}
-                  onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = "#161311")}
-                  onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = "#9C9891")}
+                  className="px-4 py-2 font-bold transition-colors duration-200 text-[#9C9891] hover:text-[#161311] cursor-pointer"
                 >
                   취소
                 </button>
                 <button
                   onClick={() => handleGenerateComic(customPrompt)}
                   disabled={isComicGenerating || customPrompt.trim().length === 0}
-                  className="px-6 py-2 font-black transition-all duration-200 disabled:opacity-50"
-                  style={{
-                    background: "#7C3AED",
-                    color: "#fff",
-                    borderRadius: "10px",
-                    boxShadow: "0 2px 12px rgba(124,58,237,0.25)",
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!isComicGenerating && customPrompt.trim().length > 0) {
-                      (e.currentTarget as HTMLElement).style.background = "#6D28D9";
-                      (e.currentTarget as HTMLElement).style.transform = "translateY(-1px)";
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    (e.currentTarget as HTMLElement).style.background = "#7C3AED";
-                    (e.currentTarget as HTMLElement).style.transform = "translateY(0)";
-                  }}
+                  className="px-6 py-2 font-black transition-all duration-200 disabled:opacity-50 bg-[#7C3AED] text-white rounded-[10px] shadow-[0_2px_12px_rgba(124,58,237,0.25)] hover:bg-[#6D28D9] hover:-translate-y-0.5 active:translate-y-0 disabled:hover:bg-[#7C3AED] disabled:hover:translate-y-0 cursor-pointer"
                 >
                   {isComicGenerating ? "생성 중... ⏳" : "이 내용으로 생성"}
                 </button>

@@ -23,6 +23,8 @@ interface NewsPageTemplateProps {
   loadMoreBtnBoxShadow: string;
   containerClassName?: string;
   containerStyle?: React.CSSProperties;
+  error?: Error | null;
+  handleRetry?: () => void;
 }
 
 export default function NewsPageTemplate({
@@ -43,6 +45,8 @@ export default function NewsPageTemplate({
   loadMoreBtnBoxShadow,
   containerClassName = "flex flex-col mt-8 font-sans",
   containerStyle,
+  error = null,
+  handleRetry,
 }: NewsPageTemplateProps) {
   return (
     <div className={containerClassName} style={containerStyle}>
@@ -67,8 +71,31 @@ export default function NewsPageTemplate({
         </div>
       )}
 
+      {/* 에러 발생 시 예외 화면 표시 */}
+      {!loading && error && (
+        <div className="py-16 px-6 text-center border border-dashed rounded-[20px] border-red-200 bg-red-50/50 text-red-800 my-4">
+          <p className="text-5xl mb-4">⚠️</p>
+          <p className="text-base font-bold">기사 목록을 불러오는 도중 오류가 발생했습니다.</p>
+          <p className="text-xs text-red-600 mt-1 mb-6">
+            네트워크 연결 상태를 확인하고 잠시 후 다시 시도해 주세요.
+          </p>
+          {handleRetry && (
+            <button
+              onClick={handleRetry}
+              className="px-6 py-2.5 rounded-full text-xs font-bold text-white transition-all cursor-pointer shadow-sm bg-[var(--btn-bg)] hover:bg-[var(--btn-hover-bg)] hover:-translate-y-0.5 active:translate-y-0"
+              style={{
+                "--btn-bg": loadMoreBtnBg,
+                "--btn-hover-bg": loadMoreBtnHoverBg,
+              } as React.CSSProperties}
+            >
+              다시 시도
+            </button>
+          )}
+        </div>
+      )}
+
       {/* 뉴스 카드 목록 렌더링 */}
-      {!loading && (
+      {!loading && !error && (
         <div className="flex flex-col gap-4">
           {newsList.map((news, index) => {
             const isLast = newsList.length === index + 1;
@@ -114,24 +141,17 @@ export default function NewsPageTemplate({
             </div>
           )}
 
-          {/* 더보기 버튼 */}
+          {/* 더보기 버튼 - inline mouse hover event 리팩토링 */}
           {showLoadMoreBtn && (
             <div className="flex justify-center mt-6">
               <button
                 onClick={handleLoadMoreClick}
-                className="px-8 py-3 rounded-full text-sm font-bold text-white transition-all duration-200"
+                className="px-8 py-3 rounded-full text-sm font-bold text-white transition-all duration-200 bg-[var(--btn-bg)] hover:bg-[var(--btn-hover-bg)] hover:-translate-y-0.5 active:translate-y-0"
                 style={{
-                  background: loadMoreBtnBg,
+                  "--btn-bg": loadMoreBtnBg,
+                  "--btn-hover-bg": loadMoreBtnHoverBg,
                   boxShadow: loadMoreBtnBoxShadow,
-                }}
-                onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLElement).style.background = loadMoreBtnHoverBg;
-                  (e.currentTarget as HTMLElement).style.transform = "translateY(-1px)";
-                }}
-                onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLElement).style.background = loadMoreBtnBg;
-                  (e.currentTarget as HTMLElement).style.transform = "translateY(0)";
-                }}
+                } as React.CSSProperties}
               >
                 뉴스 더 불러오기
               </button>

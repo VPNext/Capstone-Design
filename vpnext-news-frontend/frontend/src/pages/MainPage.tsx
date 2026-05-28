@@ -14,6 +14,8 @@ export default function MainPage() {
     lastElementRef,
     handleLoadMoreClick,
     handleSourceChange,
+    error,
+    handleRetry,
   } = useNewsList({
     isAnalyzed: false,
     cacheKey: STORAGE_KEYS.MAIN_NEWS_CACHE,
@@ -76,6 +78,8 @@ export default function MainPage() {
       loadMoreBtnBg="#161311"
       loadMoreBtnHoverBg="#C13026"
       loadMoreBtnBoxShadow="0 2px 12px rgba(22,19,17,0.3)"
+      error={error}
+      handleRetry={handleRetry}
     />
   );
 }

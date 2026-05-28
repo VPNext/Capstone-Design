@@ -14,6 +14,8 @@ export default function AnalyzedNewsPage() {
     lastElementRef,
     handleLoadMoreClick,
     handleSourceChange,
+    error,
+    handleRetry,
   } = useNewsList({
     isAnalyzed: true,
     cacheKey: STORAGE_KEYS.ANALYZED_NEWS_CACHE,
@@ -137,6 +139,8 @@ export default function AnalyzedNewsPage() {
       loadMoreBtnHoverBg="#143268"
       loadMoreBtnBoxShadow="0 2px 12px rgba(12,31,63,0.3)"
       containerStyle={{ fontFamily: "'Noto Sans KR', sans-serif" }}
+      error={error}
+      handleRetry={handleRetry}
     />
   );
 }

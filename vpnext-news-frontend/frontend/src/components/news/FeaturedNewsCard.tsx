@@ -37,12 +37,13 @@ export default function FeaturedNewsCard({
           {/* Hero image */}
           {displayImage ? (
             <div
-              className="relative overflow-hidden"
+              className="relative overflow-hidden bg-[#f5f2ec]"
               style={{ height: "clamp(220px, 40vw, 420px)" }}
             >
               <img
                 src={displayImage}
                 alt="뉴스 대표 이미지"
+                loading="eager"
                 className="w-full h-full object-cover transition-transform duration-[800ms] ease-out group-hover:scale-[1.03]"
                 onError={(e) => {
                   (e.target as HTMLImageElement).parentElement!.style.display =

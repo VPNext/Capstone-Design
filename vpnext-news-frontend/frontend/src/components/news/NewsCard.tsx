@@ -110,15 +110,15 @@ export default function NewsCard({
             )}
           </div>
 
-          {/* Right image thumbnail */}
+          {/* Right image thumbnail - aspect-[4/3] and bg placeholder to prevent CLS */}
           {displayImage && (
             <div
-              className="w-28 sm:w-36 shrink-0 overflow-hidden relative"
-              style={{ minHeight: "108px" }}
+              className="w-28 sm:w-36 shrink-0 aspect-[4/3] bg-[#f5f2ec] overflow-hidden relative"
             >
               <img
                 src={displayImage}
                 alt="뉴스 썸네일"
+                loading="lazy"
                 className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"
                 onError={(e) => {
                   (e.target as HTMLImageElement).parentElement!.style.display =

@@ -38,6 +38,7 @@ export function useNewsList({ isAnalyzed, cacheKey, scrollKey }: UseNewsListProp
   );
   const [loading, setLoading] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
 
   // 무한 스크롤 과부하 방지용 설정 (최대 2번만 자동 로딩하고, 그 이후는 '더보기' 버튼 수동 클릭 유도)
   const [autoLoadCount, setAutoLoadCount] = useState(0);
@@ -49,6 +50,7 @@ export function useNewsList({ isAnalyzed, cacheKey, scrollKey }: UseNewsListProp
   // 뉴스 목록 API 호출 함수
   const fetchNews = async (pageNumber: number, sourceName: string, queryKeyword?: string) => {
     try {
+      setError(null);
       if (pageNumber === 1) setLoading(true);
       else setIsLoadingMore(true);
 
@@ -85,6 +87,7 @@ export function useNewsList({ isAnalyzed, cacheKey, scrollKey }: UseNewsListProp
       }
     } catch (err) {
       console.error("뉴스 로드 오류:", err);
+      setError(err as Error);
     } finally {
       setLoading(false);
       setIsLoadingMore(false);
@@ -172,6 +175,10 @@ export function useNewsList({ isAnalyzed, cacheKey, scrollKey }: UseNewsListProp
     setSelectedSource(src);
   };
 
+  const handleRetry = () => {
+    fetchNews(page, selectedSource, keyword);
+  };
+
   return {
     newsList,
     page,
@@ -185,5 +192,7 @@ export function useNewsList({ isAnalyzed, cacheKey, scrollKey }: UseNewsListProp
     handleLoadMoreClick,
     handleSourceChange,
     setPage,
+    error,
+    handleRetry,
   };
 }
