@@ -11,7 +11,7 @@ import html
 import re
 import urllib.parse
 import email.utils
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from typing import Dict, List, Optional
 
 import feedparser
@@ -19,6 +19,7 @@ from config import (
     RSS_FEEDS, REQUEST_DELAY, USER_AGENT, REQUEST_TIMEOUT,
     NAVER_CLIENT_ID, NAVER_CLIENT_SECRET
 )
+from article_scraper import HEADERS
 
 logger = logging.getLogger(__name__)
 
@@ -85,41 +86,58 @@ def clean_html(text: str) -> str:
 
 
 def parse_naver_date(date_str: str) -> Optional[datetime]:
-    """네이버 API의 pubDate(RFC 822 포맷) 문자열을 datetime 객체로 파싱"""
+    """네이버 API의 pubDate(RFC 822 포맷) 문자열을 datetime 객체로 파싱하고 KST 기준 naive datetime 반환"""
     if not date_str:
         return datetime.now()
     try:
         parsed = email.utils.parsedate_to_datetime(date_str)
-        # SQLAlchemy가 다룰 수 있도록 tzinfo를 제거한 naive datetime 반환
-        return parsed.replace(tzinfo=None)
+        # KST(UTC+9) 시간대로 안전하게 변환
+        kst_dt = parsed.astimezone(timezone(timedelta(hours=9)))
+        return kst_dt.replace(tzinfo=None)
     except Exception as e:
         logger.warning(f"네이버 날짜 파싱 실패 ({date_str}): {e}")
         return datetime.now()
 
 
 def _parse_date(entry) -> Optional[datetime]:
-    # JTBC 등 YYYY.MM.DD 형태의 pubDate 직접 파싱
+    """RSS entry 날짜 정보를 KST 기준 naive datetime으로 변환"""
     published_raw = getattr(entry, "published", None)
+    
+    # 1. JTBC 등 YYYY.MM.DD 또는 YYYY-MM-DD 형태의 직접 매칭 파싱
     if published_raw:
         published_raw = published_raw.strip()
-        m = re.match(r'^(\d{4})\.(\d{2})\.(\d{2})(?:\s+(\d{2}):(\d{2}):(\d{2}))?$', published_raw)
+        m = re.match(r'^(\d{4})[.-](\d{2})[.-](\d{2})(?:\s+(\d{2}):(\d{2}):(\d{2}))?$', published_raw)
         if m:
             try:
                 year, month, day = map(int, m.groups()[:3])
                 hour = int(m.group(4)) if m.group(4) else 0
                 minute = int(m.group(5)) if m.group(5) else 0
                 second = int(m.group(6)) if m.group(6) else 0
+                # 별도 타임존 표기가 없는 경우 현지 시각(KST)으로 상정
                 return datetime(year, month, day, hour, minute, second)
             except Exception as e:
                 logger.warning(f"날짜 정규식 파싱 오류 ({published_raw}): {e}")
 
+        # 2. 2차 폴백: 원본 문자열을 email.utils.parsedate_to_datetime로 파싱 시도 (RFC 822 등 표준 양식 대응)
+        try:
+            parsed = email.utils.parsedate_to_datetime(published_raw)
+            kst_dt = parsed.astimezone(timezone(timedelta(hours=9)))
+            return kst_dt.replace(tzinfo=None)
+        except Exception:
+            pass
+
+    # 3. feedparser가 분석한 구조화 시간 데이터 활용 (기본 UTC 타임임에 착안하여 KST 변환 진행)
     for attr in ("published_parsed", "updated_parsed"):
         val = getattr(entry, attr, None)
         if val:
             try:
-                return datetime(*val[:6])
+                # feedparser.published_parsed는 무조건 UTC naive time tuple 형식이므로 timezone.utc 지정
+                utc_dt = datetime(*val[:6], tzinfo=timezone.utc)
+                kst_dt = utc_dt.astimezone(timezone(timedelta(hours=9)))
+                return kst_dt.replace(tzinfo=None)
             except Exception:
                 pass
+
     return datetime.now()
 
 
@@ -127,7 +145,7 @@ def _parse_date(entry) -> Optional[datetime]:
 def crawl_feed(name: str, url: str) -> List[Dict]:
     articles = []
     try:
-        resp = requests.get(url, headers={"User-Agent": USER_AGENT}, timeout=REQUEST_TIMEOUT)
+        resp = requests.get(url, headers=HEADERS, timeout=REQUEST_TIMEOUT)
         resp.raise_for_status()
         
         # [핵심 리팩토링] resp.text에 인코딩 강제를 하지 않고,
