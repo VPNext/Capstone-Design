@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { SOURCE_BADGE_CLASS_KO } from "../../constants/source";
+import { extractTextFromSummary } from "../../utils/summary";
 import type { CartoonItem } from "../../types/news";
 import SimpleComicPanel from "./SimpleComicPanel";
 
@@ -97,7 +98,7 @@ export default function CartoonCard({ item, highlight }: CartoonCardProps) {
 
           {item.summary && (
             <p className="text-sm leading-relaxed line-clamp-2 mb-5 font-sans text-white/40">
-              {item.summary}
+              {extractTextFromSummary(item.summary)}
             </p>
           )}
 
