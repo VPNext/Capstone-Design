@@ -17,7 +17,7 @@ export default function FeaturedNewsCard({
   isAnalyzedPage = false,
 }: FeaturedNewsCardProps) {
   const displayImage = news.image_url || extractImageFromSummary(news.summary);
-  const rawSummary = news.ai_summary || extractTextFromSummary(news.summary);
+  const rawSummary = extractTextFromSummary(news.ai_summary || news.summary);
   const displaySummary = rawSummary.length > 300 ? rawSummary.slice(0, 300) + "..." : rawSummary;
   const sourceKey = news.source?.toLowerCase();
   const sourceName =
