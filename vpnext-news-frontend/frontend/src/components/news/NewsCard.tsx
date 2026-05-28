@@ -21,7 +21,8 @@ export default function NewsCard({
   innerRef,
 }: NewsCardProps) {
   const displayImage = news.image_url || extractImageFromSummary(news.summary);
-  const displaySummary = news.ai_summary || extractTextFromSummary(news.summary);
+  const rawSummary = news.ai_summary || extractTextFromSummary(news.summary);
+  const displaySummary = rawSummary.length > 200 ? rawSummary.slice(0, 200) + "..." : rawSummary;
   const sourceKey = news.source?.toLowerCase();
   const sourceName =
     SOURCE_NAME_MAP[sourceKey] || news.source?.toUpperCase() || "알 수 없음";
