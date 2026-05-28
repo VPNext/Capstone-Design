@@ -201,6 +201,7 @@ export default function DetailPage() {
         <AnalysisAside
           status={status}
           analysisData={analysisData}
+          aiSummary={aiSummary}
           searchTerm={searchTerm}
           setSearchTerm={setSearchTerm}
           searchEngine={searchEngine}

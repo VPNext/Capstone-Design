@@ -11,6 +11,7 @@ type AnalysisStatus = "pending" | "analyzing" | "complete";
 interface AnalysisAsideProps {
   status: AnalysisStatus;
   analysisData: AnalysisData | null;
+  aiSummary: string | null;
   searchTerm: string;
   setSearchTerm: (value: string) => void;
   searchEngine: string;
@@ -64,6 +65,7 @@ const AnalysisCard = ({
 export default function AnalysisAside({
   status,
   analysisData,
+  aiSummary,
   searchTerm,
   setSearchTerm,
   searchEngine,
@@ -77,8 +79,8 @@ export default function AnalysisAside({
   }, [credibility?.reason]);
 
   const parsedSummary = useMemo(() => {
-    return credibility?.summary ? parseAndRenderSummary(credibility.summary, false) : null;
-  }, [credibility?.summary]);
+    return aiSummary ? parseAndRenderSummary(aiSummary, false) : null;
+  }, [aiSummary]);
   const scoreColor =
     credibility?.score != null
       ? getScoreColor(credibility.score)
@@ -222,7 +224,7 @@ export default function AnalysisAside({
                     </ul>
                   </div>
                 )}
-                {credibility.summary && (
+                {aiSummary && (
                   <div className="mt-3">
                     <p
                       className="text-xs font-bold mb-1.5"
