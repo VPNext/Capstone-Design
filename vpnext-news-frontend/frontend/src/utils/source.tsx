@@ -4,10 +4,8 @@ import { SOURCE_NAME_MAP } from "../constants/source";
 export const DOMAIN_TO_KOR_MAP: Record<string, string> = {
   "hani.co.kr": "한겨레",
   "khan.co.kr": "경향신문",
-  "chosun.com": "조선일보",
   "donga.com": "동아일보",
   "sbs.co.kr": "SBS",
-  "kbs.co.kr": "KBS",
   "hankyung.com": "한국경제",
   "mk.co.kr": "매일경제",
   "yonhapnewstv.co.kr": "연합뉴스",

@@ -103,7 +103,7 @@ def _parse_date(entry) -> Optional[datetime]:
     """RSS entry 날짜 정보를 KST 기준 naive datetime으로 변환"""
     published_raw = getattr(entry, "published", None)
     
-    # 1. JTBC 등 YYYY.MM.DD 또는 YYYY-MM-DD 형태의 직접 매칭 파싱
+    # 1. YYYY.MM.DD 또는 YYYY-MM-DD 형태의 직접 매칭 파싱
     if published_raw:
         published_raw = published_raw.strip()
         m = re.match(r'^(\d{4})[.-](\d{2})[.-](\d{2})(?:\s+(\d{2}):(\d{2}):(\d{2}))?$', published_raw)
@@ -208,9 +208,7 @@ def crawl_naver_news(query: str, display: int = 20) -> List[Dict]:
         reverse_source_map = {
             "한겨레": "hani",
             "경향신문": "khan",
-            "조선일보": "chosun",
             "동아일보": "donga",
-            "KBS": "kbs",
             "SBS": "sbs",
             "한국경제": "hankyung",
             "매일경제": "mk",

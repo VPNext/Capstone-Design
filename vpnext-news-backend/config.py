@@ -26,12 +26,11 @@ USER_AGENT      = (
 )
 
 # ─── RSS 피드 목록 ─────────
-# 작동이 확실히 확인된 8개 언론사 피드만 유지
+# 작동이 확실히 확인된 언론사 피드만 유지
 RSS_FEEDS = {
     # 방송/언론사
     "yonhap":    "https://www.yonhapnewstv.co.kr/category/news/headline/feed/",
     "sbs":       "https://news.sbs.co.kr/news/SectionRssFeed.do?sectionId=01",
-    "jtbc":      "https://fs.jtbc.co.kr/RSS/newsflash.xml",
     # 신문사
     "hani":      "https://www.hani.co.kr/rss/",
     "khan":      "https://www.khan.co.kr/rss/rssdata/total_news.xml",
