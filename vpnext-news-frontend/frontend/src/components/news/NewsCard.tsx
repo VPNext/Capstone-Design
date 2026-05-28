@@ -110,23 +110,38 @@ export default function NewsCard({
             )}
           </div>
 
-          {/* Right image thumbnail - aspect-[4/3] and bg placeholder to prevent CLS */}
-          {displayImage && (
-            <div
-              className="w-28 sm:w-36 shrink-0 aspect-[4/3] bg-[#f5f2ec] overflow-hidden relative"
-            >
+          {/* Right image thumbnail - aspect-[4/3] with premium fallback placeholder */}
+          <div
+            className="w-28 sm:w-36 shrink-0 aspect-[4/3] overflow-hidden relative flex items-center justify-center"
+          >
+            {displayImage ? (
               <img
                 src={displayImage}
                 alt="뉴스 썸네일"
                 loading="lazy"
                 className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"
                 onError={(e) => {
-                  (e.target as HTMLImageElement).parentElement!.style.display =
-                    "none";
+                  const img = e.target as HTMLImageElement;
+                  img.style.display = "none";
+                  const fallback = img.nextElementSibling as HTMLDivElement;
+                  if (fallback) fallback.style.display = "flex";
                 }}
               />
+            ) : null}
+            
+            {/* 고품질 추상 그라데이션 플레이스홀더 */}
+            <div
+              className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-tr from-purple-100 to-sky-100 select-none"
+              style={{ display: displayImage ? "none" : "flex" }}
+            >
+              <span className="text-[28px] font-black text-purple-800/80 font-serif leading-none">
+                {sourceName.charAt(0)}
+              </span>
+              <span className="text-[9px] font-black text-purple-700/50 uppercase tracking-widest mt-1">
+                {news.source || "NEWS"}
+              </span>
             </div>
-          )}
+          </div>
         </article>
       </Link>
     </div>

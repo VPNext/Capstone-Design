@@ -34,25 +34,47 @@ export default function FeaturedNewsCard({
         <article
           className={`overflow-hidden bg-white transition-all duration-350 border border-[#E4DDD3] rounded-[24px] shadow-[0_2px_24px_rgba(22,19,17,0.08)] hover:shadow-[0_16px_56px_rgba(22,19,17,0.16)] hover:-translate-y-[3px] ${hoverBorderColor}`}
         >
-          {/* Hero image */}
-          {displayImage ? (
-            <div
-              className="relative overflow-hidden bg-[#f5f2ec]"
-              style={{ height: "clamp(220px, 40vw, 420px)" }}
-            >
+          {/* Hero image with premium fallback placeholder */}
+          <div
+            className="relative overflow-hidden bg-[#f5f2ec] flex items-center justify-center"
+            style={{ height: "clamp(220px, 40vw, 420px)" }}
+          >
+            {displayImage ? (
               <img
                 src={displayImage}
                 alt="뉴스 대표 이미지"
                 loading="eager"
                 className="w-full h-full object-cover transition-transform duration-[800ms] ease-out group-hover:scale-[1.03]"
                 onError={(e) => {
-                  (e.target as HTMLImageElement).parentElement!.style.display =
-                    "none";
+                  const img = e.target as HTMLImageElement;
+                  img.style.display = "none";
+                  const overlay = img.nextElementSibling as HTMLDivElement;
+                  if (overlay) overlay.style.display = "none";
+                  const fallback = img.parentElement!.querySelector(".gradient-fallback") as HTMLDivElement;
+                  if (fallback) fallback.style.display = "flex";
                 }}
               />
+            ) : null}
+            {displayImage ? (
               <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent pointer-events-none" />
+            ) : null}
+            
+            {/* 고품질 대형 그라데이션 플레이스홀더 */}
+            <div
+              className="gradient-fallback absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-tr from-purple-100 to-sky-100 select-none"
+              style={{ display: displayImage ? "none" : "flex" }}
+            >
+              <svg className="w-12 h-12 text-purple-600/40 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 4a2 2 0 00-2-2m2 2a2 2 0 012 2v8a2 2 0 01-2 2h-3" />
+              </svg>
+              <span className="text-[32px] font-black text-purple-900/80 font-serif leading-none tracking-tight">
+                {sourceName}
+              </span>
+              <span className="text-[10px] font-bold text-purple-800/40 uppercase tracking-[0.2em] mt-1.5">
+                TODAY'S SPECIAL REPORT
+              </span>
             </div>
-          ) : null}
+          </div>
 
           {/* Card body */}
           <div className="p-6 sm:p-8 flex flex-col gap-3">
