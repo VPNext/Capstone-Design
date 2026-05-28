@@ -41,7 +41,19 @@ def list_news(
 ):
     q = db.query(Article).order_by(Article.published_at.desc())
     if source:
-        q = q.filter(Article.source.contains(source))
+        from sqlalchemy import or_
+        eng_to_kor = {
+            "hani": "한겨레",
+            "mk": "매일경제",
+            "donga": "동아일보",
+            "yonhap": "연합",
+            "sbs": "SBS",
+            "naver": "네이버",
+            "khan": "경향",
+            "hankyung": "한국경제"
+        }
+        kor_val = eng_to_kor.get(source.lower(), source)
+        q = q.filter(or_(Article.source.contains(source), Article.source.contains(kor_val)))
     if keyword:
         q = q.filter(Article.title.contains(keyword))
     if is_analyzed is not None:
