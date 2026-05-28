@@ -55,7 +55,9 @@ def list_news(
                 "sbs": "SBS",
                 "naver": "네이버",
                 "khan": "경향",
-                "hankyung": "한국경제"
+                "hankyung": "한국경제",
+                "chosun": "조선일보",
+                "kmib": "국민일보"
             }
             kor_val = eng_to_kor.get(source.lower(), source)
             q = q.filter(or_(Article.source.contains(source), Article.source.contains(kor_val)))

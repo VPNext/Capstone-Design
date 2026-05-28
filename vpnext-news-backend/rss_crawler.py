@@ -72,6 +72,19 @@ def extract_rss_image(entry) -> Optional[str]:
         m = re.search(r'<img[^>]+src=["\']([^"\']+)["\']', summary, re.IGNORECASE)
         if m:
             return m.group(1)
+            
+    # 5. content 내 inline img tag 정규식 추출 (조선일보 등 일부 언론사 대응)
+    content = getattr(entry, "content", None)
+    if content:
+        content_text = ""
+        if isinstance(content, list):
+            content_text = "".join(c.get("value", "") for c in content if isinstance(c, dict))
+        else:
+            content_text = str(content)
+        m = re.search(r'<img[^>]+src=["\']([^"\']+)["\']', content_text, re.IGNORECASE)
+        if m:
+            return m.group(1)
+            
     return None
 
 

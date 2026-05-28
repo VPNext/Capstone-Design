@@ -36,6 +36,8 @@ SELECTORS: Dict[str, Dict[str, str]] = {
     "donga.com":     {"content": ".news_view, .article_txt",                    "title": "h1.title, h1"},
     "mk.co.kr":      {"content": "#article_body, .art_txt",                      "title": "h1.top_title"},
     "hankyung.com":  {"content": "#articletxt, .article-body",                   "title": "h1.headline"},
+    "chosun.com":    {"content": ".article-body, section.article-body",          "title": "h1, #article-title, h1.headline"},
+    "kmib.co.kr":    {"content": "#articleBody, .tx, .article_content",          "title": ".article_header h1, h1"},
 }
 
 
@@ -145,6 +147,8 @@ def get_source_from_url(url: str) -> str:
         "donga.com": "동아일보",
         "mk.co.kr": "매일경제",
         "hankyung.com": "한국경제",
+        "chosun.com": "조선일보",
+        "kmib.co.kr": "국민일보",
     }
     
     try:

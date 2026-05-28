@@ -37,5 +37,7 @@ RSS_FEEDS = {
     "donga":     "https://rss.donga.com/total.xml",
     "mk":        "https://www.mk.co.kr/rss/30000001/",
     "hankyung":  "https://www.hankyung.com/feed/all-news",
+    "chosun":    "https://www.chosun.com/arc/outboundfeeds/rss/?outputType=xml",
+    "kmib":      "https://www.kmib.co.kr/rss/data/kmibRssAll.xml",
 }
 
