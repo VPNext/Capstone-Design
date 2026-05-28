@@ -100,7 +100,7 @@ class GeminiClient:
             self._client = genai.Client(api_key=self.api_key)
         return self._client
 
-    async def call(self, prompt: str) -> Optional[str]:
+    def call(self, prompt: str) -> Optional[str]:
         # API 호출 직전에 클라이언트를 가져옵니다.
         client = self._get_client()
         if not client:
@@ -109,8 +109,8 @@ class GeminiClient:
         last_error = None
         for model_id in self.MODELS:
             try:
-                # 안전 정책을 완전히 끄고 호출
-                response = await client.aio.models.generate_content(
+                # 안전 정책을 완전히 끄고 호출 (동기 API 적용)
+                response = client.models.generate_content(
                     model=model_id,
                     contents=prompt,
                     config={
@@ -152,21 +152,8 @@ def call_ai(prompt: str) -> Optional[Dict[str, Any]]:
     # 2. Gemini 시도
     logger.info("Groq 실패로 인해 Gemini API로 폴백합니다...")
     try:
-        # 동기 환경에서 비동기 함수 호출을 위한 처리
-        try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-        if loop.is_running():
-            # 이미 루프가 실행 중인 경우 (예: FastAPI 내부)
-            import nest_asyncio
-            nest_asyncio.apply()
-            content = loop.run_until_complete(gemini_client.call(prompt))
-        else:
-            content = loop.run_until_complete(gemini_client.call(prompt))
-            
+        # 동기 방식으로 즉시 호출
+        content = gemini_client.call(prompt)
         if content:
             return groq_client._parse_json(content)
     except Exception as e:
