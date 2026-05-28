@@ -96,17 +96,66 @@ def scrape(url: str) -> Optional[Dict]:
 
             # ── 본문 ────────────────────────
             content = ""
-            c_elem = soup.select_one(sel["content"])
-            if c_elem:
-                for bad in c_elem.find_all(["script", "style", "figure"]):
-                    bad.decompose()
-                
-                # br 태그를 개행 문자로 교체하여 p 태그가 없는 경우 줄바꿈 유지
-                for br in c_elem.find_all("br"):
-                    br.replace_with("\n")
 
-                paras = [p.get_text(strip=True) for p in c_elem.find_all("p") if len(p.get_text(strip=True)) > 10]
-                content = "\n".join(paras) if paras else c_elem.get_text(separator="\n", strip=True)
+            # 조선일보 Fusion Engine 특수 파싱
+            if "chosun.com" in url:
+                fusion_script = None
+                for s in soup.find_all("script"):
+                    if s.string and "Fusion.globalContent" in s.string:
+                        fusion_script = s.string
+                        break
+                if fusion_script:
+                    import re
+                    import json
+                    match = re.search(r'Fusion\.globalContent\s*=\s*(\{.*)', fusion_script, re.DOTALL)
+                    if match:
+                        text = match.group(1)
+                        brace_count = 0
+                        json_str = ""
+                        for char in text:
+                            if char == '{':
+                                brace_count += 1
+                            elif char == '}':
+                                brace_count -= 1
+                            json_str += char
+                            if brace_count == 0:
+                                break
+                        try:
+                            data = json.loads(json_str)
+                            paras = []
+                            for ce in data.get("content_elements", []):
+                                if ce.get("type") == "text":
+                                    para_text = ce.get("content", "").strip()
+                                    if para_text:
+                                        import html
+                                        para_text = html.unescape(para_text)
+                                        if "<" in para_text:
+                                            clean_para = BeautifulSoup(para_text, "lxml").get_text(strip=True)
+                                        else:
+                                            clean_para = para_text
+                                        if clean_para:
+                                            paras.append(clean_para)
+                            if paras:
+                                content = "\n".join(paras)
+                            
+                            if not title and "headlines" in data:
+                                title = data["headlines"].get("basic", "")
+                        except Exception as e:
+                            logger.error(f"조선일보 Fusion JSON 파싱 실패 ({url}): {e}")
+
+            if not content:
+                c_elem = soup.select_one(sel["content"])
+                if c_elem:
+                    for bad in c_elem.find_all(["script", "style", "figure"]):
+                        bad.decompose()
+                    
+                    # br 태그를 개행 문자로 교체하여 p 태그가 없는 경우 줄바꿈 유지
+                    for br in c_elem.find_all("br"):
+                        br.replace_with("\n")
+    
+                    paras = [p.get_text(strip=True) for p in c_elem.find_all("p") if len(p.get_text(strip=True)) > 10]
+                    content = "\n".join(paras) if paras else c_elem.get_text(separator="\n", strip=True)
+
             if not content:
                 content = _generic_content(soup)
             
