@@ -138,7 +138,8 @@ export const parseAndRenderSummary = (
       /[\s\n]+(?:red_flags|summary|score|label|is_subjective)\s*:\s*[\s\S]*$/gi,
       "",
     )
-    .replace(/^(?:red_flags|summary|score|label|is_subjective)\s*:\s*/gi, "");
+    .replace(/^(?:red_flags|summary|score|label|is_subjective)\s*:\s*/gi, "")
+    .replace(/^\[[^\]]*보도\s*요약\]\s*/gi, ""); // "[언론사 보도 요약]" 접두사 완전 정제
 
   // 4. 지저분한 다중 URL/교차 분석용 마크다운 데이터 영역을 본문 텍스트에서 완전히 제거하거나 단일 링크는 텍스트만 남김
   const parseLinkRegex = /\[([^\]]+)\]\(\s*(https?:\/\/[^)]+)\)/gi;
@@ -171,8 +172,8 @@ export const parseAndRenderSummary = (
       "",
     )
     .replace(/(?:참조\s*기사|참조\s*기사\s*하이퍼링크)[\s:]*/gi, "")
-    .replace(/[\s\n]*\(참조 기사 하이퍼링크.*?\)/gi, "")
-    .replace(/[\s\n]*\(참조 기사 하이퍼링크.*?$/gi, "");
+    .replace(/[\s\n]*\((?:참조\s*기사\s*)?하이퍼링크.*?\)/gi, "")
+    .replace(/[\s\n]*\((?:참조\s*기사\s*)?하이퍼링크.*?$/gi, "");
 
   // 5.5. 기사 리스트 및 참조 기사 텍스트 영역 제거 (줄 단위로 정교하게 필터링)
   const lines = cleanText.split("\n");
