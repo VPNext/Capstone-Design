@@ -81,7 +81,9 @@ class GeminiClient:
     ]
 
     def __init__(self):
-        self.client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
+        # 생성자에서 genai.Client를 즉시 초기화하지 않습니다.
+        self.api_key = GEMINI_API_KEY
+        self._client = None # 지연 초기화를 위한 변수
         # 안전 설정 최대로 완화 (모든 카테고리 차단 해제)
         # 뉴스 분석 시 민감한 사회 이슈(사건, 사고 등)로 인한 오차단 방지
         self.safety_settings = [
@@ -92,15 +94,23 @@ class GeminiClient:
             {"category": "HARM_CATEGORY_CIVIC_INTEGRITY", "threshold": "BLOCK_NONE"},
         ]
 
+    def _get_client(self):
+        # 실제 호출 시점에 클라이언트가 없으면 생성합니다. (현재 실행 중인 이벤트 루프에 안전하게 바인딩됨)
+        if self._client is None and self.api_key:
+            self._client = genai.Client(api_key=self.api_key)
+        return self._client
+
     async def call(self, prompt: str) -> Optional[str]:
-        if not self.client:
+        # API 호출 직전에 클라이언트를 가져옵니다.
+        client = self._get_client()
+        if not client:
             return None
             
         last_error = None
         for model_id in self.MODELS:
             try:
                 # 안전 정책을 완전히 끄고 호출
-                response = await self.client.aio.models.generate_content(
+                response = await client.aio.models.generate_content(
                     model=model_id,
                     contents=prompt,
                     config={
