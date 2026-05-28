@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, memo } from "react";
 import type { FormEvent, ReactNode } from "react";
 import type { AnalysisData, DifficultTerm, KeyPerson } from "../../types/news";
 import DictionarySearchForm from "./DictionarySearchForm";
@@ -29,7 +29,8 @@ interface AnalysisCardProps {
   children: ReactNode;
 }
 
-const AnalysisCard = ({
+// 메모이제이션된 카드 컴포넌트 - 불필요한 리렌더링 방지
+const AnalysisCard = memo(function AnalysisCard({
   icon,
   title,
   bg,
@@ -37,32 +38,33 @@ const AnalysisCard = ({
   textColor,
   status,
   children,
-}: AnalysisCardProps) => (
-  <div
-    className={`${bg} ${border} border overflow-hidden transition-all duration-300`}
-    style={{ borderRadius: "18px", boxShadow: "0 4px 12px rgba(22,19,17,0.03)" }}
-  >
+}: AnalysisCardProps) {
+  return (
     <div
-      className={`flex items-center gap-2 px-5 pt-5 pb-3.5 border-b ${border}`}
+      className={`${bg} ${border} border rounded-2xl overflow-hidden shadow-[0_4px_12px_rgba(22,19,17,0.02)] transition-all duration-300 hover:shadow-[0_6px_16px_rgba(22,19,17,0.06)] hover:-translate-y-0.5`}
     >
-      <div className="flex items-center justify-center shrink-0">
-        {icon}
+      <div
+        className={`flex items-center gap-2 px-5 pt-5 pb-3.5 border-b ${border}`}
+      >
+        <div className="flex items-center justify-center shrink-0">
+          {icon}
+        </div>
+        <h3 className={`font-bold ${textColor} text-[14px] tracking-tight`}>
+          {title}
+        </h3>
       </div>
-      <h3 className={`font-bold ${textColor} text-[14px] tracking-tight`}>
-        {title}
-      </h3>
+      <div className="px-5 pb-5 pt-4">
+        {status === "complete" ? (
+          children
+        ) : (
+          <p className={`text-sm ${textColor} opacity-50 font-medium`}>
+            아래 버튼을 눌러 AI 분석을 실행해주세요.
+          </p>
+        )}
+      </div>
     </div>
-    <div className="px-5 pb-5 pt-4">
-      {status === "complete" ? (
-        children
-      ) : (
-        <p className={`text-sm ${textColor} opacity-50`}>
-          아래 버튼을 눌러 AI 분석을 실행해주세요.
-        </p>
-      )}
-    </div>
-  </div>
-);
+  );
+});
 
 export default function AnalysisAside({
   status,
@@ -76,35 +78,180 @@ export default function AnalysisAside({
 }: AnalysisAsideProps) {
   const credibility = analysisData?.credibility;
 
+  // 기사 신뢰도 근거 본문 메모이제이션
   const parsedReason = useMemo(() => {
     return credibility?.reason ? parseAndRenderSummary(credibility.reason, true) : null;
   }, [credibility?.reason]);
 
+  // AI 3줄 요약 본문 메모이제이션
   const parsedSummary = useMemo(() => {
     return aiSummary ? parseAndRenderSummary(aiSummary, false) : null;
   }, [aiSummary]);
-  const scoreColor =
-    credibility?.score != null
-      ? getScoreColor(credibility.score)
-      : {
-          text: "text-slate-400",
-          bg: "bg-slate-50",
-          border: "border-slate-200",
-          hex: "#94A3B8",
-          bgHex: "#F8FAFC",
-        };
+
+  // 점수 기반 스타일 메모이제이션
+  const scoreColor = useMemo(() => {
+    if (credibility?.score != null) {
+      return getScoreColor(credibility.score);
+    }
+    return {
+      text: "text-slate-400",
+      bg: "bg-slate-50",
+      border: "border-slate-200",
+      hex: "#94A3B8",
+      bgHex: "#F8FAFC",
+    };
+  }, [credibility?.score]);
+
+  // 용어 풀이 리스트의 자식 돔(Virtual DOM) 메모이제이션
+  const renderedTerms = useMemo(() => {
+    if (!analysisData?.difficult_terms || analysisData.difficult_terms.length === 0) {
+      return <p className="text-sm text-sky-700 opacity-60">추출된 용어가 없습니다.</p>;
+    }
+
+    return (
+      <ul className="text-[14px] space-y-3">
+        {analysisData.difficult_terms.map((term: DifficultTerm) => {
+          const definitionText = term.definition || term.explanation || "";
+          return (
+            <li 
+              key={`term-${term.term}`} 
+              className="p-3.5 bg-white/70 backdrop-blur-md border border-sky-100/50 rounded-xl shadow-[0_2px_4px_rgba(0,0,0,0.01)] transition-all duration-200 hover:shadow-md hover:bg-white"
+            >
+              <div className="flex items-center justify-between gap-2 mb-1.5">
+                <a
+                  href={`https://stdict.korean.go.kr/search/searchResult.do?pageSize=10&searchKeyword=${encodeURIComponent(term.term)}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-sky-700 hover:text-sky-900 transition-colors inline-flex items-center gap-1 font-bold text-[14px] cursor-pointer"
+                  title={`${term.term} 국립국어원에서 뜻 찾아보기`}
+                >
+                  {term.term}
+                  <svg
+                    className="w-3 h-3 opacity-60"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                    />
+                  </svg>
+                </a>
+                {term.category && (
+                  <span
+                    className="text-[10px] font-semibold text-sky-600 bg-sky-50 border border-sky-100/60 px-2 py-0.5 rounded-full"
+                  >
+                    {term.category}
+                  </span>
+                )}
+              </div>
+              <p className="text-[13px] text-slate-600 leading-relaxed font-normal">{definitionText}</p>
+            </li>
+          );
+        })}
+      </ul>
+    );
+  }, [analysisData?.difficult_terms]);
+
+  // 핵심 인물 프로필 리스트의 자식 돔(Virtual DOM) 메모이제이션
+  const renderedPersons = useMemo(() => {
+    if (!analysisData?.key_persons || analysisData.key_persons.length === 0) {
+      return <p className="text-sm text-emerald-700 opacity-60">추출된 인물이 없습니다.</p>;
+    }
+
+    return (
+      <ul className="text-[14px] space-y-3">
+        {analysisData.key_persons.map((person: KeyPerson) => (
+          <li
+            key={`person-${person.name}`}
+            className="p-3.5 bg-white/70 backdrop-blur-md border border-emerald-100/50 rounded-xl shadow-[0_2px_4px_rgba(0,0,0,0.01)] transition-all duration-200 hover:shadow-md hover:bg-white"
+          >
+            <div className="flex items-center justify-between gap-2 mb-1.5">
+              <a
+                href={`https://www.google.com/search?q=${encodeURIComponent(person.name)}`}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 text-emerald-800 hover:text-emerald-900 transition-colors text-[14px] font-bold cursor-pointer"
+                title={`${person.name} 구글에서 검색하기`}
+              >
+                {person.name}
+                <svg
+                  className="w-3 h-3 opacity-60"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                  />
+                </svg>
+              </a>
+              {person.role && (
+                <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 border border-emerald-100/60 px-2 py-0.5 rounded-full">
+                  {person.role}
+                </span>
+              )}
+            </div>
+            <p className="text-[13px] text-slate-700 leading-relaxed font-normal">
+              {person.description}
+            </p>
+            {person.relation && (
+              <div className="text-[11px] text-slate-500 mt-2.5 pt-2 border-t border-emerald-100/30 flex items-center gap-1.5">
+                <span className="font-semibold text-emerald-700/80">이 기사에서</span>
+                <span className="text-slate-600 font-medium">{person.relation}</span>
+              </div>
+            )}
+          </li>
+        ))}
+      </ul>
+    );
+  }, [analysisData?.key_persons]);
+
+  // 주의 표현(Red Flag) 뱃지 메모이제이션
+  const renderedRedFlags = useMemo(() => {
+    if (!credibility?.red_flags || credibility.red_flags.length === 0) return null;
+
+    return (
+      <div className="mb-4">
+        <p className="text-xs font-semibold text-[#5C5853] mb-1.5 flex items-center gap-1.5">
+          <svg className="w-3.5 h-3.5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+          주의 표현
+        </p>
+        <ul className="flex flex-wrap gap-1.5">
+          {credibility.red_flags.map((flag: string, i: number) => {
+            let cleanFlag = flag.replace(/\[([^\]]+)\]\(https?:\/\/[^\s)]+\)/g, (_, linkText) => {
+              return SOURCE_NAME_MAP[linkText.toLowerCase()] || linkText;
+            });
+            cleanFlag = replaceEnglishSourceNames(cleanFlag);
+
+            return (
+              <li
+                key={`flag-${i}`}
+                className="text-xs px-3 py-1 border bg-red-50 text-red-800 border-red-200 rounded-full font-medium"
+              >
+                {cleanFlag}
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+    );
+  }, [credibility?.red_flags]);
 
   return (
     <aside className="w-full lg:w-[360px] shrink-0">
       <div className="sticky top-24 flex flex-col gap-4">
         {/* 사이드바 헤더 */}
         <div
-          className="p-5"
-          style={{
-            background: "#161311",
-            borderRadius: "18px",
-            boxShadow: "0 4px 20px rgba(22,19,17,0.2)",
-          }}
+          className="p-5 bg-[#161311] rounded-2xl shadow-[0_4px_20px_rgba(22,19,17,0.15)]"
         >
           <h2 className="text-[15px] font-bold text-white flex items-center gap-2">
             <svg className="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -113,8 +260,7 @@ export default function AnalysisAside({
             AI 나침반 리포트
           </h2>
           <p
-            className="text-xs mt-1"
-            style={{ color: "rgba(255,255,255,0.4)" }}
+            className="text-xs mt-1 text-white/40"
           >
             AI가 분석한 기사 신뢰도 및 핵심 정보입니다.
           </p>
@@ -122,11 +268,7 @@ export default function AnalysisAside({
 
         {/* ── 신뢰도 점수 패널 ── */}
         <div
-          className={`${scoreColor.bg} ${scoreColor.border} border overflow-hidden`}
-          style={{
-            borderRadius: "18px",
-            boxShadow: "0 1px 8px rgba(22,19,17,0.06)",
-          }}
+          className={`${scoreColor.bg} ${scoreColor.border} border rounded-2xl overflow-hidden shadow-[0_4px_12px_rgba(22,19,17,0.02)]`}
         >
           <div
             className={`flex items-center gap-2 px-5 pt-5 pb-3.5 border-b ${scoreColor.border}`}
@@ -167,9 +309,9 @@ export default function AnalysisAside({
                 {/* Score bar */}
                 {credibility.score != null && (
                   <div className="mb-4">
-                    <div className="progress-bar-track mb-1">
+                    <div className="progress-bar-track mb-1 bg-slate-200/50 rounded-full h-1.5 overflow-hidden">
                       <div
-                        className="progress-bar-fill"
+                        className="progress-bar-fill h-full transition-all duration-500 ease-out"
                         style={{
                           width: `${Math.round(credibility.score * 100)}%`,
                           background: scoreColor.hex,
@@ -177,8 +319,7 @@ export default function AnalysisAside({
                       />
                     </div>
                     <div
-                      className="flex justify-between text-[10px] font-medium"
-                      style={{ color: "#9C9891" }}
+                      className="flex justify-between text-[10px] font-medium text-[#9C9891]"
                     >
                       <span>낮음</span>
                       <span>높음</span>
@@ -187,58 +328,17 @@ export default function AnalysisAside({
                 )}
 
                 <div
-                  className={`text-[14px] leading-relaxed font-medium p-4 mb-4 ${scoreColor.text}`}
-                  style={{
-                    background: "rgba(255,255,255,0.6)",
-                    borderRadius: "10px",
-                  }}
+                  className={`text-[14px] leading-relaxed font-medium p-4 mb-4 bg-white/60 backdrop-blur-md rounded-xl ${scoreColor.text}`}
                 >
                   {parsedReason}
                 </div>
 
-                {credibility.red_flags && credibility.red_flags.length > 0 && (
-                  <div className="mb-4">
-                    <p
-                      className="text-xs font-semibold mb-1.5 flex items-center gap-1.5"
-                      style={{ color: "#5C5853" }}
-                    >
-                      <svg className="w-3.5 h-3.5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                      </svg>
-                      주의 표현
-                    </p>
-                    <ul className="flex flex-wrap gap-1.5">
-                      {credibility.red_flags.map((flag: string, i: number) => {
-                        // 1. [mk](URL) 과 같은 마크다운 링크에서 주소를 지우고 언론사명만 추출 (한글 변환 적용)
-                        let cleanFlag = flag.replace(/\[([^\]]+)\]\(https?:\/\/[^\s)]+\)/g, (_, linkText) => {
-                          return SOURCE_NAME_MAP[linkText.toLowerCase()] || linkText;
-                        });
-                        // 2. 혹시 영어 텍스트로 들어있을 언론사명을 한글로 일괄 치환
-                        cleanFlag = replaceEnglishSourceNames(cleanFlag);
+                {renderedRedFlags}
 
-                        return (
-                          <li
-                            key={i}
-                            className="text-xs px-3 py-1 border"
-                            style={{
-                              background: "#FEF2F2",
-                              color: "#991B1B",
-                              borderColor: "#FECACA",
-                              borderRadius: "999px",
-                            }}
-                          >
-                            {cleanFlag}
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </div>
-                )}
                 {aiSummary && (
                   <div className="mt-3 border-t border-dashed border-slate-200/60 pt-3">
                     <p
-                      className="text-xs font-semibold mb-1.5 flex items-center gap-1.5"
-                      style={{ color: "#5C5853" }}
+                      className="text-xs font-semibold text-[#5C5853] mb-1.5 flex items-center gap-1.5"
                     >
                       <svg className="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 6h16M4 12h16M4 18h7" />
@@ -246,12 +346,7 @@ export default function AnalysisAside({
                       3줄 요약
                     </p>
                     <div
-                      className="text-[13px] leading-relaxed p-4"
-                      style={{
-                        color: "#2C2926",
-                        background: "rgba(255,255,255,0.6)",
-                        borderRadius: "10px",
-                      }}
+                      className="text-[13px] leading-relaxed p-4 text-[#2C2926] bg-white/60 backdrop-blur-md rounded-xl"
                     >
                       {parsedSummary}
                     </div>
@@ -259,7 +354,7 @@ export default function AnalysisAside({
                 )}
               </>
             ) : (
-              <p className="text-sm opacity-40" style={{ color: "#5C5853" }}>
+              <p className="text-sm opacity-40 text-[#5C5853] font-medium">
                 AI 분석을 실행해주세요.
               </p>
             )}
@@ -279,56 +374,7 @@ export default function AnalysisAside({
           textColor="text-sky-900"
           status={status}
         >
-          {analysisData?.difficult_terms &&
-          analysisData.difficult_terms.length > 0 ? (
-            <ul className="text-[14px] space-y-3">
-              {analysisData.difficult_terms.map(
-                (term: DifficultTerm, i: number) => {
-                  const definitionText = term.definition || term.explanation || "";
-                  return (
-                    <li key={i} className="p-3 bg-white/60 border border-sky-100/50 rounded-xl shadow-[0_1px_3px_rgba(0,0,0,0.02)] transition-all duration-200 hover:shadow-md hover:bg-white">
-                      <div className="flex items-center justify-between gap-2 mb-1.5">
-                        <a
-                          href={`https://stdict.korean.go.kr/search/searchResult.do?pageSize=10&searchKeyword=${encodeURIComponent(term.term)}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-sky-700 hover:text-sky-900 transition-colors inline-flex items-center gap-1 font-bold text-[14px] cursor-pointer"
-                          title={`${term.term} 국립국어원에서 뜻 찾아보기`}
-                        >
-                          {term.term}
-                          <svg
-                            className="w-3 h-3 opacity-60"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                            />
-                          </svg>
-                        </a>
-                        {term.category && (
-                          <span
-                            className="text-[10px] font-semibold text-sky-600 bg-sky-50 border border-sky-100/60 px-2 py-0.5 rounded-full animate-pulse-subtle"
-                          >
-                            {term.category}
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-[13px] text-slate-600 leading-relaxed">{definitionText}</p>
-                    </li>
-                  );
-                },
-              )}
-            </ul>
-          ) : (
-            <p className="text-sm text-sky-700 opacity-60">
-              추출된 용어가 없습니다.
-            </p>
-          )}
+          {renderedTerms}
 
           <DictionarySearchForm
             searchTerm={searchTerm}
@@ -352,59 +398,7 @@ export default function AnalysisAside({
           textColor="text-emerald-900"
           status={status}
         >
-          {analysisData?.key_persons && analysisData.key_persons.length > 0 ? (
-            <ul className="text-[14px] space-y-3">
-              {analysisData.key_persons.map((person: KeyPerson, i: number) => (
-                <li
-                  key={i}
-                  className="p-3 bg-white/60 border border-emerald-100/50 rounded-xl shadow-[0_1px_3px_rgba(0,0,0,0.02)] transition-all duration-200 hover:shadow-md hover:bg-white"
-                >
-                  <div className="flex items-center justify-between gap-2 mb-1.5">
-                    <a
-                      href={`https://www.google.com/search?q=${encodeURIComponent(person.name)}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex items-center gap-1 text-emerald-800 hover:text-emerald-900 transition-colors text-[14px] font-bold cursor-pointer"
-                      title={`${person.name} 구글에서 검색하기`}
-                    >
-                      {person.name}
-                      <svg
-                        className="w-3 h-3 opacity-60"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                        />
-                      </svg>
-                    </a>
-                    {person.role && (
-                      <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 border border-emerald-100/60 px-2 py-0.5 rounded-full">
-                        {person.role}
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-[13px] text-slate-700 leading-relaxed">
-                    {person.description}
-                  </p>
-                  {person.relation && (
-                    <div className="text-[11px] text-slate-500 mt-2.5 pt-2 border-t border-emerald-100/30 flex items-center gap-1.5">
-                      <span className="font-semibold text-emerald-700/80">이 기사에서</span>
-                      <span className="text-slate-600 font-medium">{person.relation}</span>
-                    </div>
-                  )}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-sm text-emerald-700 opacity-60">
-              추출된 인물이 없습니다.
-            </p>
-          )}
+          {renderedPersons}
         </AnalysisCard>
       </div>
     </aside>

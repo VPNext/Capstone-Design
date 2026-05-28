@@ -164,17 +164,30 @@ export default function DetailPage() {
             <button
               onClick={startAnalysis}
               disabled={status !== "pending"}
-              className={`w-full py-5 text-[17px] font-black flex items-center justify-center gap-3 transition-all duration-300 rounded-[18px] ${
+              className={`w-full py-5 text-[17px] font-black flex items-center justify-center gap-3.5 transition-all duration-300 rounded-[18px] ${
                 status === "analyzing"
                   ? "bg-[#F3F0EB] text-[#9C9891] cursor-not-allowed"
                   : status === "complete"
                     ? "bg-[#ECFDF5] text-[#065F46] border border-[#A7F3D0] cursor-default"
-                    : "bg-[#161311] text-white shadow-[0_4px_20px_rgba(22,19,17,0.2)] hover:bg-[#C13026] hover:shadow-[0_8px_32px_rgba(193,48,38,0.3)] hover:-translate-y-0.5"
+                    : "bg-[#161311] text-white shadow-[0_4px_20px_rgba(22,19,17,0.2)] hover:bg-[#C13026] hover:shadow-[0_8px_32px_rgba(193,48,38,0.3)] hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
               }`}
             >
-              {status === "analyzing" && <span className="animate-spin text-2xl">⏳</span>}
-              {status === "complete" && <span className="text-2xl">✅</span>}
-              {status === "pending" && <span className="text-2xl">✨</span>}
+              {status === "analyzing" && (
+                <svg className="animate-spin h-5 w-5 text-[#9C9891]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+              )}
+              {status === "complete" && (
+                <svg className="h-5 w-5 text-[#065F46]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                </svg>
+              )}
+              {status === "pending" && (
+                <svg className="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+              )}
               {status === "analyzing"
                 ? "AI가 기사를 꼼꼼히 읽고 분석 중입니다..."
                 : status === "complete"
