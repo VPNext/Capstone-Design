@@ -134,21 +134,16 @@ export function useNewsList({ isAnalyzed, cacheKey, scrollKey }: UseNewsListProp
     setShowLoadMoreBtn(false);
 
     if (!keyword && navType === "POP") {
-      const cached = sessionStorage.getItem(cacheKey);
-      if (cached) {
-        try {
-          const parsed = JSON.parse(cached);
-          if (parsed.selectedSource === selectedSource) {
-            setNewsList(parsed.newsList || []);
-            setPage(parsed.page || 1);
-            setHasMore(parsed.hasMore !== undefined ? parsed.hasMore : true);
-            setTimeout(() => {
-              const scrollY = storage.get<string>(scrollKey, "0");
-              if (scrollY) window.scrollTo(0, parseInt(scrollY, 10));
-            }, 100);
-            return;
-          }
-        } catch (e) {}
+      const cached = storage.get<NewsCache | null>(cacheKey, null);
+      if (cached && cached.selectedSource === selectedSource) {
+        setNewsList(cached.newsList || []);
+        setPage(cached.page || 1);
+        setHasMore(cached.hasMore ?? true);
+        setTimeout(() => {
+          const scrollY = storage.get<string>(scrollKey, "0");
+          if (scrollY) window.scrollTo(0, parseInt(scrollY, 10));
+        }, 100);
+        return;
       }
     }
 
