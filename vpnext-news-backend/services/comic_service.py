@@ -11,7 +11,6 @@ async def generate_comic_data(news_id: int, news_title: str, news_body: str, cus
     """
     제미나이를 활용해 뉴스를 바탕으로 대사가 포함된 4컷 만화 프롬프트를 생성하고,
     이미지 생성 API를 호출하여 완성된 이미지를 반환합니다.
-    (이전 브랜치 018587b1 로직 기반)
     """
     logger.info(f"[만화 #{news_id}] 분석 및 만화 생성 시작 (커스텀 프롬프트: {'O' if custom_prompt else 'X'})")
     
