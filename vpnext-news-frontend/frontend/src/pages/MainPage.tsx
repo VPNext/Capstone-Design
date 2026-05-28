@@ -6,20 +6,20 @@ import NewsPageTemplate from "../components/news/NewsPageTemplate";
 export default function MainPage() {
   const {
     newsList,
+    page,
+    totalPages,
+    totalItems,
     selectedSource,
     loading,
-    isLoadingMore,
-    showLoadMoreBtn,
     keyword,
-    lastElementRef,
-    handleLoadMoreClick,
+    handlePageChange,
     handleSourceChange,
     error,
     handleRetry,
   } = useNewsList({
     isAnalyzed: false,
     cacheKey: STORAGE_KEYS.MAIN_NEWS_CACHE,
-    scrollKey: STORAGE_KEYS.MAIN_NEWS_SCROLL,
+    scrollKey: "", // 비워둠 (동작 안 함)
   });
 
   // 상단 타이틀 배너 영역 정의
@@ -49,12 +49,12 @@ export default function MainPage() {
             day: "numeric",
           })}
         </p>
-        {newsList.length > 0 && (
+        {totalItems > 0 && (
           <div className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-[#161311] text-white">
             <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
               <path d="M2 3a1 1 0 000 2h11a1 1 0 100-2H2zm0 4a1 1 0 000 2h7a1 1 0 100-2H2zm0 4a1 1 0 000 2h4a1 1 0 100-2H2z" />
             </svg>
-            {newsList.length}개 기사
+            총 {totalItems}개 기사
           </div>
         )}
       </div>
@@ -66,18 +66,17 @@ export default function MainPage() {
       newsList={newsList}
       selectedSource={selectedSource}
       loading={loading}
-      isLoadingMore={isLoadingMore}
-      showLoadMoreBtn={showLoadMoreBtn}
+      page={page}
+      totalPages={totalPages}
       keyword={keyword}
-      lastElementRef={lastElementRef}
-      handleLoadMoreClick={handleLoadMoreClick}
+      onChangePage={handlePageChange}
       handleSourceChange={handleSourceChange}
       isAnalyzedPage={false}
       activeBgColor="#161311"
       banner={banner}
-      loadMoreBtnBg="#161311"
-      loadMoreBtnHoverBg="#C13026"
-      loadMoreBtnBoxShadow="0 2px 12px rgba(22,19,17,0.3)"
+      btnBg="#161311"
+      btnHoverBg="#C13026"
+      btnBoxShadow="0 2px 12px rgba(22,19,17,0.3)"
       error={error}
       handleRetry={handleRetry}
     />

@@ -3,6 +3,7 @@ import type { NewsDetail, NewsItem, AnalysisData, CartoonItem } from "../types/n
 
 interface FetchNewsResponse {
   items: NewsItem[];
+  total: number;
 }
 
 export const fetchNewsList = async (

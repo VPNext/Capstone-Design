@@ -6,20 +6,20 @@ import NewsPageTemplate from "../components/news/NewsPageTemplate";
 export default function AnalyzedNewsPage() {
   const {
     newsList,
+    page,
+    totalPages,
+    totalItems,
     selectedSource,
     loading,
-    isLoadingMore,
-    showLoadMoreBtn,
     keyword,
-    lastElementRef,
-    handleLoadMoreClick,
+    handlePageChange,
     handleSourceChange,
     error,
     handleRetry,
   } = useNewsList({
     isAnalyzed: true,
     cacheKey: STORAGE_KEYS.ANALYZED_NEWS_CACHE,
-    scrollKey: STORAGE_KEYS.ANALYZED_NEWS_SCROLL,
+    scrollKey: "", // 비워둠 (동작 안 함)
   });
 
   // 상단 타이틀 배너 및 서브헤더 영역 정의
@@ -84,7 +84,7 @@ export default function AnalyzedNewsPage() {
               AI 분석이 완료된 뉴스 — 신뢰도, 요약, 핵심 인물 정보를 확인하세요
             </p>
           </div>
-          {newsList.length > 0 && (
+          {totalItems > 0 && (
             <div
               className="flex items-center gap-3 px-5 py-3 shrink-0"
               style={{
@@ -93,7 +93,7 @@ export default function AnalyzedNewsPage() {
                 borderRadius: "16px",
               }}
             >
-              <span className="text-3xl font-black text-white">{newsList.length}</span>
+              <span className="text-3xl font-black text-white">{totalItems}</span>
               <span className="text-sm leading-tight" style={{ color: "rgba(255,255,255,0.4)" }}>
                 개
                 <br />
@@ -126,18 +126,17 @@ export default function AnalyzedNewsPage() {
       newsList={newsList}
       selectedSource={selectedSource}
       loading={loading}
-      isLoadingMore={isLoadingMore}
-      showLoadMoreBtn={showLoadMoreBtn}
+      page={page}
+      totalPages={totalPages}
       keyword={keyword}
-      lastElementRef={lastElementRef}
-      handleLoadMoreClick={handleLoadMoreClick}
+      onChangePage={handlePageChange}
       handleSourceChange={handleSourceChange}
       isAnalyzedPage={true}
       activeBgColor="#0C1F3F"
       banner={banner}
-      loadMoreBtnBg="#0C1F3F"
-      loadMoreBtnHoverBg="#143268"
-      loadMoreBtnBoxShadow="0 2px 12px rgba(12,31,63,0.3)"
+      btnBg="#0C1F3F"
+      btnHoverBg="#143268"
+      btnBoxShadow="0 2px 12px rgba(12,31,63,0.3)"
       containerStyle={{ fontFamily: "'Noto Sans KR', sans-serif" }}
       error={error}
       handleRetry={handleRetry}
