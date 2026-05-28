@@ -41,19 +41,24 @@ def list_news(
 ):
     q = db.query(Article).order_by(Article.published_at.desc())
     if source:
-        from sqlalchemy import or_
-        eng_to_kor = {
-            "hani": "한겨레",
-            "mk": "매일경제",
-            "donga": "동아일보",
-            "yonhap": "연합",
-            "sbs": "SBS",
-            "naver": "네이버",
-            "khan": "경향",
-            "hankyung": "한국경제"
-        }
-        kor_val = eng_to_kor.get(source.lower(), source)
-        q = q.filter(or_(Article.source.contains(source), Article.source.contains(kor_val)))
+        # 오직 네이버 뉴스 탭을 선택한 경우에만 외부 출처 기사 분석 오류를 방지하기 위해 
+        # 기사 URL에 실제 naver.com이 포함된 실제 네이버 뉴스만 반환하도록 처리 (타 뉴스사는 영향 없음)
+        if source.lower() == "naver":
+            q = q.filter(Article.url.contains("naver.com"))
+        else:
+            from sqlalchemy import or_
+            eng_to_kor = {
+                "hani": "한겨레",
+                "mk": "매일경제",
+                "donga": "동아일보",
+                "yonhap": "연합",
+                "sbs": "SBS",
+                "naver": "네이버",
+                "khan": "경향",
+                "hankyung": "한국경제"
+            }
+            kor_val = eng_to_kor.get(source.lower(), source)
+            q = q.filter(or_(Article.source.contains(source), Article.source.contains(kor_val)))
     if keyword:
         q = q.filter(Article.title.contains(keyword))
     if is_analyzed is not None:
