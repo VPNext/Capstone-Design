@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useParams } from "react-router-dom";
 import { SOURCE_NAME_MAP } from "../constants/source";
 import { fetchNewsDetail, analyzeNews, generateComic } from "../services/newsService";
@@ -18,18 +18,21 @@ export function useNewsDetail() {
   // AI 분석 상태 ("pending": 미분석, "analyzing": 분석중, "complete": 완료)
   const [status, setStatus] = useState<AnalysisStatus>("pending");
 
-  // news 객체로부터 실시간 파생 (Computed Value)
-  const analysisData: AnalysisData | null = news && news.is_analyzed ? {
-    credibility: {
-      score: news.credibility_score,
-      label: news.credibility_label,
-      reason: news.credibility_reason,
-      red_flags: news.red_flags || [],
-      summary: news.ai_summary || "",
-    },
-    difficult_terms: news.difficult_terms || [],
-    key_persons: news.key_persons || [],
-  } : null;
+  // news 객체로부터 실시간 파생 (Computed Value) - useMemo로 불필요한 재연산 방지
+  const analysisData: AnalysisData | null = useMemo(() => {
+    if (!news || !news.is_analyzed) return null;
+    return {
+      credibility: {
+        score: news.credibility_score,
+        label: news.credibility_label,
+        reason: news.credibility_reason,
+        red_flags: news.red_flags || [],
+        summary: news.ai_summary || "",
+      },
+      difficult_terms: news.difficult_terms || [],
+      key_persons: news.key_persons || [],
+    };
+  }, [news]);
 
   // 4컷 만화 생성용 상태값
   const [isComicGenerating, setIsComicGenerating] = useState(false);
@@ -49,6 +52,18 @@ export function useNewsDetail() {
   useEffect(() => {
     const loadNewsDetailData = async () => {
       if (!id) return;
+
+      // 새 기사 로드 시작 시 이전 기사의 정보들을 완벽히 초기화하여 UI 누출 방지
+      setNews(null);
+      setLoading(true);
+      setStatus("pending");
+      setComicUrls(null);
+      setProgress(0);
+      setLoadingStatus("");
+      setShowPromptInput(false);
+      setCustomPrompt("");
+      setSearchTerm("");
+      
       try {
         const data = await fetchNewsDetail(id);
         setNews(data);

@@ -79,29 +79,31 @@ export function useNewsList({ isAnalyzed, cacheKey }: UseNewsListProps) {
     }
   };
 
-  // 검색어, 언론사 변경 및 첫 로딩 시 동기화
+  // 검색어, 언론사 변경, 페이지 번호 이동 및 첫 로딩 시의 선언적 API 동기화
   useEffect(() => {
-    // 뒤로가기(POP) 발생 시 세션스토리지에 저장된 캐시 정보와 매칭하여 페이지 로드
-    let targetPage = page;
-    let targetSource = selectedSource;
-
+    // 1. 뒤로가기(POP) 발생 시 세션스토리지에 저장된 캐시 정보와 매칭하여 페이지 로드
     if (!keyword && navType === "POP") {
       const cached = storage.get<NewsCache | null>(cacheKey, null);
       if (cached) {
-        targetPage = cached.page || 1;
-        targetSource = cached.selectedSource || "전체";
-        setPage(targetPage);
-        setSelectedSource(targetSource);
+        const cachedPage = cached.page || 1;
+        const cachedSource = cached.selectedSource || "전체";
+        
+        // 캐시값과 현재 상태가 다를 때만 상태 업데이트를 수행하여 무한 요청 루프 방지
+        if (page !== cachedPage || selectedSource !== cachedSource) {
+          setPage(cachedPage);
+          setSelectedSource(cachedSource);
+          return; // 상태가 변경되면 다음 렌더 틱에서 useEffect가 재호출되므로 즉시 반환
+        }
       }
     }
 
-    fetchNews(targetPage, targetSource, keyword);
-  }, [keyword, selectedSource, navType]);
+    // 2. API 호출 실행
+    fetchNews(page, selectedSource, keyword);
+  }, [keyword, selectedSource, page, navType]);
 
   const handlePageChange = (newPage: number) => {
     if (newPage < 1 || newPage > totalPages) return;
     setPage(newPage);
-    fetchNews(newPage, selectedSource, keyword);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -128,3 +130,4 @@ export function useNewsList({ isAnalyzed, cacheKey }: UseNewsListProps) {
     handleRetry,
   };
 }
+
