@@ -22,27 +22,27 @@
 
 ```mermaid
 flowchart TD
-    subgraph 수집 단계 (Data Crawling)
-        A1[8대 언론사 RSS Feeds] -->|rss_crawler.py| B[기사 메타데이터 추출]
-        A2[Naver News Search API] -->|rss_crawler.py| B
+    subgraph "수집 단계 (Data Crawling)"
+        A1["8대 언론사 RSS Feeds"] -->|rss_crawler.py| B["기사 메타데이터 추출"]
+        A2["Naver News Search API"] -->|rss_crawler.py| B
     end
 
-    subgraph 가공 단계 (Scraping & Storage)
-        B -->|기사 URL| C[article_scraper.py]
-        C -->|본문 HTML 파싱 및 클렌징| D[(SQLite Database)]
+    subgraph "가공 단계 (Scraping & Storage)"
+        B -->|기사 URL| C["article_scraper.py"]
+        C -->|본문 HTML 파싱 및 클렌징| D[("SQLite Database")]
     end
 
-    subgraph 분석 단계 (AI Processing)
-        D -->|사용자 요청 시 본문 전달| E[ai_analyzer.py]
-        E -->|Groq Llama 3.3| F[신뢰도/주의 단어/요약/인물 추출]
-        E -->|Gemini API| G[4컷 만화 요약/시나리오 생성]
-        F -->|국어사전 API 보완| H[dictionary_api.py]
+    subgraph "분석 단계 (AI Processing)"
+        D -->|사용자 요청 시 본문 전달| E["ai_analyzer.py"]
+        E -->|Groq Llama 3.3| F["신뢰도/주의 단어/요약/인물 추출"]
+        E -->|Gemini API| G["4컷 만화 요약/시나리오 생성"]
+        F -->|국어사전 API 보완| H["dictionary_api.py"]
         G --> H
     end
 
-    subgraph 서비스 제공 (Presentation)
+    subgraph "서비스 제공 (Presentation)"
         H -->|분석 결과 적재| D
-        D -->|REST API 응답| I[React Frontend Web App]
+        D -->|REST API 응답| I["React Frontend Web App"]
     end
 ```
 
