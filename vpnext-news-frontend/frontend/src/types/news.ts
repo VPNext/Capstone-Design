@@ -18,6 +18,7 @@ export interface DifficultTerm {
   definition?: string;
   explanation?: string;
   description?: string;
+  dict_link?: string;
 }
 
 export interface KeyPerson {

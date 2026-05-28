@@ -276,6 +276,9 @@ const TermList = memo(function TermList({ terms }: TermListProps) {
     <ul className="text-[14px] space-y-3">
       {terms.map((term: DifficultTerm) => {
         const definitionText = term.definition || term.explanation || "";
+        const dictUrl = term.dict_link || `https://stdict.korean.go.kr/search/searchResult.do?pageSize=10&searchKeyword=${encodeURIComponent(term.term)}`;
+        const searchTitle = term.dict_link ? `${term.term} 뜻 상세 정보 보기` : `${term.term} 국립국어원에서 뜻 찾아보기`;
+
         return (
           <li 
             key={`term-${term.term}`} 
@@ -283,11 +286,11 @@ const TermList = memo(function TermList({ terms }: TermListProps) {
           >
             <div className="flex items-center justify-between gap-2 mb-1.5">
               <a
-                href={`https://stdict.korean.go.kr/search/searchResult.do?pageSize=10&searchKeyword=${encodeURIComponent(term.term)}`}
+                href={dictUrl}
                 target="_blank"
                 rel="noreferrer"
                 className="text-sky-700 hover:text-sky-900 transition-colors inline-flex items-center gap-1 font-bold text-[14px] cursor-pointer"
-                title={`${term.term} 국립국어원에서 뜻 찾아보기`}
+                title={searchTitle}
               >
                 {term.term}
                 <svg

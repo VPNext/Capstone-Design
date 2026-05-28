@@ -120,7 +120,7 @@ async def run_full_analysis(
 
     # 4. 어려운 용어 보완 (사전 링크 등)
     if difficult_terms:
-        difficult_terms = enrich(difficult_terms)
+        difficult_terms = await enrich(difficult_terms)
 
     # 5. DB 저장
     art = db.query(Article).filter(Article.url == article_url).first()
