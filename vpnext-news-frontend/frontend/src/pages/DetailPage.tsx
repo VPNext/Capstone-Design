@@ -78,7 +78,15 @@ export default function DetailPage() {
   const aiSummary = analysisData?.credibility?.summary || news.ai_summary || null;
   const sourceKey = news.source?.toLowerCase();
   const sourceName = SOURCE_NAME_MAP[sourceKey] || news.source?.toUpperCase() || "알 수 없음";
-  const badgeClass = SOURCE_BADGE_CLASS[sourceKey] || "badge-default";
+  
+  // 네이버 뉴스 플랫폼 제휴 유통 여부 판정
+  const isNaverPlatform = news.url?.includes("naver.com");
+  const displaySourceName = isNaverPlatform ? "네이버 뉴스" : sourceName;
+  
+  // 네이버 뉴스 플랫폼일 경우 뱃지 색상을 네이버 시그니처 초록색으로 강제 통일
+  const displayBadgeClass = isNaverPlatform 
+    ? (SOURCE_BADGE_CLASS["naver"] || "bg-[#03c75a] text-white") 
+    : (SOURCE_BADGE_CLASS[sourceKey] || "badge-default");
 
   return (
     <div className="mt-8 pb-20 font-sans">
@@ -103,8 +111,8 @@ export default function DetailPage() {
       {/* 기사 헤더 영역: 언론사, 날짜, 원문 링크 등 */}
       <header className="mb-10">
         <div className="flex items-center flex-wrap gap-3 mb-5">
-          <span className={`${badgeClass} text-xs font-black px-3.5 py-1.5 rounded-full`}>
-            {sourceName}
+          <span className={`${displayBadgeClass} text-xs font-black px-3.5 py-1.5 rounded-full`}>
+            {displaySourceName}
           </span>
           <span className="text-sm font-medium text-[#9C9891]">
             {news.published_at?.split("T")[0]}

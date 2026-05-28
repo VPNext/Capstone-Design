@@ -1,6 +1,7 @@
 export interface NewsItem {
   id: number;
   title: string;
+  url: string;
   summary: string;
   ai_summary: string | null;
   source: string;

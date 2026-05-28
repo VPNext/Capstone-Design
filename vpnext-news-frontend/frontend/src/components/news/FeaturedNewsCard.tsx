@@ -21,7 +21,14 @@ export default function FeaturedNewsCard({
   const sourceKey = news.source?.toLowerCase();
   const sourceName =
     SOURCE_NAME_MAP[sourceKey] || news.source?.toUpperCase() || "알 수 없음";
-  const badgeClass = SOURCE_BADGE_CLASS[sourceKey] || "badge-default";
+  // 네이버 뉴스 플랫폼 제휴 유통 여부 판정
+  const isNaverPlatform = news.url?.includes("naver.com");
+  const displaySourceName = isNaverPlatform ? "네이버 뉴스" : sourceName;
+  
+  // 네이버 뉴스 플랫폼일 경우 뱃지 색상을 네이버 시그니처 초록색으로 강제 통일
+  const displayBadgeClass = isNaverPlatform 
+    ? (SOURCE_BADGE_CLASS["naver"] || "bg-[#03c75a] text-white") 
+    : (SOURCE_BADGE_CLASS[sourceKey] || "badge-default");
 
   // 호버 색상
   const hoverBorderColor = isAnalyzedPage
@@ -80,9 +87,9 @@ export default function FeaturedNewsCard({
           <div className="p-6 sm:p-8 flex flex-col gap-3">
             <div className="flex items-center gap-2.5">
               <span
-                className={`${badgeClass} text-[10px] font-black px-3 py-1.5 rounded-full`}
+                className={`${displayBadgeClass} text-[10px] font-black px-3 py-1.5 rounded-full`}
               >
-                {sourceName}
+                {displaySourceName}
               </span>
               <span
                 className="text-[10px] font-medium"

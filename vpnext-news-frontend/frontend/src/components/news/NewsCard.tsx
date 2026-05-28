@@ -25,7 +25,13 @@ export default function NewsCard({
   const sourceKey = news.source?.toLowerCase();
   const sourceName =
     SOURCE_NAME_MAP[sourceKey] || news.source?.toUpperCase() || "알 수 없음";
-  const badgeClass = SOURCE_BADGE_CLASS[sourceKey] || "badge-default";
+  // 네이버 뉴스 플랫폼 제휴 유통 여부 판정
+  const isNaverPlatform = news.url?.includes("naver.com");
+  const displaySourceName = isNaverPlatform ? "네이버 뉴스" : sourceName;
+  // 네이버 뉴스 플랫폼일 경우 뱃지 색상을 네이버 시그니처 초록색으로 강제 통일
+  const displayBadgeClass = isNaverPlatform 
+    ? (SOURCE_BADGE_CLASS["naver"] || "bg-[#03c75a] text-white") 
+    : (SOURCE_BADGE_CLASS[sourceKey] || "badge-default");
 
   // 신뢰도 컬러바 색상 계산 (분석페이지 전용)
   const scoreColor =
@@ -61,9 +67,9 @@ export default function NewsCard({
             <div className="flex flex-col gap-2">
               <div className="flex items-center flex-wrap gap-2">
                 <span
-                  className={`${badgeClass} text-[10px] font-black px-2.5 py-1 rounded-full shrink-0`}
+                  className={`${displayBadgeClass} text-[10px] font-black px-2.5 py-1 rounded-full shrink-0`}
                 >
-                  {sourceName}
+                  {displaySourceName}
                 </span>
                 <span
                   className="text-[10px] font-medium shrink-0"

@@ -60,12 +60,17 @@ export function useNewsList({ isAnalyzed, cacheKey, scrollKey }: UseNewsListProp
       const sourceParam = sourceId ? sourceId : undefined;
 
       const response = await fetchNewsList(pageNumber, sourceParam, isAnalyzed, queryKeyword);
-      const newItems = response.items || [];
+      const rawItems = response.items || [];
+
+      // 타 뉴스사 선택 시 네이버 연동 기사(naver.com)는 프론트엔드에서 제외 처리
+      const newItems = (sourceName !== "네이버 뉴스" && sourceName !== "전체")
+        ? rawItems.filter((item: NewsItem) => !item.url?.includes("naver.com"))
+        : rawItems;
 
       let nextNewsList = newItems;
       let nextHasMore = true;
 
-      if (newItems.length === 0) {
+      if (rawItems.length === 0) {
         nextHasMore = false;
         setHasMore(false);
       } else {
@@ -73,7 +78,7 @@ export function useNewsList({ isAnalyzed, cacheKey, scrollKey }: UseNewsListProp
           nextNewsList = pageNumber === 1 ? newItems : [...prev, ...newItems];
           return nextNewsList;
         });
-        nextHasMore = newItems.length >= 20;
+        nextHasMore = rawItems.length >= 20;
         setHasMore(nextHasMore);
       }
 
