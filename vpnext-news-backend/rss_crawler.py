@@ -25,18 +25,26 @@ logger = logging.getLogger(__name__)
 
 def convert_naver_pc_to_mobile(url: str) -> str:
     """네이버 PC 뉴스 URL을 모바일 뉴스 URL로 변환하여 안정적인 스크래핑을 지원"""
-    # news.naver.com 외에도 sports.naver.com, entertain.naver.com 등 모든 네이버 뉴스 도메인 대응
-    if "naver.com" in url and ("oid=" in url and "aid=" in url):
-        try:
-            # 쿼리 파라미터 파싱
+    if "naver.com" not in url:
+        return url
+        
+    try:
+        # 1. 쿼리 파라미터 방식 파싱 (예: oid=001&aid=00012345)
+        if "oid=" in url and "aid=" in url:
             parsed_url = urllib.parse.urlparse(url)
             params = urllib.parse.parse_qs(parsed_url.query)
             oid = params.get("oid", [""])[0]
             aid = params.get("aid", [""])[0]
             if oid and aid:
                 return f"https://n.news.naver.com/mnews/article/{oid}/{aid}"
-        except Exception as e:
-            logger.warning(f"네이버 PC URL 모바일 변환 실패 ({url}): {e}")
+        
+        # 2. 경로 기반 주소 포맷 파싱 (예: opinion/001/00012345)
+        m = re.search(r'naver\.com/[^?]+/(\d{3})/(\d{10})', url)
+        if m:
+            return f"https://n.news.naver.com/mnews/article/{m.group(1)}/{m.group(2)}"
+            
+    except Exception as e:
+        logger.warning(f"네이버 PC URL 모바일 변환 실패 ({url}): {e}")
     return url
 
 

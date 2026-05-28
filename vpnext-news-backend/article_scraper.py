@@ -6,6 +6,7 @@
 """
 
 import time
+import random
 import logging
 from typing import Dict, Optional
 
@@ -17,8 +18,11 @@ logger = logging.getLogger(__name__)
 
 HEADERS = {
     "User-Agent":      USER_AGENT,
-    "Accept-Language": "ko-KR,ko;q=0.9,en;q=0.8",
-    "Accept":          "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7",
+    "Accept":          "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+    "Connection":      "keep-alive",
+    "Upgrade-Insecure-Requests": "1",
+    "Cache-Control":   "max-age=0",
 }
 
 # 사이트별 본문 / 제목 CSS 선택자
@@ -97,10 +101,21 @@ def scrape(url: str) -> Optional[Dict]:
             if c_elem:
                 for bad in c_elem.find_all(["script", "style", "figure"]):
                     bad.decompose()
+                
+                # br 태그를 개행 문자로 교체하여 p 태그가 없는 경우 줄바꿈 유지
+                for br in c_elem.find_all("br"):
+                    br.replace_with("\n")
+
                 paras = [p.get_text(strip=True) for p in c_elem.find_all("p") if len(p.get_text(strip=True)) > 10]
                 content = "\n".join(paras) if paras else c_elem.get_text(separator="\n", strip=True)
             if not content:
                 content = _generic_content(soup)
+            
+            # 본문이 유실되었을 경우 og:description을 최종 백업 필드로 사용
+            if not content:
+                og_desc = soup.find("meta", property="og:description")
+                if og_desc and og_desc.get("content"):
+                    content = og_desc["content"]
 
             # ── OG 이미지 ───────────────────
             og_img = soup.find("meta", property="og:image")
@@ -111,7 +126,8 @@ def scrape(url: str) -> Optional[Dict]:
         except requests.RequestException as e:
             logger.warning(f"스크래핑 시도 {attempt+1}/{MAX_RETRIES} ({url}): {e}")
             if attempt < MAX_RETRIES - 1:
-                time.sleep(REQUEST_DELAY * (attempt + 1))
+                jitter = random.uniform(0.5, 1.5)
+                time.sleep((REQUEST_DELAY * (attempt + 1)) + jitter)
         except Exception as e:
             logger.error(f"스크래핑 오류 ({url}): {e}")
             break
