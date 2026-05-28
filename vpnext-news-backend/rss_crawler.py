@@ -51,27 +51,28 @@ def convert_naver_pc_to_mobile(url: str) -> str:
 
 def extract_rss_image(entry) -> Optional[str]:
     """feedparser entry 요소들로부터 기사 이미지 URL 추출"""
+    import html
     # 1. media_content
     if hasattr(entry, "media_content"):
         for m in entry.media_content:
             if m.get("url") and "image" in m.get("type", "image"):
-                return m["url"]
+                return html.unescape(m["url"])
     # 2. enclosures
     if hasattr(entry, "enclosures"):
         for e in entry.enclosures:
             if e.get("url") and "image" in e.get("type", "image"):
-                return e["url"]
+                return html.unescape(e["url"])
     # 3. links
     if hasattr(entry, "links"):
         for l in entry.links:
             if "image" in l.get("type", ""):
-                return l.get("href")
+                return html.unescape(l.get("href"))
     # 4. summary 내 inline img tag 정규식 추출
     summary = getattr(entry, "summary", "")
     if summary:
         m = re.search(r'<img[^>]+src=["\']([^"\']+)["\']', summary, re.IGNORECASE)
         if m:
-            return m.group(1)
+            return html.unescape(m.group(1))
             
     # 5. content 내 inline img tag 정규식 추출 (조선일보 등 일부 언론사 대응)
     content = getattr(entry, "content", None)
@@ -83,7 +84,7 @@ def extract_rss_image(entry) -> Optional[str]:
             content_text = str(content)
         m = re.search(r'<img[^>]+src=["\']([^"\']+)["\']', content_text, re.IGNORECASE)
         if m:
-            return m.group(1)
+            return html.unescape(m.group(1))
             
     return None
 
