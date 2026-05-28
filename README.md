@@ -85,19 +85,19 @@ news-compass/
 
 ### 1. Groq API 키 (필수)
 
-1. Groq Console(https://console.groq.com)에 로그인합니다.
+1. Groq Console(https://console.groq.com) 로그인합니다.
 2. 좌측 메뉴 API Keys > Create API Key를 클릭합니다.
 3. 생성된 키(gsk\_...)를 안전하게 기록해 둡니다.
 
 ### 2. Google AI Studio API 키 (필수 - 만화 생성용)
 
-1. Google AI Studio(https://aistudio.google.com/)에 로그인합니다.
+1. Google AI Studio(https://aistudio.google.com/) 로그인합니다.
 2. Get API Key > Create API Key를 클릭합니다.
 3. 발급된 키(AIzaSy...)를 복사해 둡니다.
 
 ### 3. 네이버 뉴스 검색 API 자격 증명 (필수 - 실시간 네이버 뉴스 수집)
 
-1. 네이버 개발자 센터(https://developers.naver.com)에 접속하여 로그인합니다.
+1. 네이버 개발자 센터(https://developers.naver.com) 접속하여 로그인합니다.
 2. 상단 메뉴 Application > 애플리케이션 등록으로 이동합니다.
 3. 애플리케이션 이름을 작성하고, 사용 API 메뉴에서 검색을 선택합니다.
 4. 비로그인 오픈 API 서비스 환경을 웹 설정으로 두고, 웹 서비스 URL에 로컬 주소(예: http://localhost)를 입력하여 등록을 완료합니다.
@@ -105,7 +105,7 @@ news-compass/
 
 ### 4. 국립국어원 오픈 API 키 (선택)
 
-1. 국립국어원 우리말샘(https://opendict.korean.go.kr)에 접속 후 회원가입을 완료합니다.
+1. 국립국어원 우리말샘(https://opendict.korean.go.kr) 접속 후 회원가입을 완료합니다.
 2. 오픈 API 사용자 인증 키 발급 신청을 통해 인증 키를 획득합니다.
 
 ### 5. 영남이공대 AI 캠퍼스 API 게이트웨이 키 (선택)
