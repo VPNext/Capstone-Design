@@ -1,6 +1,13 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 
+const todayStr = new Date().toLocaleDateString("ko-KR", {
+  year: "numeric",
+  month: "long",
+  day: "numeric",
+  weekday: "long",
+});
+
 export default function Header() {
   const [keyword, setKeyword] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
@@ -39,12 +46,7 @@ export default function Header() {
     }
   };
 
-  const todayStr = new Date().toLocaleDateString("ko-KR", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-    weekday: "long",
-  });
+
 
   const navItems = [
     {
