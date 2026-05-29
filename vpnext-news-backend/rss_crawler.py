@@ -291,7 +291,7 @@ def crawl_all(feeds: Dict[str, str] = None) -> List[Dict]:
     # 2. 네이버 뉴스 API 수집 (다양한 대표 카테고리성 키워드로 수집 수행)
     naver_keywords = ["속보", "정치", "경제", "사회", "IT과학"]
     for kw in naver_keywords:
-        all_articles.extend(crawl_naver_news(kw, display=15))
+        all_articles.extend(crawl_naver_news(kw, display=20))
         time.sleep(REQUEST_DELAY)
 
     # 3. URL 기준 중복 기사 제거
