@@ -5,17 +5,22 @@ feedparser 로 XML을 파싱 → 기사 메타데이터(제목/URL/요약/발행
 
 import time
 import logging
+import re
 import requests
 from datetime import datetime
 from typing import Dict, List, Optional
 
 import feedparser
-from config import RSS_FEEDS, REQUEST_DELAY, USER_AGENT, REQUEST_TIMEOUT
+from config import (
+    RSS_FEEDS, REQUEST_DELAY, USER_AGENT, REQUEST_TIMEOUT,
+    NAVER_CLIENT_ID, NAVER_CLIENT_SECRET, NAVER_SEARCH_KEYWORDS
+)
 
 logger = logging.getLogger(__name__)
 
 
 def _parse_date(entry) -> Optional[datetime]:
+    # feedparser용 날짜 파싱
     for attr in ("published_parsed", "updated_parsed"):
         val = getattr(entry, attr, None)
         if val:
@@ -24,6 +29,58 @@ def _parse_date(entry) -> Optional[datetime]:
             except Exception:
                 pass
     return datetime.now()
+
+
+def _parse_naver_date(date_str: str) -> datetime:
+    # 네이버 API 날짜 형식 파싱: "Tue, 28 May 2024 15:00:00 +0900"
+    try:
+        return datetime.strptime(date_str, "%a, %d %b %Y %H:%M:%S +0900")
+    except Exception:
+        return datetime.now()
+
+
+def fetch_naver_news(keyword: str) -> List[Dict]:
+    """네이버 검색 API를 통해 뉴스 수집"""
+    if not NAVER_CLIENT_ID or not NAVER_CLIENT_SECRET:
+        logger.warning("네이버 API 키가 설정되지 않았습니다.")
+        return []
+
+    url = "https://openapi.naver.com/v1/search/news.json"
+    headers = {
+        "X-Naver-Client-Id": NAVER_CLIENT_ID,
+        "X-Naver-Client-Secret": NAVER_CLIENT_SECRET,
+    }
+    params = {
+        "query": keyword,
+        "display": 20,
+        "sort": "sim",  # 'sim' (유사도) 또는 'date' (날짜순)
+    }
+
+    try:
+        resp = requests.get(url, headers=headers, params=params, timeout=REQUEST_TIMEOUT)
+        if resp.status_code != 200:
+            logger.error(f"[naver_{keyword}] API 호출 실패 ({resp.status_code})")
+            return []
+
+        data = resp.json()
+        articles = []
+        for item in data.get("items", []):
+            # HTML 태그 제거
+            title = re.sub(r"<[^>]+>", "", item["title"])
+            summary = re.sub(r"<[^>]+>", "", item["description"])
+            
+            articles.append({
+                "source": f"naver_{keyword}",
+                "title": title,
+                "url": item["link"],
+                "summary": summary,
+                "published_at": _parse_naver_date(item["pubDate"]),
+            })
+        logger.info(f"[naver_{keyword}] {len(articles)}건 수집 (API)")
+        return articles
+    except Exception as e:
+        logger.error(f"[naver_{keyword}] API 수집 실패: {e}")
+        return []
 
 
 def crawl_feed(name: str, url: str) -> List[Dict]:
@@ -56,13 +113,20 @@ def crawl_feed(name: str, url: str) -> List[Dict]:
 
 
 def crawl_all(feeds: Dict[str, str] = None) -> List[Dict]:
-    """전체 RSS 수집 + 중복 URL 제거"""
+    """전체 RSS 수집 + 네이버 API 수집 + 중복 URL 제거"""
     if feeds is None:
         feeds = RSS_FEEDS
 
     all_articles: List[Dict] = []
+    
+    # 1. 기존 RSS 수집
     for name, url in feeds.items():
         all_articles.extend(crawl_feed(name, url))
+        time.sleep(REQUEST_DELAY)
+    
+    # 2. 네이버 뉴스 API 수집
+    for keyword in NAVER_SEARCH_KEYWORDS:
+        all_articles.extend(fetch_naver_news(keyword))
         time.sleep(REQUEST_DELAY)
 
     seen: set = set()

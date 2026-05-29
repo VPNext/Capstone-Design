@@ -15,65 +15,86 @@ logger = logging.getLogger(__name__)
 
 # --- AI Clients ---
 
-class GroqClient:
-    MODELS = [
-        "llama-3.3-70b-versatile",
-        "llama-3.1-8b-instant",
-    ]
-
-    def __init__(self):
-        self.client = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
-
-    def _parse_json(self, text: str) -> Optional[Dict[str, Any]]:
-        if not text:
-            return None
-        try:
-            # JSON 코드 블록 추출 시도
-            m = re.search(r"```json\s*(\{.*?\})\s*```", text, re.DOTALL)
-            if m:
-                parsed = json.loads(m.group(1))
-                return parsed if isinstance(parsed, dict) else None
-
-            # 순수 JSON 추출 시도
-            start_idx = text.find("{")
-            end_idx = text.rfind("}") + 1
-            if start_idx != -1 and end_idx > start_idx:
-                parsed = json.loads(text[start_idx:end_idx])
-                return parsed if isinstance(parsed, dict) else None
-        except (json.JSONDecodeError, ValueError) as err:
-            logger.error(f"JSON 파싱 실패: {err}")
+def _parse_json(text: str) -> Optional[Dict[str, Any]]:
+    if not text:
         return None
+    try:
+        # JSON 코드 블록 추출 시도
+        m = re.search(r"```json\s*(\{.*?\})\s*```", text, re.DOTALL)
+        if m:
+            parsed = json.loads(m.group(1))
+            return parsed if isinstance(parsed, dict) else None
 
-    def call(self, prompt: str, max_retries: int = 2) -> Optional[Dict[str, Any]]:
-        if not self.client:
-            return None
-            
-        last_error = None
-        for model_id in self.MODELS:
-            for attempt in range(max_retries):
-                try:
-                    response = self.client.chat.completions.create(
-                        model=model_id,
-                        messages=[{"role": "user", "content": prompt}],
-                        temperature=0.2,
-                        max_tokens=2048,
-                    )
-                    content = response.choices[0].message.content
-                    parsed_data = self._parse_json(content)
-                    if parsed_data is not None:
-                        return parsed_data
-                    raise ValueError("JSON 파싱 불가")
-                except Exception as e:
-                    error_msg = str(e).lower()
-                    last_error = e
-                    if any(x in error_msg for x in ["429", "rate limit", "tokens"]):
-                        logger.warning(f"Groq [{model_id}] 한도 초과. 다음 모델/API 시도.")
-                        break
-                    logger.warning(f"Groq [{model_id}] 시도 {attempt+1}/{max_retries} 실패: {e}")
-        return None
+        # 순수 JSON 추출 시도
+        start_idx = text.find("{")
+        end_idx = text.rfind("}") + 1
+        if start_idx != -1 and end_idx > start_idx:
+            parsed = json.loads(text[start_idx:end_idx])
+            return parsed if isinstance(parsed, dict) else None
+    except (json.JSONDecodeError, ValueError) as err:
+        logger.error(f"JSON 파싱 실패: {err}")
+    return None
+
+# class GroqClient:
+#     MODELS = [
+#         "llama-3.3-70b-versatile",
+#         "llama-3.1-8b-instant",
+#     ]
+#
+#     def __init__(self):
+#         self.client = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
+#
+#     def _parse_json(self, text: str) -> Optional[Dict[str, Any]]:
+#         if not text:
+#             return None
+#         try:
+#             # JSON 코드 블록 추출 시도
+#             m = re.search(r"```json\s*(\{.*?\})\s*```", text, re.DOTALL)
+#             if m:
+#                 parsed = json.loads(m.group(1))
+#                 return parsed if isinstance(parsed, dict) else None
+#
+#             # 순수 JSON 추출 시도
+#             start_idx = text.find("{")
+#             end_idx = text.rfind("}") + 1
+#             if start_idx != -1 and end_idx > start_idx:
+#                 parsed = json.loads(text[start_idx:end_idx])
+#                 return parsed if isinstance(parsed, dict) else None
+#         except (json.JSONDecodeError, ValueError) as err:
+#             logger.error(f"JSON 파싱 실패: {err}")
+#         return None
+#
+#     def call(self, prompt: str, max_retries: int = 2) -> Optional[Dict[str, Any]]:
+#         if not self.client:
+#             return None
+#             
+#         last_error = None
+#         for model_id in self.MODELS:
+#             for attempt in range(max_retries):
+#                 try:
+#                     response = self.client.chat.completions.create(
+#                         model=model_id,
+#                         messages=[{"role": "user", "content": prompt}],
+#                         temperature=0.2,
+#                         max_tokens=2048,
+#                     )
+#                     content = response.choices[0].message.content
+#                     parsed_data = self._parse_json(content)
+#                     if parsed_data is not None:
+#                         return parsed_data
+#                     raise ValueError("JSON 파싱 불가")
+#                 except Exception as e:
+#                     error_msg = str(e).lower()
+#                     last_error = e
+#                     if any(x in error_msg for x in ["429", "rate limit", "tokens"]):
+#                         logger.warning(f"Groq [{model_id}] 한도 초과. 다음 모델/API 시도.")
+#                         break
+#                     logger.warning(f"Groq [{model_id}] 시도 {attempt+1}/{max_retries} 실패: {e}")
+#         return None
 
 class GeminiClient:
     MODELS = [
+        "gemini-3.5-flash",       # 새롭게 추가되어 한번 써보겠습니다.
         "gemini-2.5-flash",       # 1순위: 가장 빠르고 똑똑한 메인 모델
         "gemini-3.1-flash-lite",  # 2순위: 일일 한도가 넉넉한 라이트 모델
         "gemini-2.5-flash-lite",  # 3순위: 백업용 구형 라이트 모델
@@ -129,18 +150,13 @@ class GeminiClient:
         return None
 
 # Global clients
-groq_client = GroqClient()
+# groq_client = GroqClient()
 gemini_client = GeminiClient()
 
 def call_ai(prompt: str) -> Optional[Dict[str, Any]]:
-    """Groq 우선 호출 후 실패 시 Gemini로 폴백"""
-    # 1. Groq 시도
-    result = groq_client.call(prompt)
-    if result:
-        return result
-        
-    # 2. Gemini 시도
-    logger.info("Groq 실패로 인해 Gemini API로 폴백합니다...")
+    """Gemini API를 사용하여 분석 수행"""
+    # 1. Gemini 시도
+    logger.info("Gemini API를 호출합니다...")
     try:
         # 동기 환경에서 비동기 함수 호출을 위한 처리
         try:
@@ -158,9 +174,9 @@ def call_ai(prompt: str) -> Optional[Dict[str, Any]]:
             content = loop.run_until_complete(gemini_client.call(prompt))
             
         if content:
-            return groq_client._parse_json(content)
+            return _parse_json(content)
     except Exception as e:
-        logger.error(f"Gemini 폴백 호출 중 최종 실패: {e}")
+        logger.error(f"Gemini API 호출 중 최종 실패: {e}")
         
     return None
 
@@ -205,14 +221,19 @@ def analyze_credibility(
 {related_context}
 
 분석 및 판정 가이드라인:
-1. 분야 판별 (필수): 기사가 정치, 경제, 사회, 과학, 의학 등 팩트가 중요한 분야인지, 아니면 연예 가심, 단순 일상, 에세이, 리뷰인지 판별하세요.
+1. 분야 판별 (필수): 기사가 정치, 경제, 사회, 과학, 의학 등 팩트가 중요한 분야인지, 아니면 연예 가심, 단순 일상, 에세이, 리뷰, 책 소개, 제품소개인지 판별하세요.
    - 가심/주관적 기사일 경우: 아래 JSON의 'is_subjective'를 true로 설정하세요.
-2. 교차 분석 (최소 5개 기사 대조): 제공된 데이터들과 내용을 대조하여 사실 여부 및 편향성을 분석하세요.
+2. 교차 분석 (최소 5개 기사 대조): 분석하는 뉴스와 대조할 뉴스가 같을 경우에 제공된 데이터들과 내용을 대조하여 사실 여부 및 편향성을 분석하세요.
+   - 우선적으로 기사 제목과 요약을 비교하여 핵심 내용이 일치하는지 확인하세요.
+   - 인물이 등장하는 경우 해당 인물이 동일한지, 역할이 유사한지 비교하세요.
+   - 만약 분석할 뉴스와 비교할 뉴스가 다르다면 참조기사에 추가하지 마십시오.
+   - 만약 관련기사가 아니라면 최소 기사 수 부족으로 의심표현으로 'red_flags'에 포함하세요.
+   - 그리고 관련기사가 반대될 경우 "제공된 관련 기사들과 상반되는 내용이 있습니다."라고 의심표현으로 'red_flags'에 포함하세요. 
 3. 제목-내용 일치도 (낚시성 판별): 제목의 키워드가 본문의 핵심 내용과 괴리가 큰지 분석하여 '과장/낚시성' 여부를 판단하세요.
 4. 시계열 검증: 과거 기사인 경우 최신 데이터와 대조하여 현재 시점에서의 유효성을 판단하세요.
-5. 기준 날짜는 2026년 4월을 기준으로 하며, 그 이후의 사건이나 정보는 알지 못하다고 가정하세요.
+5. 기준 날짜는 2026년 5월을 기준으로 하며, 그 이후의 사건이나 정보는 알지 못하다고 가정하세요.
 
-참조 표시: 비교 분석 시 활용한 기사의 출처는 반드시 Markdown 하이퍼링크 형식(예: [언론사명](URL))으로 'reason' 또는 'summary'에 포함하세요.
+참조 표시: 비교 분석 시 활용한 기사의 출처는 반드시 Markdown 하이퍼링크 형식(예: [언론사명](URL))으로 'summary'에 포함하세요.
 
 아래 JSON 형식으로만 응답:
 ```json
