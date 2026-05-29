@@ -54,7 +54,7 @@ export default function NewsCard({
           {/* 신뢰도 컬러 바 (분석페이지 전용) */}
           {isAnalyzedPage && news.credibility_score != null && (
             <div
-              className="w-1 shrink-0 self-stretch"
+              className="w-1 group-hover:w-1.5 shrink-0 self-stretch transition-all duration-[300ms]"
               style={{
                 background: scoreColor,
                 opacity: 0.85,
@@ -73,8 +73,7 @@ export default function NewsCard({
                   {displaySourceName}
                 </span>
                 <span
-                  className="text-[10px] font-medium shrink-0"
-                  style={{ color: "#9C9891" }}
+                  className="text-[10px] font-medium shrink-0 text-[#9C9891]"
                 >
                   {new Date(news.published_at).toLocaleDateString("ko-KR", {
                     month: "long",
@@ -92,7 +91,7 @@ export default function NewsCard({
               </div>
 
               <h2
-                className="font-bold text-[15px] sm:text-[17px] text-[#161311] leading-snug tracking-tight break-keep group-hover:text-[#C13026] transition-colors"
+                className="font-bold text-[15px] sm:text-[17px] text-[#161311] leading-snug tracking-tight break-keep group-hover:text-[#C13026] transition-colors duration-300"
                 style={{ fontFamily: "'Noto Serif KR', serif" }}
               >
                 <HighlightText text={decodeHtmlEntities(news.title)} keyword={keyword} />

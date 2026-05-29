@@ -30,7 +30,7 @@ const ComicViewer = memo(function ComicViewer({
 
   return (
     <div
-      className="mt-8 p-8 flex flex-col items-center gap-5 text-center bg-purple-50/40 border border-purple-100/70 rounded-3xl shadow-[0_4px_20px_rgba(109,40,217,0.03)] transition-all duration-300 hover:shadow-[0_6px_24px_rgba(109,40,217,0.07)]"
+      className="mt-8 p-8 flex flex-col items-center gap-5 text-center bg-gradient-to-br from-purple-50/40 via-white/40 to-purple-50/20 border border-purple-200/60 rounded-3xl shadow-[0_4px_20px_rgba(109,40,217,0.03)] hover:border-purple-300/80 transition-all duration-[400ms] hover:shadow-[0_12px_32px_rgba(109,40,217,0.08)]"
     >
       <div>
         <h3

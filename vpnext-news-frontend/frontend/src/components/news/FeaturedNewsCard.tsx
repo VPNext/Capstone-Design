@@ -40,12 +40,11 @@ export default function FeaturedNewsCard({
     <div className="mb-2 group">
       <Link to={`/news/${news.id}`} className="block">
         <article
-          className={`overflow-hidden bg-white transition-all duration-350 border border-[#E4DDD3] rounded-[24px] shadow-[0_2px_24px_rgba(22,19,17,0.08)] hover:shadow-[0_16px_56px_rgba(22,19,17,0.16)] hover:-translate-y-[3px] ${hoverBorderColor}`}
+          className={`overflow-hidden bg-white transition-all duration-[350ms] border border-[#E4DDD3] rounded-[24px] shadow-[0_2px_24px_rgba(22,19,17,0.08)] hover:shadow-[0_16px_56px_rgba(22,19,17,0.16)] hover:-translate-y-[3px] ${hoverBorderColor}`}
         >
           {/* Hero image with premium fallback placeholder */}
           <div
-            className="relative overflow-hidden bg-[#f5f2ec] flex items-center justify-center"
-            style={{ height: "clamp(220px, 40vw, 420px)" }}
+            className="relative overflow-hidden bg-[#f5f2ec] flex items-center justify-center h-[clamp(220px,40vw,420px)] w-full"
           >
             {displayImage ? (
               <img
@@ -93,8 +92,7 @@ export default function FeaturedNewsCard({
                 {displaySourceName}
               </span>
               <span
-                className="text-[10px] font-medium"
-                style={{ color: "#9C9891" }}
+                className="text-[10px] font-medium text-[#9C9891]"
               >
                 {new Date(news.published_at).toLocaleDateString("ko-KR", {
                   year: "numeric",
@@ -114,7 +112,7 @@ export default function FeaturedNewsCard({
             </div>
 
             <h2
-              className="font-black text-xl sm:text-2xl text-[#161311] leading-tight break-keep group-hover:text-[#C13026] transition-colors"
+              className="font-black text-xl sm:text-2xl text-[#161311] leading-tight break-keep group-hover:text-[#C13026] transition-colors duration-300"
               style={{
                 fontFamily: "'Noto Serif KR', serif",
                 letterSpacing: "-0.01em",

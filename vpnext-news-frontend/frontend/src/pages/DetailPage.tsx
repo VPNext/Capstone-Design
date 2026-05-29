@@ -7,20 +7,7 @@ import AnalysisAside from "../components/detail/AnalysisAside";
 import ComicViewer from "../components/detail/ComicViewer";
 import { decodeHtmlEntities } from "../utils/summary";
 
-// 기사 본문 텍스트 내 개행문(\n)을 단락별 <p> 태그로 묶어서 반환하는 렌더러
-const renderContent = (content: string) =>
-  content
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0)
-    .map((line, i) => (
-      <p
-        key={i}
-        className="text-[#2C2926] text-base leading-[1.95] mb-[1.35em] font-sans font-normal"
-      >
-        {line}
-      </p>
-    ));
+
 
 // 뉴스 상세 정보(기사 본문, AI 신뢰도 분석 리포트, AI 만화)를 보여주는 페이지
 export default function DetailPage() {
@@ -164,7 +151,6 @@ export default function DetailPage() {
           <ArticleContent
             news={news}
             aiSummary={aiSummary}
-            renderContent={renderContent}
           />
 
           {/* AI 기사 분석 트리거 버튼 */}

@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { useSearchParams, useNavigationType } from "react-router-dom";
+import { useEffect, useState, useCallback } from "react";
+import { useSearchParams } from "react-router-dom";
 import { SOURCE_NAME_MAP } from "../constants/source";
 import { fetchNewsList } from "../services/newsService";
 import { storage } from "../utils/storage";
@@ -19,7 +19,7 @@ interface NewsCache {
 export function useNewsList({ isAnalyzed, cacheKey }: UseNewsListProps) {
   const [searchParams] = useSearchParams();
   const keyword = searchParams.get("q") || "";
-  const navType = useNavigationType();
+
 
   // sessionStorage 캐시에서 이전 페이지 정보 복원 (검색어 없을 때만)
   const [page, setPage] = useState<number>(() => {
@@ -42,7 +42,7 @@ export function useNewsList({ isAnalyzed, cacheKey }: UseNewsListProps) {
   const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
 
   // 뉴스 목록 API 호출 함수
-  const fetchNews = async (pageNumber: number, sourceName: string, queryKeyword?: string) => {
+  const fetchNews = useCallback(async (pageNumber: number, sourceName: string, queryKeyword?: string) => {
     try {
       setError(null);
       setLoading(true);
@@ -77,44 +77,27 @@ export function useNewsList({ isAnalyzed, cacheKey }: UseNewsListProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [isAnalyzed, cacheKey]);
 
   // 검색어, 언론사 변경, 페이지 번호 이동 및 첫 로딩 시의 선언적 API 동기화
   useEffect(() => {
-    // 1. 뒤로가기(POP) 발생 시 세션스토리지에 저장된 캐시 정보와 매칭하여 페이지 로드
-    if (!keyword && navType === "POP") {
-      const cached = storage.get<NewsCache | null>(cacheKey, null);
-      if (cached) {
-        const cachedPage = cached.page || 1;
-        const cachedSource = cached.selectedSource || "전체";
-        
-        // 캐시값과 현재 상태가 다를 때만 상태 업데이트를 수행하여 무한 요청 루프 방지
-        if (page !== cachedPage || selectedSource !== cachedSource) {
-          setPage(cachedPage);
-          setSelectedSource(cachedSource);
-          return; // 상태가 변경되면 다음 렌더 틱에서 useEffect가 재호출되므로 즉시 반환
-        }
-      }
-    }
-
-    // 2. API 호출 실행
     fetchNews(page, selectedSource, keyword);
-  }, [keyword, selectedSource, page, navType]);
+  }, [keyword, selectedSource, page, fetchNews]);
 
-  const handlePageChange = (newPage: number) => {
+  const handlePageChange = useCallback((newPage: number) => {
     if (newPage < 1 || newPage > totalPages) return;
     setPage(newPage);
     window.scrollTo({ top: 0, behavior: "smooth" });
-  };
+  }, [totalPages]);
 
-  const handleSourceChange = (src: string) => {
+  const handleSourceChange = useCallback((src: string) => {
     setSelectedSource(src);
     setPage(1); // 언론사 변경 시 1페이지로 초기화
-  };
+  }, []);
 
-  const handleRetry = () => {
+  const handleRetry = useCallback(() => {
     fetchNews(page, selectedSource, keyword);
-  };
+  }, [fetchNews, page, selectedSource, keyword]);
 
   return {
     newsList,

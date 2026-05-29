@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import { SOURCE_NAME_MAP } from "../constants/source";
 import { fetchNewsDetail, analyzeNews, generateComic } from "../services/newsService";
@@ -91,7 +91,7 @@ export function useNewsDetail() {
   }, [id]);
 
   // AI 분석(신뢰도 평가, 단어 요약, 인물 분석) 시작 함수
-  const startAnalysis = async () => {
+  const startAnalysis = useCallback(async () => {
     if (!news?.url || !id) return;
     setStatus("analyzing");
     const sourceKey = news?.source?.toLowerCase();
@@ -117,10 +117,10 @@ export function useNewsDetail() {
       showToast("분석 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.", "error");
       setStatus("pending");
     }
-  };
+  }, [news?.url, news?.source, id, showToast]);
 
   // AI 4컷 만화 생성 요청 및 모달용 가상 로딩 바 진행 제어
-  const handleGenerateComic = async (promptText?: string) => {
+  const handleGenerateComic = useCallback(async (promptText?: string) => {
     if (!id) return;
     setIsComicGenerating(true);
     setProgress(0);
@@ -159,10 +159,10 @@ export function useNewsDetail() {
       clearInterval(interval);
       setIsComicGenerating(false);
     }
-  };
+  }, [id, showToast]);
 
   // 단어 드래그 혹은 수동 검색 시 국어사전/구글로 새 창 이동 검색하는 함수
-  const handleTermSearch = (e: React.FormEvent) => {
+  const handleTermSearch = useCallback((e: React.FormEvent) => {
     e.preventDefault();
     if (!searchTerm.trim()) return;
     let url = "";
@@ -173,7 +173,7 @@ export function useNewsDetail() {
     else if (searchEngine === "google")
       url = `https://www.google.com/search?q=${encodeURIComponent(searchTerm)}`;
     window.open(url, "_blank");
-  };
+  }, [searchTerm, searchEngine]);
 
   return {
     id,
