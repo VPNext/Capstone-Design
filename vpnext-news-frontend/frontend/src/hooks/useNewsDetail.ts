@@ -4,6 +4,7 @@ import { SOURCE_NAME_MAP } from "../constants/source";
 import { fetchNewsDetail, analyzeNews, generateComic } from "../services/newsService";
 import { storage, STORAGE_KEYS } from "../utils/storage";
 import { useToast } from "../context/ToastContext";
+import { useCustomQuery, invalidateCustomQueries } from "./useCustomQuery";
 import type { NewsDetail, AnalysisData } from "../types/news";
 
 type AnalysisStatus = "pending" | "analyzing" | "complete";
@@ -12,11 +13,22 @@ type AnalysisStatus = "pending" | "analyzing" | "complete";
 export function useNewsDetail() {
   const { id } = useParams<{ id: string }>();
   const { showToast } = useToast();
-  const [news, setNews] = useState<NewsDetail | null>(null);
-  const [loading, setLoading] = useState(true);
   
-  // AI 분석 상태 ("pending": 미분석, "analyzing": 분석중, "complete": 완료)
-  const [status, setStatus] = useState<AnalysisStatus>("pending");
+  // 1. useCustomQuery 선언형 상세 캐시 적용 (10분 보존)
+  const { data: news, loading } = useCustomQuery<NewsDetail>({
+    queryKey: ["newsDetail", id],
+    queryFn: () => fetchNewsDetail(id!),
+    staleTime: 1000 * 60 * 10,
+  });
+
+  // 분석 중(API 통신 중) 상태 관리
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+
+  // 실시간 기사 상태 평가
+  const status: AnalysisStatus = useMemo(() => {
+    if (isAnalyzing) return "analyzing";
+    return news?.is_analyzed ? "complete" : "pending";
+  }, [isAnalyzing, news?.is_analyzed]);
 
   // news 객체로부터 실시간 파생 (Computed Value) - useMemo로 불필요한 재연산 방지
   const analysisData: AnalysisData | null = useMemo(() => {
@@ -48,52 +60,29 @@ export function useNewsDetail() {
   const [searchTerm, setSearchTerm] = useState("");
   const [searchEngine, setSearchEngine] = useState("stdict");
 
-  // 페이지 진입 시 기사 상세 데이터 로드 및 기존 분석/만화 데이터 매핑
+  // 페이지 진입 또는 기사 ID 변경 시 로컬 일회성 상태 초기화
   useEffect(() => {
-    const loadNewsDetailData = async () => {
-      if (!id) return;
+    setComicUrls(null);
+    setProgress(0);
+    setLoadingStatus("");
+    setShowPromptInput(false);
+    setCustomPrompt("");
+    setSearchTerm("");
+    setIsAnalyzing(false);
 
-      // 새 기사 로드 시작 시 이전 기사의 정보들을 완벽히 초기화하여 UI 누출 방지
-      setNews(null);
-      setLoading(true);
-      setStatus("pending");
-      setComicUrls(null);
-      setProgress(0);
-      setLoadingStatus("");
-      setShowPromptInput(false);
-      setCustomPrompt("");
-      setSearchTerm("");
-      
+    if (news?.comic_script) {
       try {
-        const data = await fetchNewsDetail(id);
-        setNews(data);
-        
-        // 이미 백엔드에서 분석이 끝난 뉴스라면 상태 완료로 변경
-        if (data.is_analyzed) {
-          setStatus("complete");
-        }
-        // 이미 생성된 만화가 있다면 파싱해서 할당
-        if (data.comic_script) {
-          try {
-            setComicUrls(JSON.parse(data.comic_script));
-          } catch (e) {
-            console.error("만화 URL 파싱 실패");
-          }
-        }
-      } catch (error) {
-        console.error("기사 로드 실패:", error);
-        showToast("기사를 불러오는 데 실패했습니다.", "error");
-      } finally {
-        setLoading(false);
+        setComicUrls(JSON.parse(news.comic_script));
+      } catch (e) {
+        console.error("만화 URL 파싱 실패");
       }
-    };
-    loadNewsDetailData();
-  }, [id]);
+    }
+  }, [id, news?.comic_script]);
 
   // AI 분석(신뢰도 평가, 단어 요약, 인물 분석) 시작 함수
   const startAnalysis = useCallback(async () => {
     if (!news?.url || !id) return;
-    setStatus("analyzing");
+    setIsAnalyzing(true);
     const sourceKey = news?.source?.toLowerCase();
     const currentSourceName =
       SOURCE_NAME_MAP[sourceKey] ||
@@ -103,30 +92,29 @@ export function useNewsDetail() {
       // AI 분석 요청 전송
       await analyzeNews(news.url, currentSourceName);
       
-      // 기사 상세를 백엔드로부터 한 번만 새로 조회하여 상태 업데이트
-      const updatedData = await fetchNewsDetail(id);
-      setNews(updatedData);
-      setStatus("complete");
+      // 기사 상세 및 뉴스 목록 캐시 무효화 -> 리프레시 선언적 촉발
+      invalidateCustomQueries(["newsDetail", id]);
+      invalidateCustomQueries(["newsList"]);
       
-      // 기사 분석이 완료되면 메인/분석뉴스 목록 페이지의 캐시를 무효화하여 최신 상태로 새로고침되도록 유도
+      // 구형 스토리지 세션 캐시 무효화 보완
       storage.remove(STORAGE_KEYS.MAIN_NEWS_CACHE);
       storage.remove(STORAGE_KEYS.ANALYZED_NEWS_CACHE);
       
       showToast("기사 분석이 완료되었습니다!", "success");
     } catch (error) {
       showToast("분석 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.", "error");
-      setStatus("pending");
+    } finally {
+      setIsAnalyzing(false);
     }
   }, [news?.url, news?.source, id, showToast]);
 
-  // AI 4컷 만화 생성 요청 및 모달용 가상 로딩 바 진행 제어
+  // AI 4컷 만화 생성 요청 및 가상 로딩 바 진행 제어
   const handleGenerateComic = useCallback(async (promptText?: string) => {
     if (!id) return;
     setIsComicGenerating(true);
     setProgress(0);
     setLoadingStatus("만화 생성을 준비하고 있습니다...");
     
-    // 만화 생성이 비동기로 이루어지므로 진행률이 99%에 가까워질수록 증가폭이 완만하게 줄어드는 감속(Decay) 로직 적용
     const interval = setInterval(() => {
       setProgress((prev) => {
         const nextVal = prev + (97 - prev) * 0.05;
@@ -149,6 +137,10 @@ export function useNewsDetail() {
       setLoadingStatus("만화 생성 완료!");
       await new Promise((resolve) => setTimeout(resolve, 800));
       setComicUrls(res.comic_urls);
+      
+      // 상세 정보 캐시 갱신 (만화 목록 연동을 위해)
+      invalidateCustomQueries(["newsDetail", id]);
+      
       showToast("4컷 만화가 성공적으로 생성되었습니다!", "success");
     } catch (error) {
       console.error("만화 생성 오류:", error);
