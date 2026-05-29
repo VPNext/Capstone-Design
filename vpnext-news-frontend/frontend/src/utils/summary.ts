@@ -42,9 +42,16 @@ export const extractTextFromSummary = (rawString: string): string => {
   // HTML 디코딩
   const decoded = decodeHtmlEntities(rawString);
   
-  // 1. [언론사](url) 마크다운 링크 패턴 제거 (텍스트명만 남기거나 통째로 제거)
-  // 요약 카드에서는 지분 확보를 위해 마크다운 링크와 그 주변 조사(등의 기사와 함께...)를 통째로 걷어냅니다.
+  // 1. [언론사](url) 마크다운 링크 패턴 제거 및 AI 메타데이터/언론사 접두사/참조 문구 정제
   let cleanText = decoded
+    .replace(
+      /[\s\n]+(red_flags|summary|score|label|is_subjective)\s*:\s*[\s\S]*$/gi,
+      "",
+    )
+    .replace(/^(red_flags|summary|score|label|is_subjective)\s*:\s*/gi, "")
+    .replace(/^\[[^\]]*보도\s*요약\]\s*/gi, "") // "[언론사 보도 요약]" 접두사 완전 정제
+    .replace(/[\s\n]*[(\[]?\s*(?:참조|출처)\s*:\s*[\s\S]*$/gi, "") // "참조:" 또는 "출처:" 관련 정제
+    .replace(/(?:관련\s*|교차\s*분석\s*|비교\s*)?(?:정보|기사|뉴스)는\s*[\s\S]*?참조\s*(?:하여\s*작성되었습니다|하였습니다|했습니다|합니다)\.?/gi, "") // "관련 정보는 ... 참조하였습니다" 정제
     .replace(/,\s*\[[^\]]+\]\([^)]+\)/g, "") // 쉼표 뒤 링크 제거
     .replace(/\[[^\]]+\]\([^)]+\)\s*등의\s+기사와\s+함께\s+분석하여\s+작성되었습니다\.?/g, "")
     .replace(/\[[^\]]+\]\([^)]+\)/g, ""); // 잔여 링크 제거
