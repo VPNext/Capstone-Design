@@ -207,10 +207,52 @@ const ArticleParagraphs = memo(function ArticleParagraphs({
   }, [difficultTerms, keyPersons]);
 
   const paragraphs = useMemo(() => {
-    return content
-      .split("\n")
-      .map((line) => line.trim())
-      .filter((line) => line.length > 0);
+    const rawLines = content.split("\n").map((line) => line.trim());
+    const cleanLines: string[] = [];
+
+    // 이 패턴들을 가진 줄을 만나면 기사가 끝나고 푸터(저작권, 추천 링크, 투표 등)가 시작된 것으로 간주하고 정지합니다.
+    const breakMarkers = [
+      /GoodNews\s*paper/i,
+      /무단\s*전재.*재배포/i,
+      /Copyright/i,
+      /기사는\s*어떠셨나요/i,
+      /많이\s*본\s*기사/i,
+      /오늘의\s*추천기사/i,
+      /추천\s*기사\s*더보기/i,
+      /해당분야별\s*기사/i,
+      /분야별\s*기사/i,
+      /^클릭!$/
+    ];
+
+    for (let i = 0; i < rawLines.length; i++) {
+      const line = rawLines[i];
+      if (!line) continue;
+
+      // 본문 하단 푸터 영역 감지 시 루프 중단 (이후 모든 라인 제외)
+      if (breakMarkers.some((marker) => marker.test(line))) {
+        break;
+      }
+
+      // 짧은 라인(100자 미만) 내에 저작권 기호나 투표 기능, 무단전재가 있으면 푸터로 보고 중단
+      if (line.length < 100) {
+        if (/(?:©|ⓒ)/.test(line)) break;
+        if (/무단\s*전재/i.test(line) && (/재배포/i.test(line) || /금지/i.test(line))) {
+          break;
+        }
+        if (/^(좋아요|화나요|슬퍼요|훈훈해요|응원해요|기사추천|추천)\s*\d*$/i.test(line)) {
+          break;
+        }
+      }
+
+      // 단순 숫자 번호 목록 줄 등은 건너뜀
+      if (/^\d+$/.test(line)) {
+        continue;
+      }
+
+      cleanLines.push(line);
+    }
+
+    return cleanLines;
   }, [content]);
 
   // 단락 텍스트 내 키워드를 찾아 span 태그 객체로 치환하는 헬퍼
