@@ -10,7 +10,7 @@
 | :----------------------- | :---------------------------------------------------------------------------------- | :--------------- |
 | **다채널 뉴스 수집**     | 한겨레·조선·연합뉴스 등 8대 언론사의 실시간 RSS 피드 수집                           | 크롤링 기능      |
 | **네이버 뉴스 API 연동** | 주요 키워드(속보, 정치, 경제, 사회, IT과학 등) 기반 실시간 검색 기사 수집           | 크롤링 기능      |
-| **AI 기사 신뢰도 평가**  | AI가 본문을 판독하여 신뢰도 점수(0~100%), 분석 라벨, 주의 표출 단어 하이라이트 제공 | Gemini AI          |
+| **AI 기사 신뢰도 평가**  | AI가 본문을 판독하여 신뢰도 점수(0~100%), 분석 라벨, 주의 표출 단어 하이라이트 제공 | Gemini AI        |
 | **AI 3줄 핵심 요약**     | 기사 본문의 핵심 요지를 3줄로 축약하여 본문 상단에 시각적 배치                      | 가독성 극대화    |
 | **어려운 용어 해설**     | 전문 용어, 시사 용어를 자동으로 해설하고 국립국어원 표준대사전 검색 링크 연동       | 사전 API 연동    |
 | **핵심 인물 프로필**     | 뉴스 기사 속에 등장하는 주요 인물들의 직책, 역할, 기사 내 관계망 추출               | 프로필 링크 연동 |
@@ -34,8 +34,8 @@ flowchart TD
 
     subgraph "분석 단계 (AI Processing)"
         D -->|사용자 요청 시 본문 전달| E["ai_analyzer.py"]
-        E -->|Groq Llama 3.3| F["신뢰도/주의 단어/요약/인물 추출"]
-        E -->|Gemini API| G["4컷 만화 요약/시나리오 생성"]
+        E -->|Gemini AI| F["신뢰도/주의 단어/요약/인물 추출"]
+        E -->|Gemini AI| G["4컷 만화 요약/시나리오 생성"]
         F -->|국어사전 API 보완| H["dictionary_api.py"]
         G --> H
     end
@@ -60,7 +60,7 @@ news-compass/
 │   ├── models.py                ← Pydantic 데이터 검증 모델 정의
 │   ├── rss_crawler.py           ← RSS 파싱 및 네이버 뉴스 검색 API 호출 처리
 │   ├── article_scraper.py       ← 언론사별 맞춤 본문 HTML 스크래퍼
-│   ├── ai_analyzer.py           ← Groq(기사 판독) 및 Gemini(만화/시나리오 생성) 연동
+│   ├── ai_analyzer.py           ← Gemini(기사 판독) 및 Gemini(만화/시나리오 생성) 연동
 │   ├── dictionary_api.py        ← 국립국어원 오픈 API 연동 클래스
 │   ├── scheduler.py             ← 백그라운드 주기적 크롤러 스케줄러
 │   └── .env                     ← API 자격 증명 환경 변수 파일 (로컬 개별 작성)
@@ -68,12 +68,20 @@ news-compass/
 └── vpnext-news-frontend/        ← React + TypeScript 프론트엔드
     └── frontend/                ← Vite 빌드 루트 디렉터리
         ├── src/
+        │   ├── main.tsx         ← 애플리케이션 진입점 (렌더링 시작)
         │   ├── App.tsx          ← 라우팅 설정 (홈 / AI뉴스 / AI만화)
-        │   ├── api.ts           ← Axios 기반 백엔드 API 인터페이스
-        │   ├── components/      ← 공통 UI 컴포넌트 (Header, 카드, 스켈레톤 등)
-        │   ├── hooks/           ← 상태 제어 커스텀 훅 (useNewsList, useNewsDetail)
-        │   ├── utils/           ← 텍스트 포맷터 및 파서 유틸 (source.tsx 등)
-        │   └── pages/           ← 웹 페이지 컴포넌트 (MainPage, DetailPage 등)
+        │   ├── App.css          ← 전역 레이아웃 및 앱 전용 스타일
+        │   ├── index.css        ← 글로벌 테마 및 Tailwind CSS 스타일 정의
+        │   ├── api.ts           ← Axios 기반 백엔드 API 클라이언트 인스턴스
+        │   ├── assets/          ← 이미지, 아이콘 및 로고 등 정적 자원
+        │   ├── components/      ← 재사용 가능한 공통 UI 및 페이지 세부 컴포넌트
+        │   ├── constants/       ← 정적 매핑 정보 및 언론사 매핑 정보 등 상수 정의
+        │   ├── context/         ← 글로벌 상태 관리를 위한 React Context (예: ToastContext)
+        │   ├── hooks/           ← 비즈니스 로직 캡슐화 상태 제어 커스텀 훅 (useNewsList 등)
+        │   ├── pages/           ← 웹 페이지 컴포넌트 (MainPage, DetailPage 등)
+        │   ├── services/        ← API 호출 통합 비즈니스 레이어 서비스 (newsService 등)
+        │   ├── types/           ← 데이터 구조 검증용 TypeScript 타입 및 인터페이스 선언
+        │   └── utils/           ← 텍스트 포맷터 및 파서 등 순수 헬퍼 유틸 (source.tsx 등)
         └── package.json         ← 의존성 및 빌드 스크립트 정의
 ```
 
