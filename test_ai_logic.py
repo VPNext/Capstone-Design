@@ -3,7 +3,8 @@ import os
 import asyncio
 import logging
 
-# Add the project directory to sys.path
+# AI 분석 로직 테스트를 위해 vpnext-news-backend 디렉토리를 sys.path에 추가
+# 해당 파일은 그저 테스트용으로 작성된겁니다. 실사용 x
 sys.path.append(os.path.abspath("vpnext-news-backend"))
 
 from ai_analyzer import (
