@@ -2,26 +2,38 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Header from "./components/Header";
 import MainPage from "./pages/MainPage";
 import DetailPage from "./pages/DetailPage";
-import CartoonsPage from "./pages/CartoonsPage"; // <-- 1. 방금 만든 페이지를 불러옵니다
+import CartoonsPage from "./pages/CartoonsPage";
+import AnalyzedNewsPage from "./pages/AnalyzedNewsPage";
+import ErrorBoundary from "./components/ErrorBoundary";
+import { ToastProvider } from "./context/ToastContext";
+import ScrollToTop from "./components/ScrollToTop";
+import "./App.css";
 
 function App() {
   return (
-    <BrowserRouter>
-      {/* 바탕색을 밝은 그레이 대신 차분한 Slate 계열로 변경 */}
-      <div className="min-h-screen bg-slate-50 text-slate-900 font-sans pb-20">
-        <Header />
-
-        {/* 중앙 컨테이너 너비를 더 넉넉하게 조정 (max-w-6xl) */}
-        <main className="max-w-6xl mx-auto px-6">
-          <Routes>
-            <Route path="/" element={<MainPage />} />
-            <Route path="/news/:id" element={<DetailPage />} />
-            <Route path="/cartoons" element={<CartoonsPage />} />{" "}
-            {/* <-- 2. /cartoons 주소와 연결합니다 */}
-          </Routes>
-        </main>
-      </div>
-    </BrowserRouter>
+    <ErrorBoundary>
+      <ToastProvider>
+        <BrowserRouter>
+          <ScrollToTop />
+          <div
+            className="min-h-screen pb-24 bg-[#0E0C0A] font-sans"
+            style={{
+              background: "var(--paper)",
+            }}
+          >
+            <Header />
+            <main className="max-w-6xl mx-auto px-4 sm:px-6">
+              <Routes>
+                <Route path="/" element={<MainPage />} />
+                <Route path="/news/:id" element={<DetailPage />} />
+                <Route path="/cartoons" element={<CartoonsPage />} />
+                <Route path="/analyzed" element={<AnalyzedNewsPage />} />
+              </Routes>
+            </main>
+          </div>
+        </BrowserRouter>
+      </ToastProvider>
+    </ErrorBoundary>
   );
 }
 

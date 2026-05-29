@@ -1,438 +1,84 @@
-import { useEffect, useState, useRef, useCallback } from "react";
-import { Link, useSearchParams } from "react-router-dom";
-import api from "../api";
+import { useNewsList } from "../hooks/useNewsList";
+import { STORAGE_KEYS } from "../utils/storage";
+import NewsPageTemplate from "../components/news/NewsPageTemplate";
 
-// [사전 정의] 언론사 ID -> 한글명 매핑 맵
-const SOURCE_NAME_MAP: Record<string, string> = {
-  hani: "한겨레",
-  khan: "경향신문",
-  chosun: "조선일보",
-  joongang: "중앙일보",
-  donga: "동아일보",
-  mbc: "MBC",
-  kbs: "KBS",
-  sbs: "SBS",
-  ytn: "YTN",
-  hankyung: "한국경제",
-  mk: "매일경제",
-  yonhap: "연합뉴스",
-};
-
-// [유틸] RSS 본문 HTML에서 이미지 태그 추출
-const extractImageFromSummary = (rawString: string): string | null => {
-  if (!rawString) return null;
-  const txt = document.createElement("textarea");
-  txt.innerHTML = rawString;
-  const decoded = txt.value;
-  const imgMatch = decoded.match(/<img[^>]+src=["']([^"']+)["']/i);
-  return imgMatch ? imgMatch[1] : null;
-};
-
-// [유틸] RSS 본문 HTML에서 순수 텍스트만 추출
-const extractTextFromSummary = (rawString: string): string => {
-  if (!rawString) return "";
-  const txt = document.createElement("textarea");
-  txt.innerHTML = rawString;
-  const decoded = txt.value;
-  const doc = new DOMParser().parseFromString(decoded, "text/html");
-  return (doc.body.textContent || "").replace(/\s+/g, " ").trim();
-};
-
-interface NewsItem {
-  id: number;
-  title: string;
-  summary: string;
-  ai_summary: string | null;
-  source: string;
-  published_at: string;
-  image_url: string | null;
-  credibility_score: number | null;
-  credibility_label: string | null;
-  is_analyzed: boolean;
-}
-
-// [추가] 검색어 하이라이트 처리를 위한 컴포넌트
-const HighlightText = ({
-  text,
-  keyword,
-}: {
-  text: string;
-  keyword: string | null;
-}) => {
-  if (!keyword || !text) return <>{text}</>;
-
-  // 대소문자 구분 없이 키워드를 기준으로 텍스트 분할
-  const parts = text.split(new RegExp(`(${keyword})`, "gi"));
-
-  return (
-    <>
-      {parts.map((part, index) =>
-        part.toLowerCase() === keyword.toLowerCase() ? (
-          <mark
-            key={index}
-            className="bg-yellow-300 text-slate-900 rounded-sm px-0.5 font-bold"
-          >
-            {part}
-          </mark>
-        ) : (
-          part
-        ),
-      )}
-    </>
-  );
-};
-
-// [UI] 신뢰도 점수 기반 뱃지 컴포넌트
-const CredibilityBadge = ({
-  label,
-  score,
-}: {
-  label: string | null;
-  score: number | null;
-}) => {
-  if (!label) return null;
-  const color =
-    score != null && score >= 0.7
-      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-      : score != null && score >= 0.4
-        ? "bg-amber-50 text-amber-700 border-amber-200"
-        : "bg-red-50 text-red-700 border-red-200";
-  return (
-    <span
-      className={`text-[11px] font-bold px-2 py-0.5 rounded-full border ${color}`}
-    >
-      {label}
-    </span>
-  );
-};
-
-// [상수] 노출할 언론사 목록 (분야별 카테고리 제거됨)
-const SOURCES = ["전체", ...Object.values(SOURCE_NAME_MAP)];
-
+// 오늘의 뉴스 목록을 보여주는 메인 화면 페이지
 export default function MainPage() {
-  // [로직] 초기 상태 캐시 로드 헬퍼 (React의 Lazy Initialization 활용)
-  const loadCache = <T,>(key: string, fallback: T): T => {
-    const cached = sessionStorage.getItem("main_news_cache");
-    if (cached) {
-      try {
-        const parsed = JSON.parse(cached);
-        if (parsed[key] !== undefined) return parsed[key];
-      } catch (e) {
-        console.error("Cache parsing error:", e);
-      }
-    }
-    return fallback;
-  };
+  const {
+    newsList,
+    page,
+    totalPages,
+    totalItems,
+    selectedSource,
+    loading,
+    keyword,
+    handlePageChange,
+    handleSourceChange,
+    error,
+    handleRetry,
+  } = useNewsList({
+    isAnalyzed: false,
+    cacheKey: STORAGE_KEYS.MAIN_NEWS_CACHE,
+    scrollKey: "", // 비워둠 (동작 안 함)
+  });
 
-  // URL 쿼리 파라미터에서 검색어 가져오기
-  const [searchParams] = useSearchParams();
-  const keyword = searchParams.get("q") || "";
-
-  // 상태 관리: 데이터 및 UI (카테고리 상태 제거)
-  const [newsList, setNewsList] = useState<NewsItem[]>(() =>
-    loadCache("newsList", []),
-  );
-  const [page, setPage] = useState<number>(() => loadCache("page", 1));
-  const [hasMore, setHasMore] = useState<boolean>(() =>
-    loadCache("hasMore", true),
-  );
-  const [selectedSource, setSelectedSource] = useState<string>(() =>
-    loadCache("selectedSource", "전체"),
-  );
-
-  const [loading, setLoading] = useState(false);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
-
-  const observer = useRef<IntersectionObserver | null>(null);
-
-  // [로직] 마지막 리스트 아이템 감지용 Callback Ref
-  const lastElementRef = useCallback(
-    (node: HTMLDivElement | null) => {
-      if (loading || isLoadingMore) return;
-      if (observer.current) observer.current.disconnect();
-
-      observer.current = new IntersectionObserver((entries) => {
-        if (entries[0].isIntersecting && hasMore) {
-          setPage((prev) => prev + 1);
-        }
-      });
-      if (node) observer.current.observe(node);
-    },
-    [loading, isLoadingMore, hasMore],
-  );
-
-  // [API] 뉴스 목록 Fetch
-  const fetchNews = async (pageNumber: number, sourceName: string) => {
-    try {
-      if (pageNumber === 1) setLoading(true);
-      else setIsLoadingMore(true);
-
-      // 언론사 한글명을 다시 API용 ID(key)로 변환
-      const sourceId = Object.keys(SOURCE_NAME_MAP).find(
-        (key) => SOURCE_NAME_MAP[key] === sourceName,
-      );
-      const sourceParam = sourceId ? `&source=${sourceId}` : "";
-
-      const response = await api.get(
-        `/api/news?page=${pageNumber}${sourceParam}`,
-      );
-      const newItems = response.data.items || [];
-
-      if (newItems.length === 0) {
-        setHasMore(false);
-      } else {
-        setNewsList((prev) =>
-          pageNumber === 1 ? newItems : [...prev, ...newItems],
-        );
-      }
-    } catch (err) {
-      console.error("데이터 로드 실패:", err);
-    } finally {
-      setLoading(false);
-      setIsLoadingMore(false);
-    }
-  };
-
-  // 1. [Effect] 마운트 및 스크롤 이벤트 (캐시 유무에 따른 최초 로드)
-  useEffect(() => {
-    const cachedData = sessionStorage.getItem("main_news_cache");
-    if (!cachedData) {
-      // 최초 진입 시 로드
-      fetchNews(1, selectedSource);
-    } else {
-      // 캐시가 존재한다면 DOM이 렌더링된 직후 스크롤 위치만 복원
-      setTimeout(() => {
-        const scrollY = sessionStorage.getItem("main_news_scroll");
-        if (scrollY) window.scrollTo(0, parseInt(scrollY, 10));
-      }, 100);
-    }
-
-    // 스크롤 위치 실시간 저장
-    const handleScroll = () => {
-      sessionStorage.setItem("main_news_scroll", window.scrollY.toString());
-    };
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
-
-  // 2. [Effect] 필터가 변경되었을 때 (1페이지부터 재요청)
-  const isFilterFirstRun = useRef(true);
-  useEffect(() => {
-    // 최초 마운트 시에는 실행하지 않음 (초기값으로 인한 트리거 방지)
-    if (isFilterFirstRun.current) {
-      isFilterFirstRun.current = false;
-      return;
-    }
-    setNewsList([]);
-    setPage(1);
-    setHasMore(true);
-    window.scrollTo(0, 0); // 새 필터 적용 시 스크롤 맨 위로
-    fetchNews(1, selectedSource);
-  }, [selectedSource]);
-
-  // 3. [Effect] 페이지 번호 변경 시 추가 데이터 로드 (무한 스크롤)
-  const isPageFirstRun = useRef(true);
-  useEffect(() => {
-    if (isPageFirstRun.current) {
-      isPageFirstRun.current = false;
-      return;
-    }
-    // 1페이지는 이미 처리했으므로 2페이지 이상일 때만 호출
-    if (page > 1) {
-      fetchNews(page, selectedSource);
-    }
-  }, [page]);
-
-  // 4. [Effect] 상태가 변경될 때마다 sessionStorage 업데이트 (뒤로가기 대비용)
-  useEffect(() => {
-    sessionStorage.setItem(
-      "main_news_cache",
-      JSON.stringify({
-        newsList,
-        page,
-        hasMore,
-        selectedSource,
-      }),
-    );
-  }, [newsList, page, hasMore, selectedSource]);
-
-  // [핵심 추가] 프론트엔드 단에서 newsList를 필터링
-  const filteredNews = keyword
-    ? newsList.filter((news) => {
-        const titleMatch = news.title.includes(keyword);
-        const plainSummary = extractTextFromSummary(news.summary);
-        const summaryMatch = (news.ai_summary || plainSummary).includes(
-          keyword,
-        );
-        return titleMatch || summaryMatch;
-      })
-    : newsList;
-
-  return (
-    <div className="flex flex-col gap-8 mt-8">
-      {/* 상단 헤더, 검색창 및 드롭다운 */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-end pb-4 border-b-2 border-slate-900 gap-4 relative">
-        <div>
-          <h1 className="text-3xl font-black text-slate-900 tracking-tight">
-            {keyword ? `"${keyword}" 검색 결과 (로컬)` : "오늘의 뉴스"}
-          </h1>
-          <p className="text-sm text-slate-500 mt-2">
-            {keyword
-              ? "현재 불러온 데이터 내에서만 검색된 결과입니다."
-              : "AI가 분석한 실시간 뉴스 목록입니다."}
-          </p>
-        </div>
-
-        <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
-          {/* [UI] 언론사 드롭다운 메뉴 */}
-          <div className="group relative w-full sm:w-auto z-30">
-            <button className="w-full flex justify-between sm:justify-center items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-lg font-semibold transition-colors">
-              <span>
-                {selectedSource === "전체" ? "언론사 전체" : selectedSource}
-              </span>
-              <svg
-                className="w-4 h-4 group-hover:rotate-180 transition-transform"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  d="M19 9l-7 7-7-7"
-                />
-              </svg>
-            </button>
-            <div className="absolute right-0 top-full pt-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all">
-              <div className="bg-white border border-slate-200 rounded-xl shadow-xl w-32 py-2 flex flex-col max-h-60 overflow-y-auto">
-                {SOURCES.map((src) => (
-                  <button
-                    key={src}
-                    onClick={() => setSelectedSource(src)}
-                    className={`px-4 py-2 text-sm text-left hover:bg-sky-50 ${
-                      selectedSource === src
-                        ? "text-sky-600 font-bold bg-sky-50/50"
-                        : "text-slate-600"
-                    }`}
-                  >
-                    {src}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
+  // 상단 타이틀 배너 영역 정의
+  const banner = (
+    <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6 pb-5 border-b-2 border-[#161311]">
+      <div>
+        <p className="text-[10px] font-black uppercase tracking-[0.25em] mb-1.5 flex items-center gap-2 text-[#C13026]">
+          <span className="inline-block w-4 h-px bg-[#C13026]" />
+          {keyword ? "검색 결과" : "TODAY'S NEWS"}
+        </p>
+        <h1 className="font-black font-serif text-[clamp(26px,4vw,36px)] text-[#161311] leading-[1.15] tracking-[-0.02em]">
+          {keyword ? `"${keyword}"` : "오늘의 뉴스"}
+        </h1>
+        <p className="text-sm mt-2 leading-relaxed text-[#5C5853] max-w-[480px]">
+          {keyword
+            ? "현재 로드된 데이터 내 검색 결과입니다"
+            : "AI 분석 전 최신 뉴스 목록 — 클릭하면 AI 분석을 시작할 수 있습니다"}
+        </p>
       </div>
 
-      {/* 리스트 렌더링 */}
-      <div className="grid gap-6 z-10 relative">
-        {filteredNews.map((news, index) => {
-          const displayImage =
-            news.image_url || extractImageFromSummary(news.summary);
-          const displaySummary =
-            news.ai_summary || extractTextFromSummary(news.summary);
-
-          const isLast = filteredNews.length === index + 1;
-
-          return (
-            <div
-              key={news.id}
-              ref={isLast ? lastElementRef : null}
-              className="group bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-xl hover:border-sky-200 transition-all duration-300"
-            >
-              <Link
-                to={`/news/${news.id}`}
-                className="flex flex-col-reverse md:flex-row gap-6 md:gap-8"
-              >
-                <div className="flex-1 flex flex-col justify-between">
-                  <div>
-                    <div className="flex items-center gap-3 mb-3 flex-wrap">
-                      <span className="bg-sky-50 text-sky-700 border border-sky-100 text-[11px] font-bold px-2.5 py-1 rounded-md">
-                        {SOURCE_NAME_MAP[news.source?.toLowerCase()] ||
-                          news.source?.toUpperCase() ||
-                          "알 수 없음"}
-                      </span>
-                      <span className="text-xs text-slate-400 font-medium">
-                        {news.published_at?.split("T")[0]}
-                      </span>
-                      {news.is_analyzed && (
-                        <CredibilityBadge
-                          label={news.credibility_label}
-                          score={news.credibility_score}
-                        />
-                      )}
-                    </div>
-
-                    <h2 className="text-xl md:text-2xl font-bold text-slate-900 group-hover:text-sky-600 mb-3 leading-snug transition-colors">
-                      <HighlightText text={news.title} keyword={keyword} />
-                    </h2>
-
-                    <p
-                      className={`text-[15px] mb-2 line-clamp-3 leading-relaxed ${news.ai_summary ? "text-slate-700" : "text-slate-500"}`}
-                    >
-                      {news.ai_summary && (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-sky-600 bg-sky-50 border border-sky-100 px-1.5 py-0.5 rounded mr-2 align-middle">
-                          ✨ AI 요약
-                        </span>
-                      )}
-                      <HighlightText
-                        text={displaySummary || "뉴스 요약 정보가 없습니다."}
-                        keyword={keyword}
-                      />
-                    </p>
-                  </div>
-                </div>
-
-                {displayImage && (
-                  <div className="w-full md:w-56 h-40 shrink-0 overflow-hidden rounded-xl border border-slate-100 relative">
-                    <img
-                      src={displayImage}
-                      alt="뉴스 썸네일"
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                      onError={(e) => {
-                        (
-                          e.target as HTMLImageElement
-                        ).parentElement!.style.display = "none";
-                      }}
-                    />
-                  </div>
-                )}
-              </Link>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* [추가] 프론트엔드 필터링의 한계 극복을 위한 수동 데이터 더 불러오기 UI */}
-      {keyword &&
-        filteredNews.length === 0 &&
-        newsList.length > 0 &&
-        hasMore && (
-          <div className="py-12 flex flex-col items-center gap-4 bg-slate-50 rounded-2xl border border-slate-200">
-            <p className="text-slate-600 font-medium">
-              현재 로드된 뉴스 중에는 검색 결과가 없습니다.
-            </p>
-            <button
-              onClick={() => setPage((p) => p + 1)}
-              className="px-6 py-2 bg-slate-800 text-white rounded-full text-sm font-bold hover:bg-slate-700 transition-colors"
-            >
-              과거 뉴스 더 불러와서 찾기
-            </button>
+      {/* 오른쪽 오늘 날짜 및 기사 수 표시 */}
+      <div className="hidden md:flex flex-col items-end gap-1 shrink-0">
+        <p className="text-xs font-medium text-[#9C9891]">
+          {new Date().toLocaleDateString("ko-KR", {
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+          })}
+        </p>
+        {totalItems > 0 && (
+          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-[#161311] text-white">
+            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+              <path d="M2 3a1 1 0 000 2h11a1 1 0 100-2H2zm0 4a1 1 0 000 2h7a1 1 0 100-2H2zm0 4a1 1 0 000 2h4a1 1 0 100-2H2z" />
+            </svg>
+            총 {totalItems}개 기사
           </div>
         )}
-
-      {/* 로딩 인디케이터 */}
-      {(loading || isLoadingMore) && (
-        <div className="py-10 text-center text-slate-400 font-medium animate-pulse">
-          데이터를 불러오는 중...
-        </div>
-      )}
-      {!hasMore && newsList.length > 0 && (
-        <div className="py-10 text-center text-slate-400 text-sm">
-          모든 뉴스를 불러왔습니다.
-        </div>
-      )}
+      </div>
     </div>
+  );
+
+  return (
+    <NewsPageTemplate
+      newsList={newsList}
+      selectedSource={selectedSource}
+      loading={loading}
+      page={page}
+      totalPages={totalPages}
+      keyword={keyword}
+      onChangePage={handlePageChange}
+      handleSourceChange={handleSourceChange}
+      isAnalyzedPage={false}
+      activeBgColor="#161311"
+      banner={banner}
+      btnBg="#161311"
+      btnHoverBg="#C13026"
+      btnBoxShadow="0 2px 12px rgba(22,19,17,0.3)"
+      error={error}
+      handleRetry={handleRetry}
+    />
   );
 }

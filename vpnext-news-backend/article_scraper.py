@@ -6,6 +6,7 @@
 """
 
 import time
+import random
 import logging
 from typing import Dict, Optional
 
@@ -17,28 +18,26 @@ logger = logging.getLogger(__name__)
 
 HEADERS = {
     "User-Agent":      USER_AGENT,
-    "Accept-Language": "ko-KR,ko;q=0.9,en;q=0.8",
-    "Accept":          "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7",
+    "Accept":          "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+    "Connection":      "keep-alive",
+    "Upgrade-Insecure-Requests": "1",
+    "Cache-Control":   "max-age=0",
 }
 
 # 사이트별 본문 / 제목 CSS 선택자
 SELECTORS: Dict[str, Dict[str, str]] = {
-    "naver.com":     {"content": "#dic_area, .go_trans._article_content",       "title": ".media_end_head_headline"},
+    "naver.com":     {"content": "#dic_area, .go_trans._article_content, #articleBodyContents, #newsEndContents", "title": ".media_end_head_headline, h2.media_end_head_headline, #articleTitle, h2.media_end_head_title"},
     "daum.net":      {"content": ".article_view, #harmonyContainer",             "title": ".tit_view"},
     "yonhap":        {"content": ".story-news article",                          "title": "h1.tit"},
-    "ytn.co.kr":     {"content": ".article-txt, #CmAdContent",                  "title": "h1.tit"},
-    "kbs.co.kr":     {"content": "#cont_newstext, .detail-body",                 "title": ".tit-w"},
-    "imbc.com":      {"content": ".news_txt, #content_body",                     "title": "h2.title"},
     "sbs.co.kr":     {"content": ".article_cont_wrap, #news_body_id",            "title": "h1.sbs_title"},
-    "jtbc.co.kr":    {"content": ".article_content, .news-text",                 "title": ".article-title"},
     "hani.co.kr":    {"content": ".article-text, .text",                         "title": "h4.title"},
-    "khan.co.kr":    {"content": ".art_body",                                    "title": "h1.headline"},
-    "chosun.com":    {"content": ".article-body",                                "title": "h1"},
-    "joins.com":     {"content": "#article_body",                                "title": "h1.headline"},
-    "joongang.co.kr":{"content": "#article_body",                                "title": "h1.headline"},
-    "donga.com":     {"content": ".article_txt",                                 "title": "h1.title"},
+    "khan.co.kr":    {"content": ".art_body",                                    "title": "article header h1"},
+    "donga.com":     {"content": ".news_view, .article_txt",                    "title": "h1.title, h1"},
     "mk.co.kr":      {"content": "#article_body, .art_txt",                      "title": "h1.top_title"},
     "hankyung.com":  {"content": "#articletxt, .article-body",                   "title": "h1.headline"},
+    "chosun.com":    {"content": ".article-body, section.article-body",          "title": "h1, #article-title, h1.headline"},
+    "kmib.co.kr":    {"content": "#articleBody, .tx, .article_content",          "title": ".article_header h1, h1"},
 }
 
 
@@ -46,13 +45,13 @@ def _get_selectors(url: str) -> Dict[str, str]:
     for domain, sel in SELECTORS.items():   
         if domain in url:
             return sel
-    return {"content": "article, .article, .content, main", "title": "h1"}
+    return {"content": "article, .article, .content, main, .news_view", "title": "h1, .title, .headline"}
 
 
 def _generic_content(soup: BeautifulSoup) -> str:
     for tag in soup.find_all(["script", "style", "nav", "header", "footer", "aside", "iframe"]):
         tag.decompose()
-    candidates = soup.find_all(["article", "main", "div"],
+    candidates = soup.find_all(["article", "main", "div", "section"],
                                class_=lambda c: c and any(
                                    kw in str(c).lower()
                                    for kw in ["article", "content", "body", "text", "news"]
@@ -62,9 +61,17 @@ def _generic_content(soup: BeautifulSoup) -> str:
         paras = [p.get_text(strip=True) for p in best.find_all("p") if len(p.get_text(strip=True)) > 20]
         if paras:
             return "\n".join(paras)
-    return "\n".join(
-        p.get_text(strip=True) for p in soup.find_all("p") if len(p.get_text(strip=True)) > 30
-    )
+        # p 태그가 없는 경우 텍스트 직접 추출
+        text = best.get_text(separator="\n", strip=True)
+        if len(text) > 100:
+            return text
+
+    # 최종 fallback: 너무 짧지 않은 모든 p 태그 또는 전체 텍스트
+    all_paras = [p.get_text(strip=True) for p in soup.find_all("p") if len(p.get_text(strip=True)) > 30]
+    if all_paras:
+        return "\n".join(all_paras)
+    
+    return soup.get_text(separator="\n", strip=True)
 
 
 def scrape(url: str) -> Optional[Dict]:
@@ -73,7 +80,8 @@ def scrape(url: str) -> Optional[Dict]:
         try:
             resp = requests.get(url, headers=HEADERS, timeout=REQUEST_TIMEOUT, allow_redirects=True)
             resp.raise_for_status()
-            resp.encoding = resp.apparent_encoding
+            if resp.encoding is None or resp.encoding.lower() == 'iso-8859-1':
+                resp.encoding = resp.apparent_encoding
             soup = BeautifulSoup(resp.text, "lxml")
             sel  = _get_selectors(url)
 
@@ -88,14 +96,74 @@ def scrape(url: str) -> Optional[Dict]:
 
             # ── 본문 ────────────────────────
             content = ""
-            c_elem = soup.select_one(sel["content"])
-            if c_elem:
-                for bad in c_elem.find_all(["script", "style", "figure"]):
-                    bad.decompose()
-                paras = [p.get_text(strip=True) for p in c_elem.find_all("p") if len(p.get_text(strip=True)) > 10]
-                content = "\n".join(paras) if paras else c_elem.get_text(separator="\n", strip=True)
+
+            # 조선일보 Fusion Engine 특수 파싱
+            if "chosun.com" in url:
+                fusion_script = None
+                for s in soup.find_all("script"):
+                    if s.string and "Fusion.globalContent" in s.string:
+                        fusion_script = s.string
+                        break
+                if fusion_script:
+                    import re
+                    import json
+                    match = re.search(r'Fusion\.globalContent\s*=\s*(\{.*)', fusion_script, re.DOTALL)
+                    if match:
+                        text = match.group(1)
+                        brace_count = 0
+                        json_str = ""
+                        for char in text:
+                            if char == '{':
+                                brace_count += 1
+                            elif char == '}':
+                                brace_count -= 1
+                            json_str += char
+                            if brace_count == 0:
+                                break
+                        try:
+                            data = json.loads(json_str)
+                            paras = []
+                            for ce in data.get("content_elements", []):
+                                if ce.get("type") == "text":
+                                    para_text = ce.get("content", "").strip()
+                                    if para_text:
+                                        import html
+                                        para_text = html.unescape(para_text)
+                                        if "<" in para_text:
+                                            clean_para = BeautifulSoup(para_text, "lxml").get_text(strip=True)
+                                        else:
+                                            clean_para = para_text
+                                        if clean_para:
+                                            paras.append(clean_para)
+                            if paras:
+                                content = "\n".join(paras)
+                            
+                            if not title and "headlines" in data:
+                                title = data["headlines"].get("basic", "")
+                        except Exception as e:
+                            logger.error(f"조선일보 Fusion JSON 파싱 실패 ({url}): {e}")
+
+            if not content:
+                c_elem = soup.select_one(sel["content"])
+                if c_elem:
+                    for bad in c_elem.find_all(["script", "style", "figure"]):
+                        bad.decompose()
+                    
+                    # br 태그를 개행 문자로 교체하여 p 태그가 없는 경우 줄바꿈 유지
+                    for br in c_elem.find_all("br"):
+                        br.replace_with("\n")
+    
+                    paras = [p.get_text(strip=True) for p in c_elem.find_all("p") if len(p.get_text(strip=True)) > 10]
+                    content = "\n".join(paras) if paras else c_elem.get_text(separator="\n", strip=True)
+
             if not content:
                 content = _generic_content(soup)
+            
+            # 본문이 유실되었을 경우 og:description을 최종 백업 필드로 사용
+            if not content:
+                og_desc = soup.find("meta", property="og:description")
+                if og_desc and og_desc.get("content"):
+                    content = og_desc["content"]
 
             # ── OG 이미지 ───────────────────
             og_img = soup.find("meta", property="og:image")
@@ -106,7 +174,8 @@ def scrape(url: str) -> Optional[Dict]:
         except requests.RequestException as e:
             logger.warning(f"스크래핑 시도 {attempt+1}/{MAX_RETRIES} ({url}): {e}")
             if attempt < MAX_RETRIES - 1:
-                time.sleep(REQUEST_DELAY * (attempt + 1))
+                jitter = random.uniform(0.5, 1.5)
+                time.sleep((REQUEST_DELAY * (attempt + 1)) + jitter)
         except Exception as e:
             logger.error(f"스크래핑 오류 ({url}): {e}")
             break
@@ -121,19 +190,14 @@ def get_source_from_url(url: str) -> str:
         "naver.com": "네이버 뉴스",
         "daum.net": "다음 뉴스",
         "yonhapnewstv.co.kr": "연합뉴스TV",
-        "ytn.co.kr": "YTN",
-        "kbs.co.kr": "KBS",
-        "imbc.com": "MBC",
         "sbs.co.kr": "SBS",
-        "jtbc.co.kr": "JTBC",
         "hani.co.kr": "한겨레",
         "khan.co.kr": "경향신문",
-        "chosun.com": "조선일보",
-        "joongang.co.kr": "중앙일보",
-        "joins.com": "중앙일보",
         "donga.com": "동아일보",
         "mk.co.kr": "매일경제",
         "hankyung.com": "한국경제",
+        "chosun.com": "조선일보",
+        "kmib.co.kr": "국민일보",
     }
     
     try:
