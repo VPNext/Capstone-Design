@@ -248,7 +248,14 @@ const ArticleParagraphs = memo(function ArticleParagraphs({
 
       // 짧은 라인(100자 미만) 내에 저작권 기호나 투표 기능, 무단전재가 있으면 푸터로 보고 중단
       if (line.length < 100) {
-        if (/(?:©|ⓒ)/.test(line)) break;
+        if (/(?:©|ⓒ)/.test(line)) {
+          // 사진 출처나 이미지 저작권 표시인 경우 건너뜀 (본문 절단 방지)
+          if (/사진|제공|캡처|출처|DB/i.test(line) && !(/무단|재배포|금지|reserved/i.test(line))) {
+            continue;
+          }
+          // 그 외의 전체 저작권 선언인 경우 본문 종료로 간주하여 중단
+          break;
+        }
         if (/무단\s*전재/i.test(line) && (/재배포/i.test(line) || /금지/i.test(line))) {
           break;
         }
