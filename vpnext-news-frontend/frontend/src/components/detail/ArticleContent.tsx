@@ -225,7 +225,20 @@ const ArticleParagraphs = memo(function ArticleParagraphs({
     ];
 
     for (let i = 0; i < rawLines.length; i++) {
-      const line = rawLines[i];
+      const rawLine = rawLines[i];
+      if (!rawLine) continue;
+
+      // HTML 태그 및 특수 엔티티 정제
+      const line = rawLine
+        .replace(/<[^>]*>/g, "")
+        .replace(/&nbsp;/g, " ")
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">")
+        .replace(/&amp;/g, "&")
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
+        .trim();
+
       if (!line) continue;
 
       // 본문 하단 푸터 영역 감지 시 루프 중단 (이후 모든 라인 제외)
