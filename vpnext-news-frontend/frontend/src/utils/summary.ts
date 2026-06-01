@@ -67,6 +67,9 @@ export const extractTextFromSummary = (rawString: string): string => {
   cleanText = cleanText
     .replace(/,\s*등의\s+기사와\s+함께\s+분석하여\s+작성되었습니다\.?/g, "")
     .replace(/등의\s+기사와\s+함께\s+분석하여\s+작성되었습니다\.?/g, "");
+
+  // 3. 쉼표, 슬래시, 또는 공백으로 분리된 동일한 언론사명/단어가 연속으로 중복되어 표시되는 오류 방지 (예: SBS, SBS -> SBS)
+  cleanText = cleanText.replace(/([가-힣A-Za-z0-9]+)(?:(?:\s*[,/]\s*|\s+)\1)+/g, "$1");
   
   return cleanText;
 };

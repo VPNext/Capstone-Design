@@ -190,7 +190,7 @@ export const parseAndRenderSummary = (
       continue;
     }
 
-    // "🔗 참조 기사", "참조 기사" 등으로 시작하거나 일반 참조 표시로 시작하면 그 줄과 그 이후 모든 줄은 참조 기사 목록으로 간주하여 제거
+    // "🔗 참조 기사", "참조 기사" 등으로 시작하거나 일반 참조 표시로 시작하면 그 줄 and 그 이후 모든 줄은 참조 기사 목록으로 간주하여 제거
     if (
       /^(?:🔗\s*)?(?:참조\s*기사|참조\s*뉴스|참조\s*기사\s*하이퍼링크|참조\s*:|출처\s*:)/i.test(
         line,
@@ -209,6 +209,9 @@ export const parseAndRenderSummary = (
 
   // 6. 텍스트 내에 들어있는 영어 언론사명을 한글 및 대문자로 치환하여 가독성 증대
   cleanText = replaceEnglishSourceNames(cleanText);
+
+  // 6.5. 쉼표, 슬래시, 또는 공백으로 분리된 동일한 언론사명/단어가 연속으로 중복되어 표시되는 오류 방지 (예: SBS, SBS -> SBS / SBS SBS -> SBS)
+  cleanText = cleanText.replace(/([가-힣A-Za-z0-9]+)(?:(?:\s*[,/]\s*|\s+)\1)+/g, "$1");
 
   // 연속된 공백 라인 정제 및 양 끝 공백 정리 후 마침표 처리
   cleanText = cleanText
