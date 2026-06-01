@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import type { NewsDetail } from "../../types/news";
 import { parseAndRenderSummary } from "../../utils/source";
-import { extractImageFromSummary } from "../../utils/summary";
+import { extractImageFromSummary, optimizeImageUrl } from "../../utils/summary";
 import TooltipPortal from "./TooltipPortal";
 import ArticleParagraphs from "./ArticleParagraphs";
 
@@ -14,7 +14,7 @@ export default function ArticleContent({
   news,
   aiSummary,
 }: ArticleContentProps) {
-  const finalImage = news.image_url || extractImageFromSummary(news.summary);
+  const finalImage = optimizeImageUrl(news.image_url) || extractImageFromSummary(news.summary);
 
   const [tooltipData, setTooltipData] = useState<{
     rect: DOMRect;

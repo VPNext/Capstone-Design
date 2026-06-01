@@ -31,11 +31,21 @@ export const decodeHtmlEntities = (text: string | null): string => {
   return decoded.replace(/\[([^\]]+)\]\([^)]+\)/g, "$1");
 };
 
+// 이미지 URL의 해상도를 최적화하여 고화질 이미지를 가져오는 헬퍼 함수
+export const optimizeImageUrl = (url: string | null): string | null => {
+  if (!url) return null;
+  // 한겨레 저해상도 썸네일(300x180)을 고해상도(960x576) 규격으로 실시간 업스케일 치환
+  if (url.includes("flexible.img.hani.co.kr")) {
+    return url.replace(/\/normal\/\d+\/\d+\//i, "/normal/960/576/");
+  }
+  return url;
+};
+
 export const extractImageFromSummary = (rawString: string): string | null => {
   if (!rawString) return null;
   const decoded = decodeHtmlEntities(rawString);
   const imgMatch = decoded.match(/<img[^>]+src=["']([^"']+)["']/i);
-  return imgMatch ? imgMatch[1] : null;
+  return optimizeImageUrl(imgMatch ? imgMatch[1] : null);
 };
 
 export const extractTextFromSummary = (rawString: string): string => {

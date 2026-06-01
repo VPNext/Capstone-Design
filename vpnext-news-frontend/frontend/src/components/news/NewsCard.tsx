@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { SOURCE_NAME_MAP, SOURCE_BADGE_CLASS } from "../../constants/source";
-import { extractImageFromSummary, extractTextFromSummary, decodeHtmlEntities } from "../../utils/summary";
+import { extractImageFromSummary, extractTextFromSummary, decodeHtmlEntities, optimizeImageUrl } from "../../utils/summary";
 import { getScoreColor } from "../../utils/score";
 import HighlightText from "../HighlightText";
 import CredibilityBadge from "../CredibilityBadge";
@@ -20,7 +20,7 @@ export default function NewsCard({
   isAnalyzedPage = false,
   innerRef,
 }: NewsCardProps) {
-  const displayImage = news.image_url || extractImageFromSummary(news.summary);
+  const displayImage = optimizeImageUrl(news.image_url) || extractImageFromSummary(news.summary);
   const rawSummary = extractTextFromSummary(news.ai_summary || news.summary) || `${decodeHtmlEntities(news.title)} 기사에 대한 상세 보도 내용입니다. 본문 클릭 후 AI 분석 실행 버튼을 누르면 기사의 핵심 요약, 어려운 단어 설명, 인물 관계도와 요약 만화가 생성됩니다.`;
   const displaySummary = rawSummary.length > 200 ? rawSummary.slice(0, 200) + "..." : rawSummary;
   const sourceKey = news.source?.toLowerCase();
