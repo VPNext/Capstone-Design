@@ -21,7 +21,7 @@ export default function NewsCard({
   innerRef,
 }: NewsCardProps) {
   const displayImage = news.image_url || extractImageFromSummary(news.summary);
-  const rawSummary = extractTextFromSummary(news.ai_summary || news.summary);
+  const rawSummary = extractTextFromSummary(news.ai_summary || news.summary) || `${decodeHtmlEntities(news.title)} 기사에 대한 상세 보도 내용입니다. 본문 클릭 후 AI 분석 실행 버튼을 누르면 기사의 핵심 요약, 어려운 단어 설명, 인물 관계도와 요약 만화가 생성됩니다.`;
   const displaySummary = rawSummary.length > 200 ? rawSummary.slice(0, 200) + "..." : rawSummary;
   const sourceKey = news.source?.toLowerCase();
   const sourceName =

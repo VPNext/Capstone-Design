@@ -17,7 +17,7 @@ export default function FeaturedNewsCard({
   isAnalyzedPage = false,
 }: FeaturedNewsCardProps) {
   const displayImage = news.image_url || extractImageFromSummary(news.summary);
-  const rawSummary = extractTextFromSummary(news.ai_summary || news.summary);
+  const rawSummary = extractTextFromSummary(news.ai_summary || news.summary) || `${decodeHtmlEntities(news.title)} 기사의 보도 본문입니다. 본 서비스는 AI가 분석하기 전 뉴스 목록을 제공하며, 기사를 클릭하여 AI 분석을 실행하면 가독성이 뛰어난 핵심 요약 리포트와 4컷 만화 요약본을 감상하실 수 있습니다.`;
   const displaySummary = rawSummary.length > 300 ? rawSummary.slice(0, 300) + "..." : rawSummary;
   const sourceKey = news.source?.toLowerCase();
   const sourceName =
