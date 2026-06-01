@@ -1,6 +1,8 @@
 import { Link } from "react-router-dom";
 import { SOURCE_NAME_MAP, SOURCE_BADGE_CLASS } from "../../constants/source";
 import { extractImageFromSummary, extractTextFromSummary, decodeHtmlEntities, optimizeImageUrl } from "../../utils/summary";
+import { prefetchQuery } from "../../hooks/useCustomQuery";
+import { fetchNewsDetail } from "../../services/newsService";
 import HighlightText from "../HighlightText";
 import CredibilityBadge from "../CredibilityBadge";
 import type { NewsItem } from "../../types/news";
@@ -36,8 +38,21 @@ export default function FeaturedNewsCard({
     ? "hover:border-[rgba(26,85,168,0.25)]"
     : "hover:border-[rgba(193,48,38,0.2)]";
 
+  // 상세 데이터 프리패칭 함수
+  const handlePrefetch = () => {
+    prefetchQuery(
+      ["newsDetail", String(news.id)],
+      () => fetchNewsDetail(news.id),
+      1000 * 60 * 10 // 10분 유효기간 (staleTime)
+    );
+  };
+
   return (
-    <div className="mb-2 group">
+    <div
+      className="mb-2 group"
+      onMouseEnter={handlePrefetch}
+      onTouchStart={handlePrefetch}
+    >
       <Link to={`/news/${news.id}`} className="block">
         <article
           className={`overflow-hidden bg-white transition-all duration-[350ms] border border-[#E4DDD3] rounded-[24px] shadow-[0_2px_24px_rgba(22,19,17,0.08)] hover:shadow-[0_16px_56px_rgba(22,19,17,0.16)] hover:-translate-y-[3px] ${hoverBorderColor}`}

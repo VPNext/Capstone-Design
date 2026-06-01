@@ -1,5 +1,6 @@
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { useParams } from "react-router-dom";
+import axios from "axios";
 import { SOURCE_NAME_MAP } from "../constants/source";
 import { fetchNewsDetail, analyzeNews, generateComic } from "../services/newsService";
 import { storage, STORAGE_KEYS } from "../utils/storage";
@@ -60,7 +61,11 @@ export function useNewsDetail() {
   const [searchTerm, setSearchTerm] = useState("");
   const [searchEngine, setSearchEngine] = useState("stdict");
 
-  // 페이지 진입 또는 기사 ID 변경 시 로컬 일회성 상태 초기화
+  // API 요청 취소를 위한 AbortController 레퍼런스 관리
+  const analysisAbortRef = useRef<AbortController | null>(null);
+  const comicAbortRef = useRef<AbortController | null>(null);
+
+  // 페이지 진입 또는 기사 ID 변경 시 로컬 일회성 상태 초기화 및 실행 중인 비동기 작업 취소
   useEffect(() => {
     setComicUrls(null);
     setProgress(0);
@@ -77,11 +82,29 @@ export function useNewsDetail() {
         console.error("만화 URL 파싱 실패");
       }
     }
+
+    // 언마운트 또는 기사 변경 시 실행 중이던 API 호출을 강제 중단(Cancel)하여 리소스 절약
+    return () => {
+      if (analysisAbortRef.current) {
+        analysisAbortRef.current.abort();
+      }
+      if (comicAbortRef.current) {
+        comicAbortRef.current.abort();
+      }
+    };
   }, [id, news?.comic_script]);
 
   // AI 분석(신뢰도 평가, 단어 요약, 인물 분석) 시작 함수
   const startAnalysis = useCallback(async () => {
     if (!news?.url || !id) return;
+
+    // 중복 호출 방지를 위해 이전 실행 중인 분석이 있다면 취소 처리
+    if (analysisAbortRef.current) {
+      analysisAbortRef.current.abort();
+    }
+    const controller = new AbortController();
+    analysisAbortRef.current = controller;
+
     setIsAnalyzing(true);
     const sourceKey = news?.source?.toLowerCase();
     const currentSourceName =
@@ -89,8 +112,8 @@ export function useNewsDetail() {
       news?.source?.toUpperCase() ||
       "미상(외부 뉴스)";
     try {
-      // AI 분석 요청 전송
-      await analyzeNews(news.url, currentSourceName);
+      // AI 분석 요청 전송 (AbortSignal 전달)
+      await analyzeNews(news.url, currentSourceName, { signal: controller.signal });
       
       // 기사 상세 및 뉴스 목록 캐시 무효화 -> 리프레시 선언적 촉발
       invalidateCustomQueries(["newsDetail", id]);
@@ -101,9 +124,16 @@ export function useNewsDetail() {
       storage.remove(STORAGE_KEYS.ANALYZED_NEWS_CACHE);
       
       showToast("기사 분석이 완료되었습니다!", "success");
-    } catch (error) {
-      showToast("분석 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.", "error");
+    } catch (error: any) {
+      if (axios.isCancel(error) || error?.name === "CanceledError" || error?.name === "AbortError") {
+        console.log("AI 분석 요청이 프론트엔드 단에서 성공적으로 취소되었습니다.");
+      } else {
+        showToast("분석 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.", "error");
+      }
     } finally {
+      if (analysisAbortRef.current === controller) {
+        analysisAbortRef.current = null;
+      }
       setIsAnalyzing(false);
     }
   }, [news?.url, news?.source, id, showToast]);
@@ -111,6 +141,14 @@ export function useNewsDetail() {
   // AI 4컷 만화 생성 요청 및 가상 로딩 바 진행 제어
   const handleGenerateComic = useCallback(async (promptText?: string) => {
     if (!id) return;
+
+    // 중복 생성 요청 방지를 위해 기존 만화 생성 요청 취소
+    if (comicAbortRef.current) {
+      comicAbortRef.current.abort();
+    }
+    const controller = new AbortController();
+    comicAbortRef.current = controller;
+
     setIsComicGenerating(true);
     setProgress(0);
     setLoadingStatus("만화 생성을 준비하고 있습니다...");
@@ -132,7 +170,7 @@ export function useNewsDetail() {
     }, 500);
     
     try {
-      const res = await generateComic(id, promptText);
+      const res = await generateComic(id, promptText, { signal: controller.signal });
       setProgress(100);
       setLoadingStatus("만화 생성 완료!");
       await new Promise((resolve) => setTimeout(resolve, 800));
@@ -142,13 +180,20 @@ export function useNewsDetail() {
       invalidateCustomQueries(["newsDetail", id]);
       
       showToast("4컷 만화가 성공적으로 생성되었습니다!", "success");
-    } catch (error) {
-      console.error("만화 생성 오류:", error);
-      showToast("만화 생성 중 오류가 발생했습니다. 다시 시도해 주세요.", "error");
-      setLoadingStatus("오류가 발생했습니다. 잠시 후 다시 시도해 주세요.");
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+    } catch (error: any) {
+      if (axios.isCancel(error) || error?.name === "CanceledError" || error?.name === "AbortError") {
+        console.log("만화 생성 요청이 취소되었습니다.");
+      } else {
+        console.error("만화 생성 오류:", error);
+        showToast("만화 생성 중 오류가 발생했습니다. 다시 시도해 주세요.", "error");
+        setLoadingStatus("오류가 발생했습니다. 잠시 후 다시 시도해 주세요.");
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+      }
     } finally {
       clearInterval(interval);
+      if (comicAbortRef.current === controller) {
+        comicAbortRef.current = null;
+      }
       setIsComicGenerating(false);
     }
   }, [id, showToast]);

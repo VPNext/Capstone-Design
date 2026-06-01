@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { SOURCE_NAME_MAP } from "../constants/source";
 import { fetchNewsList } from "../services/newsService";
 import { storage } from "../utils/storage";
-import { useCustomQuery } from "./useCustomQuery";
+import { useCustomQuery, prefetchQuery } from "./useCustomQuery";
 import type { NewsItem } from "../types/news";
 
 interface UseNewsListProps {
@@ -68,6 +68,18 @@ export function useNewsList({ isAnalyzed, cacheKey }: UseNewsListProps) {
       });
     }
   }, [page, selectedSource, keyword, cacheKey]);
+
+  // 다음 페이지 목록 데이터를 미리 캐시 (Pagination Prefetching)
+  useEffect(() => {
+    if (page < totalPages) {
+      const nextPage = page + 1;
+      prefetchQuery(
+        ["newsList", isAnalyzed, nextPage, selectedSource, keyword],
+        () => fetchNewsList(nextPage, sourceParam, isAnalyzed, keyword),
+        1000 * 60 * 2 // 2분 유효 캐시 시간
+      );
+    }
+  }, [page, totalPages, isAnalyzed, selectedSource, keyword, sourceParam]);
 
   const handlePageChange = useCallback((newPage: number) => {
     if (newPage < 1 || newPage > totalPages) return;

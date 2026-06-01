@@ -26,6 +26,45 @@ export const invalidateCustomQueries = (keyPrefix: readonly unknown[]) => {
   }
 };
 
+// 백그라운드 선제적 캐싱(프리패치) 함수
+export function prefetchQuery<T>(
+  queryKey: readonly unknown[],
+  queryFn: () => Promise<T>,
+  staleTime = 1000 * 60 * 5
+) {
+  const serializedKey = serializeKey(queryKey);
+  const cached = queryCache.get(serializedKey);
+  const isStale = !cached || (Date.now() - cached.updatedAt > staleTime);
+
+  if (!isStale) return;
+
+  let promise = queryPromises.get(serializedKey) as Promise<T> | undefined;
+
+  if (!promise) {
+    promise = queryFn();
+    queryPromises.set(serializedKey, promise);
+
+    promise
+      .then((result) => {
+        queryCache.set(serializedKey, {
+          data: result,
+          updatedAt: Date.now(),
+        });
+        queryPromises.delete(serializedKey);
+        
+        // 등록된 리스너 컴포넌트들에게 최신 데이터가 반영되었음을 고지
+        const set = listeners.get(serializedKey);
+        if (set) {
+          set.forEach((listener) => listener());
+        }
+      })
+      .catch((err) => {
+        queryPromises.delete(serializedKey);
+        console.warn("프리패치 요청 실패:", serializedKey, err);
+      });
+  }
+}
+
 interface CustomQueryOptions<T> {
   queryKey: readonly unknown[];
   queryFn: () => Promise<T>;

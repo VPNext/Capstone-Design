@@ -34,14 +34,51 @@ export default function DetailPage() {
     handleTermSearch,
   } = useNewsDetail();
 
-  // 최초 로딩 시 화면 중앙에 나타날 심플 로더
+  // 최초 로딩 시 상세 화면 구조 스켈레톤을 노출하여 체감 속도 극대화 및 레이아웃 이동(CLS) 방지
   if (loading) {
     return (
-      <div className="mt-32 flex flex-col items-center gap-4 text-[#9C9891] font-sans">
-        <div className="w-10 h-10 rounded-full border-2 animate-spin border-[#E4DDD3] border-t-[#C13026]" />
-        <p className="text-lg font-bold animate-pulse">
-          기사를 불러오는 중입니다...
-        </p>
+      <div className="mt-8 pb-20 font-sans animate-pulse">
+        {/* 목록으로 가기 버튼 스켈레톤 */}
+        <div className="w-20 h-5 bg-[#F3F0EB] rounded-lg mb-7" />
+
+        {/* 기사 헤더 스켈레톤 */}
+        <header className="mb-10">
+          <div className="flex gap-3 mb-5">
+            <div className="w-16 h-6 bg-[#F3F0EB] rounded-full" />
+            <div className="w-24 h-6 bg-[#F3F0EB] rounded-full" />
+          </div>
+          <div className="w-3/4 h-10 bg-[#F3F0EB] rounded-xl mb-4" />
+          <div className="w-1/2 h-6 bg-[#F3F0EB] rounded-lg mb-6" />
+          <div className="w-full h-[1px] bg-[#E4DDD3]" />
+        </header>
+
+        {/* 2단 레이아웃 구조 스켈레톤 */}
+        <div className="flex flex-col lg:flex-row gap-10">
+          {/* 좌측 기사 본문 영역 스켈레톤 */}
+          <div className="flex-1 min-w-0 flex flex-col gap-4">
+            <div className="w-full h-4.5 bg-[#F3F0EB] rounded" />
+            <div className="w-full h-4.5 bg-[#F3F0EB] rounded" />
+            <div className="w-[95%] h-4.5 bg-[#F3F0EB] rounded" />
+            <div className="w-[92%] h-4.5 bg-[#F3F0EB] rounded" />
+            <div className="w-full h-4.5 bg-[#F3F0EB] rounded mt-4" />
+            <div className="w-[97%] h-4.5 bg-[#F3F0EB] rounded" />
+            <div className="w-[85%] h-4.5 bg-[#F3F0EB] rounded" />
+            
+            <div className="w-full h-14 bg-[#F3F0EB] rounded-2xl mt-8" />
+          </div>
+
+          {/* 우측 사이드바 리포트 영역 스켈레톤 */}
+          <div className="w-full lg:w-[360px] shrink-0 flex flex-col gap-6">
+            <div className="p-6 border border-[#E4DDD3] rounded-[24px] bg-[#FDFBF7]">
+              <div className="w-28 h-5 bg-[#F3F0EB] rounded-lg mb-4" />
+              <div className="w-full h-24 bg-[#F3F0EB] rounded-xl" />
+            </div>
+            <div className="p-6 border border-[#E4DDD3] rounded-[24px] bg-[#FDFBF7]">
+              <div className="w-24 h-5 bg-[#F3F0EB] rounded-lg mb-4" />
+              <div className="w-full h-32 bg-[#F3F0EB] rounded-xl" />
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
