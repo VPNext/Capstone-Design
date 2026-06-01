@@ -1,3 +1,5 @@
+import { replaceEnglishSourceNames } from "./source";
+
 const ENTITY_MAP: Record<string, string> = {
   "&amp;": "&",
   "&lt;": "<",
@@ -67,6 +69,9 @@ export const extractTextFromSummary = (rawString: string): string => {
   cleanText = cleanText
     .replace(/,\s*등의\s+기사와\s+함께\s+분석하여\s+작성되었습니다\.?/g, "")
     .replace(/등의\s+기사와\s+함께\s+분석하여\s+작성되었습니다\.?/g, "");
+
+  // 2.5. 텍스트 내에 들어있는 영어 언론사명을 한글 및 대문자로 치환하여 가독성 증대
+  cleanText = replaceEnglishSourceNames(cleanText);
 
   // 3. 쉼표, 슬래시, 또는 공백으로 분리된 동일한 언론사명/단어가 연속으로 중복되어 표시되는 오류 방지 (예: SBS, SBS -> SBS)
   cleanText = cleanText.replace(/([가-힣A-Za-z0-9]+)(?:(?:\s*[,/]\s*|\s+)\1)+/g, "$1");
