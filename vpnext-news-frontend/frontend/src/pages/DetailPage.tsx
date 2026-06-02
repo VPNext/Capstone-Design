@@ -1,16 +1,51 @@
+import { useState, useCallback } from "react";
 import { Link } from "react-router-dom";
 import LoadingModal from "../components/LoadingModal";
 import { SOURCE_NAME_MAP, SOURCE_BADGE_CLASS } from "../constants/source";
 import { useNewsDetail } from "../hooks/useNewsDetail";
 import ArticleContent from "../components/detail/ArticleContent";
 import AnalysisAside from "../components/detail/AnalysisAside";
+import type { TabType } from "../components/detail/AnalysisAside";
 import ComicViewer from "../components/detail/ComicViewer";
 import { decodeHtmlEntities } from "../utils/summary";
 
-
-
 // 뉴스 상세 정보(기사 본문, AI 신뢰도 분석 리포트, AI 만화)를 보여주는 페이지
 export default function DetailPage() {
+  // ── 양방향 스크롤 및 탭 동기화를 위한 핵심 상태 정의 ──
+  const [activeTab, setActiveTab] = useState<TabType>("credibility");
+  const [activeKeyword, setActiveKeyword] = useState<string | null>(null);
+
+  // 본문 내 단어 클릭 -> 사이드바 탭 전환, 하이라이트 및 사이드바 내부 스크롤 이동
+  const handleSelectKeyword = useCallback((name: string, type: "term" | "person") => {
+    const targetTab = type === "term" ? "terms" : "persons";
+    setActiveTab(targetTab);
+    setActiveKeyword(name);
+
+    // React 상태가 렌더링된 후 DOM에 접근하기 위해 지연 실행
+    setTimeout(() => {
+      const elementId = type === "term" ? `sidebar-term-${name}` : `sidebar-person-${name}`;
+      const element = document.getElementById(elementId);
+      if (element) {
+        element.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }
+    }, 50);
+  }, []);
+
+  // 사이드바 아이템 클릭 -> 본문 내 첫 번째 출현 지점으로 본문 화면 스크롤 이동 및 펄스 효과 부여
+  const handleSidebarItemClick = useCallback((name: string, type: "term" | "person") => {
+    setActiveKeyword(name);
+    const targetAttr = type === "term" ? "data-term-name" : "data-person-name";
+    const element = document.querySelector(`[${targetAttr}="${name}"]`);
+    if (element) {
+      element.scrollIntoView({ behavior: "smooth", block: "center" });
+
+      // CSS 펄스 애니메이션 초기화 후 재발동 (Reflow 트릭)
+      element.classList.remove("animate-highlight-pulse");
+      void (element as HTMLElement).offsetWidth;
+      element.classList.add("animate-highlight-pulse");
+    }
+  }, []);
+
   const {
     id,
     news,
@@ -188,6 +223,7 @@ export default function DetailPage() {
           <ArticleContent
             news={news}
             aiSummary={aiSummary}
+            onSelectKeyword={handleSelectKeyword}
           />
 
           {/* AI 기사 분석 트리거 버튼 */}
@@ -251,8 +287,13 @@ export default function DetailPage() {
           searchEngine={searchEngine}
           setSearchEngine={setSearchEngine}
           handleTermSearch={handleTermSearch}
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          activeKeyword={activeKeyword}
+          onSidebarItemClick={handleSidebarItemClick}
         />
       </div>
+
     </div>
   );
 }

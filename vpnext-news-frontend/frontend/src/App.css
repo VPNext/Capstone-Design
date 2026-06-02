@@ -378,3 +378,53 @@ mark {
 .animate-scale-in {
   animation: scaleIn 0.18s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
+
+/* ─────────────────────────────────────────────────────────
+   TWO-WAY SCROLL SYNC & SIDEBAR OPTIMIZATION
+   ───────────────────────────────────────────────────────── */
+
+/* Custom Vertical Scrollbar for sidebar container */
+.custom-sidebar-scrollbar::-webkit-scrollbar {
+  width: 5px;
+}
+.custom-sidebar-scrollbar::-webkit-scrollbar-track {
+  background: rgba(228, 221, 211, 0.2);
+  border-radius: 999px;
+}
+.custom-sidebar-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(22, 19, 17, 0.15);
+  border-radius: 999px;
+}
+.custom-sidebar-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--ink-2);
+}
+.custom-sidebar-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(22, 19, 17, 0.15) rgba(228, 221, 211, 0.2);
+}
+
+/* Highlight pulse animation for keyword occurrences in news body */
+@keyframes highlightPulse {
+  0% {
+    background-color: rgba(234, 179, 8, 0.4);
+    box-shadow: 0 0 0 4px rgba(234, 179, 8, 0.2);
+    transform: scale(1.05);
+  }
+  50% {
+    background-color: rgba(234, 179, 8, 0.75);
+    box-shadow: 0 0 0 8px rgba(234, 179, 8, 0.3);
+    transform: scale(1.08);
+  }
+  100% {
+    background-color: transparent;
+    box-shadow: 0 0 0 0 transparent;
+    transform: scale(1);
+  }
+}
+
+.animate-highlight-pulse {
+  animation: highlightPulse 1.6s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+  position: relative;
+  z-index: 10;
+  display: inline-block !important;
+}

@@ -10,7 +10,7 @@ import PersonList from "./PersonList";
 import RedFlags from "./RedFlags";
 
 type AnalysisStatus = "pending" | "analyzing" | "complete";
-type TabType = "credibility" | "terms" | "persons";
+export type TabType = "credibility" | "terms" | "persons";
 
 interface AnalysisAsideProps {
   status: AnalysisStatus;
@@ -21,6 +21,10 @@ interface AnalysisAsideProps {
   searchEngine: string;
   setSearchEngine: (value: string) => void;
   handleTermSearch: (e: FormEvent) => void;
+  activeTab: TabType;
+  setActiveTab: (tab: TabType) => void;
+  activeKeyword: string | null;
+  onSidebarItemClick?: (name: string, type: "term" | "person") => void;
 }
 
 export default function AnalysisAside({
@@ -32,9 +36,11 @@ export default function AnalysisAside({
   searchEngine,
   setSearchEngine,
   handleTermSearch,
+  activeTab,
+  setActiveTab,
+  activeKeyword,
+  onSidebarItemClick,
 }: AnalysisAsideProps) {
-  const [activeTab, setActiveTab] = useState<TabType>("credibility");
-  
   const credibility = analysisData?.credibility;
 
   const parsedReason = useMemo(() => {
@@ -64,10 +70,10 @@ export default function AnalysisAside({
 
   return (
     <aside className="w-full lg:w-[360px] shrink-0">
-      <div className="sticky top-24 flex flex-col gap-4">
+      <div className="sticky top-24 flex flex-col gap-4 max-h-[calc(100vh-120px)]">
         {/* 사이드바 헤더 */}
         <div
-          className="p-5 bg-[#161311] rounded-2xl shadow-[0_4px_20px_rgba(22,19,17,0.15)]"
+          className="p-5 bg-[#161311] rounded-2xl shadow-[0_4px_20px_rgba(22,19,17,0.15)] shrink-0"
         >
           <h2 className="text-[15px] font-bold text-white flex items-center gap-2">
             <svg className="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -83,7 +89,7 @@ export default function AnalysisAside({
         </div>
 
         {/* ── 탭 컨트롤 메뉴 ── */}
-        <div className="flex p-1 bg-[#F3F0EB] rounded-xl gap-1 border border-[#E4DDD3]">
+        <div className="flex p-1 bg-[#F3F0EB] rounded-xl gap-1 border border-[#E4DDD3] shrink-0">
           <button
             onClick={() => setActiveTab("credibility")}
             className={`flex-1 py-2 text-[12px] font-bold rounded-lg transition-all duration-200 cursor-pointer text-center ${
@@ -133,7 +139,7 @@ export default function AnalysisAside({
         </div>
 
         {/* ── 탭 콘텐츠 영역 ── */}
-        <div className="transition-all duration-300">
+        <div className="flex-1 overflow-y-auto pr-1 transition-all duration-300 min-h-0 custom-sidebar-scrollbar">
           {activeTab === "credibility" && (
             <div
               className={`${scoreColor.bg} ${scoreColor.border} border rounded-2xl overflow-hidden shadow-[0_4px_12px_rgba(22,19,17,0.02)]`}
@@ -243,7 +249,11 @@ export default function AnalysisAside({
             textColor="text-sky-900"
             status={status}
           >
-            <TermList terms={analysisData?.difficult_terms || []} />
+            <TermList 
+              terms={analysisData?.difficult_terms || []} 
+              activeKeyword={activeKeyword}
+              onTermClick={(name) => onSidebarItemClick?.(name, "term")}
+            />
 
             <DictionarySearchForm
               searchTerm={searchTerm}
@@ -268,7 +278,11 @@ export default function AnalysisAside({
             textColor="text-emerald-900"
             status={status}
           >
-            <PersonList persons={analysisData?.key_persons || []} />
+            <PersonList 
+              persons={analysisData?.key_persons || []} 
+              activeKeyword={activeKeyword}
+              onPersonClick={(name) => onSidebarItemClick?.(name, "person")}
+            />
           </AnalysisCard>
         )}
       </div>

@@ -8,11 +8,13 @@ import ArticleParagraphs from "./ArticleParagraphs";
 interface ArticleContentProps {
   news: NewsDetail;
   aiSummary: string | null;
+  onSelectKeyword?: (name: string, type: "term" | "person") => void;
 }
 
 export default function ArticleContent({
   news,
   aiSummary,
+  onSelectKeyword,
 }: ArticleContentProps) {
   const finalImage = optimizeImageUrl(news.image_url) || extractImageFromSummary(news.summary);
 
@@ -34,6 +36,7 @@ export default function ArticleContent({
     const personName = target.getAttribute("data-person-name");
 
     if (termName && news.difficult_terms) {
+      onSelectKeyword?.(termName, "term");
       const termObj = news.difficult_terms.find((t) => t.term === termName);
       if (termObj) {
         setTooltipData({
@@ -45,6 +48,7 @@ export default function ArticleContent({
         });
       }
     } else if (personName && news.key_persons) {
+      onSelectKeyword?.(personName, "person");
       const personObj = news.key_persons.find((p) => p.name === personName);
       if (personObj) {
         setTooltipData({
