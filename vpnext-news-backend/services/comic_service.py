@@ -46,7 +46,8 @@ async def generate_comic_data(news_id: int, news_title: str, news_body: str, cus
     
     try:
         # ai_analyzer의 GeminiClient.call()을 사용 (내부적으로 모델 폴백 처리됨)
-        final_integrated_prompt = gemini_client.call(prompt_generator)
+        # 이 부분도 동기식으로 되어 있었습니다. 그러니까 에러가 났던거고요 
+        final_integrated_prompt = await gemini_client.call(prompt_generator)
         if not final_integrated_prompt:
             raise Exception("이미지 프롬프트 생성 결과가 비어 있습니다.")
         logger.info(f"[만화 #{news_id}] 이미지 프롬프트 생성 완료")

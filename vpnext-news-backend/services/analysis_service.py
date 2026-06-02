@@ -2,10 +2,10 @@ import asyncio
 import logging
 from typing import Dict, Optional, Any
 from ai_analyzer import (
-    async_analyze_credibility,
-    async_extract_persons,
-    async_extract_terms,
-    async_generate_comic_script
+    analyze_credibility,
+    extract_persons,
+    extract_terms,
+    generate_comic_script
 )
 from dictionary_api import enrich
 from article_scraper import scrape, get_source_from_url
@@ -44,7 +44,7 @@ async def run_full_analysis(
         }
 
     # 2. 스크래핑 및 폴백 예외 처리 (안정성 보장)
-    scraped = scrape(article_url)
+    scraped = await asyncio.to_thread(scrape, article_url)
     title = ""
     content = ""
     image_url = None
@@ -76,11 +76,6 @@ async def run_full_analysis(
     is_old_article = False
     
     # 기사 발행일 확인 (1년 이상된 기사인지 체크)
-    # scraped 데이터에 날짜 정보가 없으면 DB의 created_at 활용
-    art_date = None
-    # 만약 scraped에 날짜 정보가 있다면 활용 (현재는 없으므로 DB 필드 등 고려)
-    # 여기서는 간단히 DB에 저장된 시간 또는 현재 시간 기준으로 시뮬레이션
-    
     if title:
         keywords = [w for w in re.findall(r'[가-힣A-Za-z0-9]+', title) if len(w) >= 2]
         
@@ -103,13 +98,13 @@ async def run_full_analysis(
 
     # 4. 병렬 AI 분석 실행
     tasks = [
-        async_analyze_credibility(title, content, source_name, related_arts, is_old_article),
-        async_extract_persons(title, content),
-        async_extract_terms(content)
+        analyze_credibility(title, content, source_name, related_arts, is_old_article),
+        extract_persons(title, content),
+        extract_terms(content)
     ]
     
     if include_comic:
-        tasks.append(async_generate_comic_script(title, content))
+        tasks.append(generate_comic_script(title, content))
 
     results = await asyncio.gather(*tasks)
     

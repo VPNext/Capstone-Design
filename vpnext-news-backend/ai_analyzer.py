@@ -1,5 +1,5 @@
 """
-Gemini AI 분석 모듈 (Gemini SDK 사용) - 리팩토링 버전
+Gemini AI 분석 모듈 - 건들지 마시고 문제점을 물어봐 주세요.
 """
 import json
 import logging
@@ -9,6 +9,10 @@ from typing import Dict, List, Optional, Any
 from google import genai
 from config import GEMINI_API_KEY, GATEWAY_API_KEY
 import httpx
+import datetime
+
+now = datetime.datetime.now()
+year_month = now.strftime("%Y년%m월")
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +51,6 @@ class GeminiClient:
     def __init__(self):
         self.client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
         # 안전 설정 최대로 완화 (모든 카테고리 차단 해제)
-        # 뉴스 분석 시 민감한 사회 이슈(사건, 사고 등)로 인한 오차단 방지
         self.safety_settings = [
             {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
             {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
@@ -56,15 +59,15 @@ class GeminiClient:
             {"category": "HARM_CATEGORY_CIVIC_INTEGRITY", "threshold": "BLOCK_NONE"},
         ]
 
-    def call(self, prompt: str) -> Optional[str]:
+    async def call(self, prompt: str) -> Optional[str]:
         if not self.client:
             return None
             
         last_error = None
         for model_id in self.MODELS:
             try:
-                # 안전 정책을 완전히 끄고 호출
-                response = self.client.models.generate_content(
+                # 딕셔너리는 그냥 await로 호출하면 오류가 납니다. 그래서 .aio라는 비동기식으로 명시해야 됩니다.
+                response = await self.client.aio.models.generate_content(
                     model=model_id,
                     contents=prompt,
                     config={
@@ -73,7 +76,6 @@ class GeminiClient:
                     }
                 )
                 
-                # 안전 정책에 의해 일부 또는 전체가 차단된 경우
                 if not hasattr(response, 'text') or not response.text:
                     logger.warning(f"Gemini {model_id} 차단됨 (Safety Filter Triggered)")
                     continue
@@ -82,7 +84,6 @@ class GeminiClient:
             except Exception as e:
                 error_msg = str(e).lower()
                 last_error = e
-                # 차단 관련 에러 메시지 상세 로깅
                 if "safety" in error_msg or "blocked" in error_msg:
                     logger.warning(f"Gemini {model_id} 안전 차단됨: {e}")
                     continue
@@ -93,24 +94,23 @@ class GeminiClient:
         return None
 
 
-# Global clients
+# Global client
 gemini_client = GeminiClient()
 
-def call_ai(prompt: str) -> Optional[Dict[str, Any]]:
-    """Gemini API를 사용하여 분석 수행"""
+async def call_ai(prompt: str) -> Optional[Dict[str, Any]]:
+    """Gemini API를 사용하여 비동기 분석 수행"""
     logger.info("Gemini API를 호출합니다...")
     try:
-        content = gemini_client.call(prompt)
+        content = await gemini_client.call(prompt)
         if content:
             return _parse_json(content)
     except Exception as e:
         logger.error(f"Gemini API 호출 중 최종 실패: {e}")
-        
     return None
 
 # --- Analysis Components ---
 
-def analyze_credibility(
+async def analyze_credibility(
     title: str, 
     content: str, 
     source: Optional[str] = None, 
@@ -119,7 +119,6 @@ def analyze_credibility(
 ) -> Dict:
     source_name = source if source else "출처 불분명"
     
-    # 관련 기사(과거 기사 포함) 텍스트 및 언론사 목록 구성
     related_context = ""
     related_names_links = "없음"
     if related_articles:
@@ -159,7 +158,7 @@ def analyze_credibility(
    - 그리고 관련기사가 반대될 경우 "제공된 관련 기사들과 상반되는 내용이 있습니다."라고 의심표현으로 'red_flags'에 포함하세요. 
 3. 제목-내용 일치도 (낚시성 판별): 제목의 키워드가 본문의 핵심 내용과 괴리가 큰지 분석하여 '과장/낚시성' 여부를 판단하세요.
 4. 시계열 검증: 과거 기사인 경우 최신 데이터와 대조하여 현재 시점에서의 유효성을 판단하세요.
-5. 기준 날짜는 2026년 5월을 기준으로 하며, 그 이후의 사건이나 정보는 알지 못하다고 가정하세요.
+5. 기준 날짜는 {year_month}을 기준으로 하며, 그 이후의 사건이나 정보는 알지 못하다고 가정하세요.
 
 참조 표시: 비교 분석 시 활용한 기사의 출처는 반드시 Markdown 하이퍼링크 형식(예: [언론사명](URL))으로 'summary'에 포함하세요.
 
@@ -177,15 +176,13 @@ def analyze_credibility(
 score 범위: 0.7이상→신뢰, 0.4~0.7→주의, 0.4미만→허위 의심
 (가심/주관적 기사(is_subjective: true)인 경우 score는 1.0으로 설정하고 reason에 '해당 기사는 주관적 의견이나 단순 가심을 다루고 있어 별도의 신뢰도 검증이 필요하지 않습니다.'라는 문구를 포함하세요.)
 """
-    result = call_ai(prompt)
+    result = await call_ai(prompt)
     
-    # 가심성 기사 처리 로직
     if result and result.get("is_subjective"):
         result["summary"] = "⚠️ 해당 기사는 주관적 의견이나 단순 가심을 다루고 있어 별도의 신뢰도 검증이 필요하지 않습니다.\n" + result.get("summary", "")
         result["label"] = "주관적/가심"
         result["score"] = 1.0
 
-    # 출처 불분명 보정
     if result and not result.get("is_subjective") and source_name == "출처 불분명" and result.get("score", 1.0) > 0.6:
         result["score"] = 0.6
         result["label"] = "주의"
@@ -196,7 +193,7 @@ score 범위: 0.7이상→신뢰, 0.4~0.7→주의, 0.4미만→허위 의심
         "reason": "모든 AI 분석 도구 호출 실패", "red_flags": [], "summary": "",
     }
 
-def extract_terms(content: str) -> List[Dict]:
+async def extract_terms(content: str) -> List[Dict]:
     prompt = f"""
 아래 뉴스 기사에서 일반인이 이해하기 어려운 용어를 추출해 쉽게 설명하세요.
 
@@ -215,10 +212,10 @@ def extract_terms(content: str) -> List[Dict]:
 }}
 ```
 """
-    result = call_ai(prompt)
+    result = await call_ai(prompt)
     return result.get("terms", []) if result else []
 
-def extract_persons(title: str, content: str) -> List[Dict]:
+async def extract_persons(title: str, content: str) -> List[Dict]:
     prompt = f"""
 아래 뉴스 기사에서 핵심 인물을 추출하고 역할을 설명하세요.
 
@@ -239,10 +236,10 @@ def extract_persons(title: str, content: str) -> List[Dict]:
 }}
 ```
 """
-    result = call_ai(prompt)
+    result = await call_ai(prompt)
     return result.get("persons", []) if result else []
 
-def generate_comic_script(title: str, content: str) -> str:
+async def generate_comic_script(title: str, content: str) -> str:
     prompt = f"""
 당신은 뉴스 기사를 4컷 만화 시나리오로 변환하는 전문가입니다.
 아래 기사 내용을 바탕으로 4컷 만화 스크립트를 생성하세요.
@@ -270,24 +267,5 @@ def generate_comic_script(title: str, content: str) -> str:
 }}
 ```
 """
-    result = call_ai(prompt)
+    result = await call_ai(prompt)
     return json.dumps(result, ensure_ascii=False, indent=2) if result else "{}"
-
-# async로 호출할 수 있도록 래핑
-async def async_analyze_credibility(
-    title: str, 
-    content: str, 
-    source: Optional[str] = None,
-    related_articles: Optional[List[Dict[str, str]]] = None,
-    is_old_article: bool = False
-) -> Dict:
-    return await asyncio.to_thread(analyze_credibility, title, content, source, related_articles, is_old_article)
-
-async def async_extract_terms(content: str) -> List[Dict]:
-    return await asyncio.to_thread(extract_terms, content)
-
-async def async_extract_persons(title: str, content: str) -> List[Dict]:
-    return await asyncio.to_thread(extract_persons, title, content)
-
-async def async_generate_comic_script(title: str, content: str) -> str:
-    return await asyncio.to_thread(generate_comic_script, title, content)

@@ -3,7 +3,7 @@ import asyncio
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from database import Article, SessionLocal
-from ai_analyzer import async_analyze_credibility
+from ai_analyzer import analyze_credibility
 from article_scraper import get_source_from_url
 
 logger = logging.getLogger(__name__)
@@ -65,7 +65,7 @@ async def optimize_credibility_batch(db: Session, batch_size: int = 10):
 
         try:
             # 3. 재분석 실행
-            new_credibility = await async_analyze_credibility(
+            new_credibility = await analyze_credibility(
                 title=art.title,
                 content=art.content,
                 source=art.source,
