@@ -1,16 +1,17 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo, useCallback, memo } from "react";
 import { Link } from "react-router-dom";
 import { SOURCE_BADGE_CLASS_KO } from "../../constants/source";
 import { extractTextFromSummary } from "../../utils/summary";
 import type { CartoonItem } from "../../types/news";
 import SimpleComicPanel from "./SimpleComicPanel";
+import CartoonLightbox from "./CartoonLightbox";
 
 interface CartoonCardProps {
   item: CartoonItem;
   highlight: boolean;
 }
 
-export default function CartoonCard({ item, highlight }: CartoonCardProps) {
+function CartoonCard({ item, highlight }: CartoonCardProps) {
   const cardRef = useRef<HTMLDivElement>(null);
   const [isVisible, setIsVisible] = useState(highlight);
   const [currentPanelIndex, setCurrentPanelIndex] = useState(0);
@@ -61,40 +62,52 @@ export default function CartoonCard({ item, highlight }: CartoonCardProps) {
     };
   }, [isLightboxOpen]);
 
-  const dateStr = item.published_at
-    ? new Date(item.published_at).toLocaleDateString("ko-KR", {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      })
-    : "";
+  const dateStr = useMemo(() => {
+    if (!item.published_at) return "";
+    return new Date(item.published_at).toLocaleDateString("ko-KR", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  }, [item.published_at]);
 
-  const badgeClass =
-    item.source && SOURCE_BADGE_CLASS_KO[item.source]
+  const badgeClass = useMemo(() => {
+    return item.source && SOURCE_BADGE_CLASS_KO[item.source]
       ? SOURCE_BADGE_CLASS_KO[item.source]
       : "badge-default";
+  }, [item.source]);
 
-  const handlePrev = (e: React.MouseEvent) => {
+  const handlePrev = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
     setCurrentPanelIndex((prev) => (prev > 0 ? prev - 1 : prev));
-  };
+  }, []);
 
-  const handleNext = (e: React.MouseEvent) => {
+  const handleNext = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
     setCurrentPanelIndex((prev) => (prev < totalPanels - 1 ? prev + 1 : prev));
-  };
+  }, [totalPanels]);
 
-  const currentScene = totalPanels > 0 ? item.comic_urls[currentPanelIndex] : null;
-  const currentImageUrl = currentScene
-    ? typeof currentScene === "string"
-      ? currentScene
-      : currentScene.url
-    : "";
-  const currentCaption = currentScene
-    ? typeof currentScene === "string"
-      ? null
-      : currentScene.caption
-    : null;
+  const handleOpenLightbox = useCallback(() => {
+    setIsLightboxOpen(true);
+  }, []);
+
+  const handleCloseLightbox = useCallback(() => {
+    setIsLightboxOpen(false);
+  }, []);
+
+  const currentScene = useMemo(() => {
+    return totalPanels > 0 ? item.comic_urls[currentPanelIndex] : null;
+  }, [item.comic_urls, currentPanelIndex, totalPanels]);
+
+  const currentImageUrl = useMemo(() => {
+    if (!currentScene) return "";
+    return typeof currentScene === "string" ? currentScene : currentScene.url;
+  }, [currentScene]);
+
+  const currentCaption = useMemo(() => {
+    if (!currentScene || typeof currentScene === "string") return null;
+    return currentScene.caption ?? null;
+  }, [currentScene]);
 
   return (
     <>
@@ -170,7 +183,7 @@ export default function CartoonCard({ item, highlight }: CartoonCardProps) {
             {/* 이미지 클릭 시 라이트박스 실행 */}
             <div 
               className="w-full cursor-zoom-in relative flex items-center justify-center"
-              onClick={() => setIsLightboxOpen(true)}
+              onClick={handleOpenLightbox}
             >
               {totalPanels > 0 && (
                 <SimpleComicPanel scene={item.comic_urls[currentPanelIndex]} />
@@ -202,7 +215,7 @@ export default function CartoonCard({ item, highlight }: CartoonCardProps) {
               )}
             </div>
 
-            {/* 캡션 텍스트 박 */}
+            {/* 캡션 텍스트 박스 */}
             {currentCaption && (
               <div className="w-full bg-[#141210] border-t border-white/5 px-6 py-4 text-center">
                 <p className="text-sm font-medium text-white/80 leading-relaxed font-sans max-w-2xl mx-auto">
@@ -239,80 +252,19 @@ export default function CartoonCard({ item, highlight }: CartoonCardProps) {
       </article>
 
       {/* 고품질 라이트박스 모달 팝업 (Fullscreen UX) */}
-      {isLightboxOpen && (
-        <div 
-          className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/95 animate-fade-in p-4 sm:p-8"
-          onClick={() => setIsLightboxOpen(false)}
-        >
-          {/* 닫기 버튼 */}
-          <button 
-            className="absolute top-6 right-6 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors duration-200 cursor-pointer"
-            onClick={() => setIsLightboxOpen(false)}
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-
-          {/* 라이트박스 타이틀 */}
-          <div className="absolute top-6 left-6 text-white max-w-[calc(100%-120px)] hidden sm:block">
-            <h3 className="text-base font-bold font-serif line-clamp-1">{item.title}</h3>
-            <p className="text-xs text-white/45 mt-0.5">AI 만화 컷 ({currentPanelIndex + 1}/{totalPanels})</p>
-          </div>
-
-          {/* 메인 이미지 오버레이 */}
-          <div 
-            className="relative max-w-4xl max-h-[75vh] w-full flex items-center justify-center"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* 이전 버튼 */}
-            {totalPanels > 1 && (
-              <button
-                onClick={handlePrev}
-                disabled={currentPanelIndex === 0}
-                className="absolute -left-4 sm:-left-16 z-10 p-3 rounded-full bg-white/5 hover:bg-[#FBBF24] hover:text-[#141210] border border-white/10 text-white transition-all disabled:opacity-0 disabled:pointer-events-none cursor-pointer"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
-                </svg>
-              </button>
-            )}
-
-            {currentImageUrl && (
-              <img 
-                src={currentImageUrl} 
-                alt="AI 만화 컷 원본" 
-                className="max-w-full max-h-[75vh] object-contain rounded-lg shadow-2xl scale-in"
-              />
-            )}
-
-            {/* 다음 버튼 */}
-            {totalPanels > 1 && (
-              <button
-                onClick={handleNext}
-                disabled={currentPanelIndex === totalPanels - 1}
-                className="absolute -right-4 sm:-right-16 z-10 p-3 rounded-full bg-white/5 hover:bg-[#FBBF24] hover:text-[#141210] border border-white/10 text-white transition-all disabled:opacity-0 disabled:pointer-events-none cursor-pointer"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
-                </svg>
-              </button>
-            )}
-          </div>
-
-          {/* 하단 캡션 텍스트 박스 */}
-          {currentCaption && (
-            <div 
-              className="mt-8 max-w-xl text-center bg-white/5 border border-white/10 p-4.5 rounded-2xl"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <p className="text-sm font-medium text-white/90 leading-relaxed font-sans">
-                &ldquo; {currentCaption} &rdquo;
-              </p>
-            </div>
-          )}
-        </div>
-      )}
+      <CartoonLightbox
+        isOpen={isLightboxOpen}
+        onClose={handleCloseLightbox}
+        title={item.title}
+        currentPanelIndex={currentPanelIndex}
+        totalPanels={totalPanels}
+        currentImageUrl={currentImageUrl}
+        currentCaption={currentCaption}
+        onPrev={handlePrev}
+        onNext={handleNext}
+      />
     </>
   );
 }
+
+export default memo(CartoonCard);
