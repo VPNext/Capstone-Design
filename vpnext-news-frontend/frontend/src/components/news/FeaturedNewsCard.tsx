@@ -1,6 +1,8 @@
 import { Link } from "react-router-dom";
 import { SOURCE_NAME_MAP, SOURCE_BADGE_CLASS } from "../../constants/source";
-import { extractImageFromSummary, extractTextFromSummary, decodeHtmlEntities } from "../../utils/summary";
+import { extractImageFromSummary, extractTextFromSummary, decodeHtmlEntities, optimizeImageUrl } from "../../utils/summary";
+import { prefetchQuery } from "../../hooks/useCustomQuery";
+import { fetchNewsDetail } from "../../services/newsService";
 import HighlightText from "../HighlightText";
 import CredibilityBadge from "../CredibilityBadge";
 import type { NewsItem } from "../../types/news";
@@ -16,8 +18,8 @@ export default function FeaturedNewsCard({
   keyword,
   isAnalyzedPage = false,
 }: FeaturedNewsCardProps) {
-  const displayImage = news.image_url || extractImageFromSummary(news.summary);
-  const rawSummary = extractTextFromSummary(news.ai_summary || news.summary);
+  const displayImage = optimizeImageUrl(news.image_url) || extractImageFromSummary(news.summary);
+  const rawSummary = extractTextFromSummary(news.ai_summary || news.summary) || `${decodeHtmlEntities(news.title)} 기사의 보도 본문입니다. 본 서비스는 AI가 분석하기 전 뉴스 목록을 제공하며, 기사를 클릭하여 AI 분석을 실행하면 가독성이 뛰어난 핵심 요약 리포트와 4컷 만화 요약본을 감상하실 수 있습니다.`;
   const displaySummary = rawSummary.length > 300 ? rawSummary.slice(0, 300) + "..." : rawSummary;
   const sourceKey = news.source?.toLowerCase();
   const sourceName =
@@ -36,8 +38,21 @@ export default function FeaturedNewsCard({
     ? "hover:border-[rgba(26,85,168,0.25)]"
     : "hover:border-[rgba(193,48,38,0.2)]";
 
+  // 상세 데이터 프리패칭 함수
+  const handlePrefetch = () => {
+    prefetchQuery(
+      ["newsDetail", String(news.id)],
+      () => fetchNewsDetail(news.id),
+      1000 * 60 * 10 // 10분 유효기간 (staleTime)
+    );
+  };
+
   return (
-    <div className="mb-2 group">
+    <div
+      className="mb-2 group"
+      onMouseEnter={handlePrefetch}
+      onTouchStart={handlePrefetch}
+    >
       <Link to={`/news/${news.id}`} className="block">
         <article
           className={`overflow-hidden bg-white transition-all duration-[350ms] border border-[#E4DDD3] rounded-[24px] shadow-[0_2px_24px_rgba(22,19,17,0.08)] hover:shadow-[0_16px_56px_rgba(22,19,17,0.16)] hover:-translate-y-[3px] ${hoverBorderColor}`}

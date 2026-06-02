@@ -1,17 +1,17 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 
 // 글로벌 메모리 캐시 데이터 보관소
-const queryCache = new Map<string, { data: any; updatedAt: number }>();
-const queryPromises = new Map<string, Promise<any>>();
+const queryCache = new Map<string, { data: unknown; updatedAt: number }>();
+const queryPromises = new Map<string, Promise<unknown>>();
 const listeners = new Map<string, Set<() => void>>();
 
 // 캐시 키를 고유한 문자열로 직렬화하는 헬퍼
-function serializeKey(key: any[]): string {
+function serializeKey(key: readonly unknown[]): string {
   return JSON.stringify(key);
 }
 
 // 접두사(Prefix) 기반 캐시 무효화 함수
-export const invalidateCustomQueries = (keyPrefix: any[]) => {
+export const invalidateCustomQueries = (keyPrefix: readonly unknown[]) => {
   const prefixStr = JSON.stringify(keyPrefix).slice(0, -1); // 대괄호 닫기 ']'를 제거하여 접두사 문자열 생성
   
   for (const serializedKey of Array.from(queryCache.keys())) {
@@ -26,8 +26,47 @@ export const invalidateCustomQueries = (keyPrefix: any[]) => {
   }
 };
 
+// 백그라운드 선제적 캐싱(프리패치) 함수
+export function prefetchQuery<T>(
+  queryKey: readonly unknown[],
+  queryFn: () => Promise<T>,
+  staleTime = 1000 * 60 * 5
+) {
+  const serializedKey = serializeKey(queryKey);
+  const cached = queryCache.get(serializedKey);
+  const isStale = !cached || (Date.now() - cached.updatedAt > staleTime);
+
+  if (!isStale) return;
+
+  let promise = queryPromises.get(serializedKey) as Promise<T> | undefined;
+
+  if (!promise) {
+    promise = queryFn();
+    queryPromises.set(serializedKey, promise);
+
+    promise
+      .then((result) => {
+        queryCache.set(serializedKey, {
+          data: result,
+          updatedAt: Date.now(),
+        });
+        queryPromises.delete(serializedKey);
+        
+        // 등록된 리스너 컴포넌트들에게 최신 데이터가 반영되었음을 고지
+        const set = listeners.get(serializedKey);
+        if (set) {
+          set.forEach((listener) => listener());
+        }
+      })
+      .catch((err) => {
+        queryPromises.delete(serializedKey);
+        console.warn("프리패치 요청 실패:", serializedKey, err);
+      });
+  }
+}
+
 interface CustomQueryOptions<T> {
-  queryKey: any[];
+  queryKey: readonly unknown[];
   queryFn: () => Promise<T>;
   staleTime?: number; // 캐시 유효 시간 (ms)
 }
@@ -43,7 +82,7 @@ export function useCustomQuery<T>({
   const [data, setData] = useState<T | null>(() => {
     const cached = queryCache.get(serializedKey);
     if (cached && Date.now() - cached.updatedAt < staleTime) {
-      return cached.data;
+      return cached.data as T;
     }
     return null;
   });
@@ -71,7 +110,7 @@ export function useCustomQuery<T>({
   }, []);
 
   const executeFetch = useCallback(async () => {
-    let promise = queryPromises.get(serializedKey);
+    let promise = queryPromises.get(serializedKey) as Promise<T> | undefined;
 
     if (!promise) {
       promise = queryFnRef.current();
@@ -96,11 +135,11 @@ export function useCustomQuery<T>({
       await promise;
       const cached = queryCache.get(serializedKey);
       if (cached) {
-        setData(cached.data);
+        setData(cached.data as T);
         setError(null);
       }
     } catch (err) {
-      setError(err as Error);
+      setError(err instanceof Error ? err : new Error(String(err)));
     } finally {
       setLoading(false);
     }
@@ -115,7 +154,7 @@ export function useCustomQuery<T>({
     const onCacheUpdate = () => {
       const cached = queryCache.get(serializedKey);
       if (cached) {
-        setData(cached.data);
+        setData(cached.data as T);
         setLoading(false);
         setError(null);
       } else {
@@ -136,7 +175,7 @@ export function useCustomQuery<T>({
       setLoading(true);
       executeFetch();
     } else {
-      setData(cached.data);
+      setData(cached.data as T);
       setLoading(false);
       setError(null);
     }

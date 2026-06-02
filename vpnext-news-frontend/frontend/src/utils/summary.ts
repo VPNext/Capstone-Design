@@ -1,3 +1,5 @@
+import { replaceEnglishSourceNames } from "./source";
+
 const ENTITY_MAP: Record<string, string> = {
   "&amp;": "&",
   "&lt;": "<",
@@ -29,11 +31,21 @@ export const decodeHtmlEntities = (text: string | null): string => {
   return decoded.replace(/\[([^\]]+)\]\([^)]+\)/g, "$1");
 };
 
+// 이미지 URL의 해상도를 최적화하여 고화질 이미지를 가져오는 헬퍼 함수
+export const optimizeImageUrl = (url: string | null): string | null => {
+  if (!url) return null;
+  // 한겨레 저해상도 썸네일(300x180)을 고해상도(960x576) 규격으로 실시간 업스케일 치환
+  if (url.includes("flexible.img.hani.co.kr")) {
+    return url.replace(/\/normal\/\d+\/\d+\//i, "/normal/960/576/");
+  }
+  return url;
+};
+
 export const extractImageFromSummary = (rawString: string): string | null => {
   if (!rawString) return null;
   const decoded = decodeHtmlEntities(rawString);
   const imgMatch = decoded.match(/<img[^>]+src=["']([^"']+)["']/i);
-  return imgMatch ? imgMatch[1] : null;
+  return optimizeImageUrl(imgMatch ? imgMatch[1] : null);
 };
 
 export const extractTextFromSummary = (rawString: string): string => {
@@ -67,6 +79,12 @@ export const extractTextFromSummary = (rawString: string): string => {
   cleanText = cleanText
     .replace(/,\s*등의\s+기사와\s+함께\s+분석하여\s+작성되었습니다\.?/g, "")
     .replace(/등의\s+기사와\s+함께\s+분석하여\s+작성되었습니다\.?/g, "");
+
+  // 2.5. 텍스트 내에 들어있는 영어 언론사명을 한글 및 대문자로 치환하여 가독성 증대
+  cleanText = replaceEnglishSourceNames(cleanText);
+
+  // 3. 쉼표, 슬래시, 또는 공백으로 분리된 동일한 언론사명/단어가 연속으로 중복되어 표시되는 오류 방지 (예: SBS, SBS -> SBS)
+  cleanText = cleanText.replace(/([가-힣A-Za-z0-9]+)(?:(?:\s*[,/]\s*|\s+)\1)+/g, "$1");
   
   return cleanText;
 };

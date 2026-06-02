@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Header from "./components/Header";
+import Footer from "./components/Footer";
 import MainPage from "./pages/MainPage";
 import DetailPage from "./pages/DetailPage";
 import CartoonsPage from "./pages/CartoonsPage";
@@ -16,13 +17,13 @@ function App() {
         <BrowserRouter>
           <ScrollToTop />
           <div
-            className="min-h-screen pb-24 bg-[#0E0C0A] font-sans"
+            className="min-h-screen flex flex-col bg-[#0E0C0A] font-sans"
             style={{
               background: "var(--paper)",
             }}
           >
             <Header />
-            <main className="max-w-6xl mx-auto px-4 sm:px-6">
+            <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6">
               <Routes>
                 <Route path="/" element={<MainPage />} />
                 <Route path="/news/:id" element={<DetailPage />} />
@@ -30,6 +31,7 @@ function App() {
                 <Route path="/analyzed" element={<AnalyzedNewsPage />} />
               </Routes>
             </main>
+            <Footer />
           </div>
         </BrowserRouter>
       </ToastProvider>

@@ -1,7 +1,9 @@
 import { Link } from "react-router-dom";
 import { SOURCE_NAME_MAP, SOURCE_BADGE_CLASS } from "../../constants/source";
-import { extractImageFromSummary, extractTextFromSummary, decodeHtmlEntities } from "../../utils/summary";
+import { extractImageFromSummary, extractTextFromSummary, decodeHtmlEntities, optimizeImageUrl } from "../../utils/summary";
 import { getScoreColor } from "../../utils/score";
+import { prefetchQuery } from "../../hooks/useCustomQuery";
+import { fetchNewsDetail } from "../../services/newsService";
 import HighlightText from "../HighlightText";
 import CredibilityBadge from "../CredibilityBadge";
 import ScoreMeter from "../ScoreMeter";
@@ -20,8 +22,8 @@ export default function NewsCard({
   isAnalyzedPage = false,
   innerRef,
 }: NewsCardProps) {
-  const displayImage = news.image_url || extractImageFromSummary(news.summary);
-  const rawSummary = extractTextFromSummary(news.ai_summary || news.summary);
+  const displayImage = optimizeImageUrl(news.image_url) || extractImageFromSummary(news.summary);
+  const rawSummary = extractTextFromSummary(news.ai_summary || news.summary) || `${decodeHtmlEntities(news.title)} 기사에 대한 상세 보도 내용입니다. 본문 클릭 후 AI 분석 실행 버튼을 누르면 기사의 핵심 요약, 어려운 단어 설명, 인물 관계도와 요약 만화가 생성됩니다.`;
   const displaySummary = rawSummary.length > 200 ? rawSummary.slice(0, 200) + "..." : rawSummary;
   const sourceKey = news.source?.toLowerCase();
   const sourceName =
@@ -45,8 +47,22 @@ export default function NewsCard({
     ? "hover:border-[rgba(26,85,168,0.25)]"
     : "hover:border-[rgba(193,48,38,0.25)]";
 
+  // 상세 데이터 프리패칭 함수
+  const handlePrefetch = () => {
+    prefetchQuery(
+      ["newsDetail", String(news.id)],
+      () => fetchNewsDetail(news.id),
+      1000 * 60 * 10 // 10분 유효기간 (staleTime)
+    );
+  };
+
   return (
-    <div ref={innerRef} className="group">
+    <div
+      ref={innerRef}
+      className="group"
+      onMouseEnter={handlePrefetch}
+      onTouchStart={handlePrefetch}
+    >
       <Link to={`/news/${news.id}`} className="block">
         <article
           className={`flex bg-white overflow-hidden border border-[#E4DDD3] rounded-[18px] shadow-[0_1px_6px_rgba(22,19,17,0.05)] transition-all duration-250 hover:shadow-[0_8px_28px_rgba(22,19,17,0.12)] hover:-translate-y-[2px] ${hoverBorderColor}`}
