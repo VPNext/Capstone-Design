@@ -75,10 +75,10 @@ const ArticleParagraphs = memo(function ArticleParagraphs({
 
       if (line.length < 100) {
         if (/(?:©|ⓒ)/.test(line)) {
-          if (/사진|제공|캡처|출처|DB/i.test(line) && !(/무단|재배포|금지|reserved/i.test(line))) {
-            continue;
+          if (/무단|재배포|금지|reserved|copyright/i.test(line)) {
+            break;
           }
-          break;
+          continue;
         }
         if (/무단\s*전재/i.test(line) && (/재배포/i.test(line) || /금지/i.test(line))) {
           break;
