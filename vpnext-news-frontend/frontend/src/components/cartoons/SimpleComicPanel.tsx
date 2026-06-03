@@ -47,6 +47,8 @@ export default function SimpleComicPanel({ scene }: SimpleComicPanelProps) {
             src={imageUrl}
             alt="AI News Comic"
             className="w-full h-auto object-contain relative z-0"
+            loading="lazy"
+            decoding="async"
             style={{ display: hasError ? "none" : "block" }}
             onLoad={() => setIsLoading(false)}
             onError={() => {

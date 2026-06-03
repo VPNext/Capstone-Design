@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import type { FormEvent } from "react";
 import type { AnalysisData } from "../../types/news";
 import DictionarySearchForm from "./DictionarySearchForm";
