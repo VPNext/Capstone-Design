@@ -67,7 +67,7 @@ async def run_full_analysis(
             title = "기사 제목 없음"
             content = "기사 본문 스크래핑 실패로 인한 분석 데이터 부재"
 
-    source_name = get_source_from_url(article_url)
+    source_name = get_source_from_url(article_url, scraped.get("soup") if (scraped and isinstance(scraped, dict)) else None)
 
     # 3. 과거 유사 기사 검색 (비교 분석용)
     import re
@@ -85,6 +85,30 @@ async def run_full_analysis(
             filters = [Article.title.like(f"%{kw}%") for kw in keywords[:3]]
             # 최소 5개 이상 교차 분석을 위해 limit을 7로 상향
             similar_from_db = search_query.filter(or_(*filters)).order_by(Article.created_at.desc()).limit(7).all()
+            
+            # [실시간 온디맨드 수집 보완] 만약 비교군 기사가 3개 미만인 경우 실시간으로 검색 API 질의해 채워 넣음
+            if len(similar_from_db) < 3:
+                try:
+                    logger.info(f"유사 기사 대조군 부족 ({len(similar_from_db)}건). 네이버 검색 API를 통해 실시간 수집을 시도합니다.")
+                    from rss_crawler import crawl_naver_news
+                    search_kw = " ".join(keywords[:2])
+                    fresh_arts = crawl_naver_news(search_kw, display=7)
+                    
+                    saved = 0
+                    for a in fresh_arts:
+                        if a["url"] == article_url:
+                            continue
+                        if not db.query(Article).filter(Article.url == a["url"]).first():
+                            db.add(Article(**a))
+                            saved += 1
+                    
+                    if saved > 0:
+                        db.commit()
+                        logger.info(f"실시간 비교 기사 {saved}건 추가 적재 완료")
+                        # DB에서 최신 기준으로 재조회
+                        similar_from_db = search_query.filter(or_(*filters)).order_by(Article.created_at.desc()).limit(7).all()
+                except Exception as ex:
+                    logger.error(f"실시간 온디맨드 비교 기사 수집 중 에러: {ex}")
             
             for sa in similar_from_db:
                 related_arts.append({

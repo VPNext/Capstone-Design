@@ -108,6 +108,18 @@ async def call_ai(prompt: str) -> Optional[Dict[str, Any]]:
         logger.error(f"Gemini API 호출 중 최종 실패: {e}")
     return None
 
+def clean_content_for_ai(text: str) -> str:
+    """기사 본문에서 광고, SNS 공유 문구, 저작권, 회원가입 찌꺼기 등을 제거해 AI 분석 정확도 향상"""
+    if not text:
+        return ""
+    # 광고성 문구, SNS 링크, 공유하기 문구 등 정규식 치환 제거
+    clean_text = re.sub(r"공유하기|페이스북|트위터|카카오톡|이메일|블로그", "", text)
+    clean_text = re.sub(r"추천기사|에디터 픽|에디터픽|많이 본 기사|많이 본 뉴스|인기뉴스|인기기사|실시간|뉴스레터|구독", "", clean_text)
+    clean_text = re.sub(r"Copyrights|All rights reserved|무단 전재|재배포 금지|무단전재|재배포금지", "", clean_text)
+    clean_text = re.sub(r"회원가입|회원전용|로그인 해주시고|무료 회원가입", "", clean_text)
+    return clean_text.strip()
+
+
 # --- Analysis Components ---
 
 async def analyze_credibility(
@@ -143,7 +155,7 @@ async def analyze_credibility(
 [분석 대상 기사 정보]
 출처: {source_name}
 제목: {title}
-본문: {content[:3000]}
+본문: {clean_content_for_ai(content)[:3000]}
 {time_context}
 {related_context}
 
@@ -197,7 +209,7 @@ async def extract_terms(content: str) -> List[Dict]:
     prompt = f"""
 아래 뉴스 기사에서 일반인이 이해하기 어려운 용어를 추출해 쉽게 설명하세요.
 
-[본문] {content[:2000]}
+[본문] {clean_content_for_ai(content)[:2000]}
 
 아래 JSON 형식으로만 응답 (최대 10개):
 ```json
@@ -220,7 +232,7 @@ async def extract_persons(title: str, content: str) -> List[Dict]:
 아래 뉴스 기사에서 핵심 인물을 추출하고 역할을 설명하세요.
 
 [제목] {title}
-[본문] {content[:2000]}
+[본문] {clean_content_for_ai(content)[:2000]}
 
 아래 JSON 형식으로만 응답 (최대 5명):
 ```json

@@ -48,6 +48,49 @@ def _get_selectors(url: str) -> Dict[str, str]:
     return {"content": "article, .article, .content, main, .news_view", "title": "h1, .title, .headline"}
 
 
+def extract_body_by_density(soup: BeautifulSoup) -> str:
+    """마침표 밀도 및 하이퍼링크 비율을 계산하여 가장 본문다운 노드를 자동 검출"""
+    # 원본 복제하여 작업 진행 (원본 훼손 방지)
+    import copy
+    temp_soup = copy.copy(soup)
+    
+    # 1. 불필요 레이아웃 노드를 선제 소거
+    for bad_tag in temp_soup.find_all(["script", "style", "nav", "header", "footer", "aside", "iframe", "button", "input", "form"]):
+        bad_tag.decompose()
+        
+    candidates = []
+    # 기사 본문이 들어있을 만한 블록 엘리먼트 순회
+    for el in temp_soup.find_all(["div", "section", "article"]):
+        text = el.get_text(strip=True)
+        if len(text) < 150:
+            continue
+            
+        score = 0
+        # 마침표(.) 및 종결어미 개수 기반 가산
+        score += text.count(".") * 10
+        score += (text.count("다.") + text.count("요.")) * 20
+        score += min(len(text) / 12, 60)
+        
+        # 링크 텍스트 비율이 35% 이상인 추천 목록 영역 감점 (추천 뉴스판 등)
+        links = el.find_all("a")
+        links_text_len = sum(len(a.get_text(strip=True)) for a in links)
+        if links_text_len / (len(text) or 1) > 0.35:
+            score -= 100
+            
+        candidates.append((score, el))
+        
+    if not candidates:
+        return ""
+        
+    # 점수가 가장 높은 엘리먼트를 기사 본문 영역으로 확정
+    candidates.sort(key=lambda x: x[0], reverse=True)
+    best_el = candidates[0][1]
+    
+    # 문단 정제 후 단락 구분 반환
+    paras = [p.get_text(strip=True) for p in best_el.find_all("p") if len(p.get_text(strip=True)) > 15]
+    return "\n\n".join(paras) if paras else best_el.get_text("\n\n", strip=True)
+
+
 def _generic_content(soup: BeautifulSoup) -> str:
     for tag in soup.find_all(["script", "style", "nav", "header", "footer", "aside", "iframe"]):
         tag.decompose()
@@ -157,7 +200,7 @@ def scrape(url: str) -> Optional[Dict]:
                     content = "\n".join(paras) if paras else c_elem.get_text(separator="\n", strip=True)
 
             if not content:
-                content = _generic_content(soup)
+                content = extract_body_by_density(soup) or _generic_content(soup)
             
             # 본문이 유실되었을 경우 og:description을 최종 백업 필드로 사용
             if not content:
@@ -169,7 +212,7 @@ def scrape(url: str) -> Optional[Dict]:
             og_img = soup.find("meta", property="og:image")
             image_url = og_img["content"] if og_img else None
 
-            return {"title": title, "content": content, "image_url": image_url, "url": url}
+            return {"title": title, "content": content, "image_url": image_url, "url": url, "soup": soup}
 
         except requests.RequestException as e:
             logger.warning(f"스크래핑 시도 {attempt+1}/{MAX_RETRIES} ({url}): {e}")
@@ -184,8 +227,23 @@ def scrape(url: str) -> Optional[Dict]:
 
 from urllib.parse import urlparse
 
-def get_source_from_url(url: str) -> str:
-    """URL 도메인을 분석하여 한국어 언론사명을 반환"""
+def get_source_from_url(url: str, soup: BeautifulSoup = None) -> str:
+    """URL 도메인을 분석하여 한국어 언론사명을 반환 (네이버 경유 시 메타태그 역매핑 적용)"""
+    
+    # 네이버 뉴스 플랫폼 유입의 경우, 메타데이터 파싱을 통해 실제 언론사명 역추적
+    if "naver.com" in url and soup:
+        # og:article:author 메타 태그 추적 (예: "매일경제", "한겨레")
+        meta_author = soup.find("meta", property="og:article:author")
+        if meta_author and meta_author.get("content"):
+            return meta_author["content"].strip()
+            
+        # twitter:creator 메타 태그 추적 (예: "SBS 뉴스", "KBS 뉴스")
+        meta_creator = soup.find("meta", attrs={"name": "twitter:creator"})
+        if meta_creator and meta_creator.get("content"):
+            cleaned = meta_creator["content"].replace(" 뉴스", "").replace("News", "").strip()
+            if cleaned:
+                return cleaned
+
     domain_map = {
         "naver.com": "네이버 뉴스",
         "daum.net": "다음 뉴스",
