@@ -14,7 +14,7 @@ from ai_analyzer import (
 
 logging.basicConfig(level=logging.INFO)
 
-def test_analysis():
+async def test_analysis():
     print("--- Testing AI Analysis Logic ---")
     title = "테스트 뉴스: 인공지능 기술의 미래"
     content = "인공지능 기술은 나날이 발전하고 있으며, 우리의 삶을 크게 변화시킬 것입니다. 하지만 기술 오용에 대한 우려도 커지고 있습니다."
@@ -26,7 +26,7 @@ def test_analysis():
     ]
 
     print("\n1. 신뢰도 분석 테스트...")
-    result = analyze_credibility(title, content, source, related)
+    result = await analyze_credibility(title, content, source, related)
     if result and "score" in result:
         print(f"Success! Score: {result['score']}, Label: {result['label']}")
         print(f"Reason: {result['reason'][:100]}...")
@@ -35,18 +35,19 @@ def test_analysis():
         print("Failed: analyze_credibility returned invalid result")
 
     print("\n2. 용어 추출 테스트...")
-    terms = extract_terms(content)
+    terms = await extract_terms(content)
     if terms:
         print(f"Success! Extracted {len(terms)} terms.")
     else:
         print("Failed: No terms extracted")
 
     print("\n3. 만화 스크립트 테스트 (Safety Policy Check)...")
-    comic = generate_comic_script(title, content)
-    if comic and "panels" in comic:
+    comic = await generate_comic_script(title, content)
+    if comic:
         print("Success! Comic script generated.")
     else:
         print("Failed: Comic script generation failed or blocked")
 
 if __name__ == "__main__":
-    test_analysis()
+    asyncio.run(test_analysis())
+

@@ -69,6 +69,10 @@ async def run_full_analysis(
 
     source_name = get_source_from_url(article_url)
 
+    # SBS 기사 중 본문 내용이 너무 빈약하거나 동영상 전용인 경우 제외 처리
+    if source_name == "SBS" and len(content.strip()) < 150:
+        raise ValueError("SBS 동영상 전용 기사 또는 본문 내용이 빈약한 기사는 AI 분석 대상에서 제외됩니다.")
+
     # 3. 과거 유사 기사 검색 (비교 분석용)
     import re
     from datetime import datetime, timedelta
@@ -77,14 +81,38 @@ async def run_full_analysis(
     
     # 기사 발행일 확인 (1년 이상된 기사인지 체크)
     if title:
-        keywords = [w for w in re.findall(r'[가-힣A-Za-z0-9]+', title) if len(w) >= 2]
+        # 흔한 일반 명사(불용어) 정의
+        STOPWORDS = {
+            "대통령", "정부", "국민", "의원", "의혹", "논란", "뉴스", "오늘", "속보", 
+            "선거", "후보", "시장", "경찰", "수사", "검찰", "대표", "회장", "사건", 
+            "사고", "결과", "기사", "보도", "발표", "출신", "공개", "주장", "지적", 
+            "우려", "논란이", "대해", "위해", "기자", "밝혀", "때문", "관련"
+        }
         
+        # 1. 2글자 이상의 한글/영문/숫자 키워드 추출 후 불용어 필터링
+        keywords = [w for w in re.findall(r'[가-힣A-Za-z0-9]+', title) if len(w) >= 2 and w not in STOPWORDS]
+        # 만약 필터링 후 남은 키워드가 없으면 불용어 필터를 해제하여 검색 시도
+        if not keywords:
+            keywords = [w for w in re.findall(r'[가-힣A-Za-z0-9]+', title) if len(w) >= 2]
+            
         search_query = db.query(Article).filter(Article.url != article_url)
         if keywords:
             from sqlalchemy import or_
-            filters = [Article.title.like(f"%{kw}%") for kw in keywords[:3]]
-            # 최소 5개 이상 교차 분석을 위해 limit을 7로 상향
-            similar_from_db = search_query.filter(or_(*filters)).order_by(Article.created_at.desc()).limit(7).all()
+            # 상위 최대 5개 키워드 중 하나라도 포함된 후보 기사 100건 수집
+            filters = [Article.title.like(f"%{kw}%") for kw in keywords[:5]]
+            candidates = search_query.filter(or_(*filters)).order_by(Article.created_at.desc()).limit(100).all()
+            
+            # 2. 파이썬에서 정밀 키워드 매칭 비율 검증
+            similar_from_db = []
+            for sa in candidates:
+                # 후보 기사 제목에서 일치하는 키워드 수 계산
+                matched = sum(1 for kw in keywords if kw in sa.title)
+                # 키워드가 3개 이상일 경우 최소 2개 이상, 1~2개일 경우 최소 1개 이상 일치 조건 부여
+                required_match = 2 if len(keywords) >= 3 else 1
+                if matched >= required_match:
+                    similar_from_db.append(sa)
+                    if len(similar_from_db) >= 7:
+                        break
             
             for sa in similar_from_db:
                 related_arts.append({

@@ -29,7 +29,9 @@ HEADERS = {
 SELECTORS: Dict[str, Dict[str, str]] = {
     "naver.com":     {"content": "#dic_area, .go_trans._article_content, #articleBodyContents, #newsEndContents", "title": ".media_end_head_headline, h2.media_end_head_headline, #articleTitle, h2.media_end_head_title"},
     "daum.net":      {"content": ".article_view, #harmonyContainer",             "title": ".tit_view"},
-    "yonhap":        {"content": ".story-news article",                          "title": "h1.tit"},
+    "yna.co.kr":     {"content": ".story-news article",                          "title": "h1.tit"},
+    "yonhapnewstv.co.kr": {"content": ".article-body-text",                      "title": ".article-header h2"},
+    "yonhap":        {"content": ".story-news article, .article-body-text",      "title": "h1.tit, .article-header h2"},
     "sbs.co.kr":     {"content": ".article_cont_wrap, #news_body_id",            "title": "h1.sbs_title"},
     "hani.co.kr":    {"content": ".article-text, .text",                         "title": "h4.title"},
     "khan.co.kr":    {"content": ".art_body",                                    "title": "article header h1"},
@@ -143,6 +145,35 @@ def scrape(url: str) -> Optional[Dict]:
                         except Exception as e:
                             logger.error(f"조선일보 Fusion JSON 파싱 실패 ({url}): {e}")
 
+            # SBS 특수 파싱 (JSON-LD 활용)
+            if "sbs.co.kr" in url:
+                import json
+                for s in soup.find_all("script", type="application/ld+json"):
+                    try:
+                        data = json.loads(s.string)
+                        if isinstance(data, dict):
+                            if "articleBody" in data:
+                                content = data["articleBody"]
+                                if "headline" in data and not title:
+                                    title = data["headline"]
+                                break
+                            elif "@graph" in data:
+                                for item in data["@graph"]:
+                                    if isinstance(item, dict) and "articleBody" in item:
+                                        content = item["articleBody"]
+                                        if "headline" in item and not title:
+                                            title = item["headline"]
+                                        break
+                        elif isinstance(data, list):
+                            for item in data:
+                                if isinstance(item, dict) and "articleBody" in item:
+                                    content = item["articleBody"]
+                                    if "headline" in item and not title:
+                                        title = item["headline"]
+                                    break
+                    except Exception:
+                        continue
+
             if not content:
                 c_elem = soup.select_one(sel["content"])
                 if c_elem:
@@ -190,6 +221,7 @@ def get_source_from_url(url: str) -> str:
         "naver.com": "네이버 뉴스",
         "daum.net": "다음 뉴스",
         "yonhapnewstv.co.kr": "연합뉴스TV",
+        "yna.co.kr": "연합뉴스",
         "sbs.co.kr": "SBS",
         "hani.co.kr": "한겨레",
         "khan.co.kr": "경향신문",
