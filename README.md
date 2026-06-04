@@ -1,6 +1,6 @@
 # 뉴스 정보 나침반 (News Compass)
 
-> RSS 피드 및 네이버 뉴스 API를 연동하여 기사를 자동 수집하고, Groq AI(Llama) 및 Gemini AI를 활용하여 뉴스 신뢰도 평가, 요약, 핵심 인물 프로필, 전문 용어 설명 및 4컷 만화 시나리오 요약을 제공하는 뉴스 이해도 향상 서비스입니다.
+> RSS 피드 및 네이버 뉴스 API를 연동하여 기사를 자동 수집하고, Gemini AI를 활용하여 뉴스 신뢰도 평가, 요약, 핵심 인물 프로필, 전문 용어 설명 및 4컷 만화 시나리오 요약을 제공하는 뉴스 이해도 향상 서비스입니다.
 
 ---
 
@@ -255,7 +255,7 @@ FastAPI 서버가 제공하는 주요 REST API 목록입니다.
 
 - Web Framework: FastAPI (Uvicorn)
 - ORM & Database: SQLAlchemy + SQLite
-- AI Engine: Groq SDK (llama-3.3-70b) & Gemini SDK (google-genai)
+- AI Engine: Gemini SDK (google-genai)
 - Scraper & Crawler: BeautifulSoup4, lxml, feedparser
 
 ### 프론트엔드 (Frontend)
