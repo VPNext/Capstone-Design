@@ -16,9 +16,18 @@ export function useCartoons() {
     const loadCartoonsData = async () => {
       try {
         const data = await fetchCartoons();
+        // 만화 데이터 유효성 검사 및 정제 (배열이 아니거나 잘못된 형식 필터링)
+        const validCartoons = data.filter((item) => {
+          return (
+            item &&
+            Array.isArray(item.comic_urls) &&
+            item.comic_urls.length > 0 &&
+            (typeof item.comic_urls[0] === "string" || 
+             (item.comic_urls[0] && typeof item.comic_urls[0].url === "string"))
+          );
+        });
         // 최신 생성 날짜 순서대로 정렬 (내림차순)
-        // ISO 날짜 문자열은 단순 문자열 비교만으로 정렬이 가능하므로 Date 변환 생략
-        const sortedCartoons = data.sort((a, b) => {
+        const sortedCartoons = validCartoons.sort((a, b) => {
           const dateA = a.published_at || "";
           const dateB = b.published_at || "";
           return dateB.localeCompare(dateA);

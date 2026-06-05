@@ -77,9 +77,15 @@ export function useNewsDetail() {
 
     if (news?.comic_script) {
       try {
-        setComicUrls(JSON.parse(news.comic_script));
+        const parsed = JSON.parse(news.comic_script);
+        if (Array.isArray(parsed)) {
+          setComicUrls(parsed);
+        } else {
+          setComicUrls(null);
+        }
       } catch (e) {
         console.error("만화 URL 파싱 실패");
+        setComicUrls(null);
       }
     }
 
