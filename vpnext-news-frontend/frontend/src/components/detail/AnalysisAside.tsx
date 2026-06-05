@@ -159,47 +159,50 @@ export default function AnalysisAside({
               <div className="px-5 pb-5 pt-4">
                 {status === "complete" && credibility ? (
                   <>
-                    {/* Score display */}
-                    <div className="flex items-end gap-3 mb-4">
-                      <span
-                        className={`text-5xl font-black ${scoreColor.text} tracking-tighter`}
-                      >
-                        {credibility.score != null
-                          ? `${(credibility.score * 100).toFixed(0)}`
-                          : "-"}
-                      </span>
-                      <div className="flex flex-col mb-1.5">
-                        <span className={`text-xl font-bold ${scoreColor.text}`}>
-                          %
+                    {/* Score display with Circular Gauge */}
+                    <div className="flex items-center gap-5 mb-5 p-4 rounded-xl bg-white/40 border border-white/60">
+                      <div className="relative flex items-center justify-center shrink-0">
+                        <svg className="w-16 h-16 transform -rotate-90">
+                          <circle
+                            cx="32"
+                            cy="32"
+                            r="28"
+                            stroke="rgba(228, 221, 211, 0.4)"
+                            strokeWidth="4.5"
+                            fill="transparent"
+                          />
+                          {credibility.score != null && (
+                            <circle
+                              cx="32"
+                              cy="32"
+                              r="28"
+                              stroke={scoreColor.hex}
+                              strokeWidth="5.5"
+                              fill="transparent"
+                              strokeDasharray={2 * Math.PI * 28}
+                              strokeDashoffset={2 * Math.PI * 28 * (1 - credibility.score)}
+                              strokeLinecap="round"
+                              className="transition-all duration-[1000ms] ease-out"
+                              style={{
+                                filter: `drop-shadow(0 0 6px ${scoreColor.hex}40)`,
+                              }}
+                            />
+                          )}
+                        </svg>
+                        <span className={`absolute text-[15px] font-black tracking-tight ${scoreColor.text}`}>
+                          {credibility.score != null ? `${(credibility.score * 100).toFixed(0)}` : "-"}%
                         </span>
-                        <span
-                          className={`text-xs font-bold px-2.5 py-1 rounded-full ${scoreColor.bg} ${scoreColor.text} border ${scoreColor.border}`}
-                        >
-                          {credibility.label || "분석 중"}
+                      </div>
+                      
+                      <div className="flex flex-col gap-1">
+                        <span className="text-[10px] font-black tracking-wider text-[#9C9891] uppercase">
+                          AI 신뢰 지수
+                        </span>
+                        <span className={`text-lg font-black ${scoreColor.text}`}>
+                          {credibility.label || "분석 완료"}
                         </span>
                       </div>
                     </div>
-
-                    {/* Score bar */}
-                    {credibility.score != null && (
-                      <div className="mb-4">
-                      <div className="progress-bar-track mb-1 bg-slate-200/50 rounded-full h-1.5 overflow-hidden">
-                        <div
-                          className="progress-bar-fill h-full transition-all duration-500 ease-out"
-                          style={{
-                            width: `${Math.round(credibility.score * 100)}%`,
-                            background: scoreColor.hex,
-                          }}
-                        />
-                      </div>
-                      <div
-                        className="flex justify-between text-[10px] font-medium text-[#9C9891]"
-                      >
-                        <span>낮음</span>
-                        <span>높음</span>
-                      </div>
-                    </div>
-                  )}
 
                   <div
                     className={`text-[14px] leading-relaxed font-medium p-4 mb-4 bg-white/60 backdrop-blur-md rounded-xl ${scoreColor.text}`}

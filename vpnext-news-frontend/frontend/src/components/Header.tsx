@@ -16,6 +16,9 @@ export default function Header() {
   const navigate = useNavigate();
   const location = useLocation();
 
+  const [scrollProgress, setScrollProgress] = useState(0);
+  const isNewsDetailPage = location.pathname.startsWith("/news/");
+
   useEffect(() => {
     const handler = () => setScrolled(window.scrollY > 8);
     window.addEventListener("scroll", handler, { passive: true });
@@ -25,6 +28,28 @@ export default function Header() {
   useEffect(() => {
     setMobileMenuOpen(false);
   }, [location.pathname]);
+
+  useEffect(() => {
+    if (!isNewsDetailPage) {
+      setScrollProgress(0);
+      return;
+    }
+
+    const handleScroll = () => {
+      const totalHeight = document.documentElement.scrollHeight - window.innerHeight;
+      if (totalHeight > 0) {
+        const progress = (window.scrollY / totalHeight) * 100;
+        setScrollProgress(progress);
+      } else {
+        setScrollProgress(0);
+      }
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    handleScroll();
+
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [isNewsDetailPage, location.pathname]);
 
   const handleSearch = () => {
     const trimmed = keyword.trim();
@@ -98,16 +123,34 @@ export default function Header() {
           {/* Logo + Nav */}
           <div className="flex items-center gap-8">
             {/* Logo */}
-            <Link to="/" className="flex flex-col leading-none group shrink-0">
-              <span className="text-white/28 text-[8px] tracking-[0.28em] uppercase mb-[3px]">
-                THE DAILY
-              </span>
-              <span className="font-serif text-[17px] font-black text-white tracking-[-0.02em] transition-colors duration-200">
-                뉴스 정보{" "}
-                <span className="text-[#38BDF8] [text-shadow:0_0_20px_rgba(56,189,248,0.4)]">
-                  나침반
+            <Link to="/" className="flex items-center gap-3 group shrink-0">
+              <div className="relative w-8 h-8 rounded-full border border-white/10 bg-white/5 flex items-center justify-center transition-all duration-300 group-hover:border-[#38BDF8]/40 group-hover:bg-[#38BDF8]/5">
+                <svg
+                  className="w-5 h-5 text-[#38BDF8] transition-transform duration-700 ease-[cubic-bezier(0.34,1.56,0.64,1)] group-hover:rotate-[360deg]"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <circle cx="12" cy="12" r="10" />
+                  <polygon points="12,4 15,12 12,10.5" fill="#38BDF8" stroke="#38BDF8" />
+                  <polygon points="12,20 9,12 12,13.5" fill="#94A3B8" stroke="#94A3B8" />
+                  <circle cx="12" cy="12" r="1" fill="#fff" />
+                </svg>
+              </div>
+              <div className="flex flex-col leading-none">
+                <span className="text-white/28 text-[8px] tracking-[0.28em] uppercase mb-[3px]">
+                  THE DAILY
                 </span>
-              </span>
+                <span className="font-serif text-[17px] font-black text-white tracking-[-0.02em] transition-colors duration-200">
+                  뉴스 정보{" "}
+                  <span className="text-[#38BDF8] [text-shadow:0_0_20px_rgba(56,189,248,0.4)]">
+                    나침반
+                  </span>
+                </span>
+              </div>
             </Link>
 
             {/* Navigation — desktop */}
@@ -275,6 +318,15 @@ export default function Header() {
             </div>
           </div>
         </div>
+        {/* Reading progress bar for news detail pages */}
+        {isNewsDetailPage && (
+          <div className="absolute bottom-0 left-0 right-0 h-[2.5px] bg-white/5 pointer-events-none">
+            <div
+              className="h-full bg-gradient-to-r from-[#38BDF8] via-[#FBBF24] to-[#38BDF8] transition-all duration-75"
+              style={{ width: `${scrollProgress}%` }}
+            />
+          </div>
+        )}
       </header>
     </>
   );

@@ -44,13 +44,7 @@ export default function SkeletonCard({ featured = false, isAnalyzed = false }: S
             <div className="shimmer h-3.5 w-full rounded mt-1" />
             <div className="shimmer h-3.5 w-2/3 rounded" />
           </div>
-          <div
-            className="shimmer shrink-0"
-            style={{
-              width: isAnalyzed ? "160px" : "144px", // 40 * 4 = 160px, 36 * 4 = 144px
-              minHeight: isAnalyzed ? "120px" : "108px",
-            }}
-          />
+          <div className="shimmer shrink-0 w-28 sm:w-36 aspect-[4/3]" />
         </div>
       )}
     </div>
