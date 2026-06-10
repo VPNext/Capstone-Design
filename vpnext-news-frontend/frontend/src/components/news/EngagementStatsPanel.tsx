@@ -78,19 +78,19 @@ function EngagementStatsPanel({ theme = "main" }: EngagementStatsPanelProps) {
       <div className="grid grid-cols-3 divide-x divide-[#EFEFEF] border-b border-[#E5E5E5] bg-white">
         <div className="py-4 px-2 text-center">
           <p className="text-[11px] font-bold text-[#888] tracking-tight mb-1">총 조회한 뉴스</p>
-          <p className="text-2xl font-black text-[#111] tabular-nums tracking-tight">
+          <p className="text-3xl font-black text-[#111] tabular-nums tracking-tight">
             {summary.totalViews}회
           </p>
         </div>
         <div className="py-4 px-2 text-center">
           <p className="text-[11px] font-bold text-[#888] tracking-tight mb-1">총 누른 좋아요</p>
-          <p className="text-2xl font-black tabular-nums tracking-tight" style={{ color: styles.accent }}>
+          <p className="text-3xl font-black tabular-nums tracking-tight" style={{ color: styles.accent }}>
             {summary.totalLikes}개
           </p>
         </div>
         <div className="py-4 px-2 text-center">
           <p className="text-[11px] font-bold text-[#888] tracking-tight mb-1">평균 조회수</p>
-          <p className="text-2xl font-black text-[#111] tabular-nums tracking-tight">
+          <p className="text-3xl font-black text-[#111] tabular-nums tracking-tight">
             {summary.averageViews}회
           </p>
         </div>
@@ -131,19 +131,19 @@ function EngagementStatsPanel({ theme = "main" }: EngagementStatsPanelProps) {
               <Link
                 key={`${activeTab}-${item.id}`}
                 to={`/news/${item.id}`}
-                className="group flex items-center gap-3 p-3 hover:bg-[#FAFAFA] transition-colors"
+                className="group flex items-center gap-3.5 p-3.5 px-4 hover:bg-[#FAFAFA] transition-colors"
                 style={{ "--hover-accent": styles.accent } as React.CSSProperties}
               >
                 {/* 순위 표시 */}
                 <span
-                  className="w-5 shrink-0 text-center text-[15px] font-black tabular-nums"
+                  className="w-5 shrink-0 text-center text-[16px] font-black tabular-nums"
                   style={{ color: index < 3 ? styles.accent : "#BBB" }}
                 >
                   {index + 1}
                 </span>
 
                 {/* Thumbnail */}
-                <div className="w-[52px] h-[38px] shrink-0 rounded overflow-hidden relative flex items-center justify-center bg-[#EEE]">
+                <div className="w-[72px] h-[52px] shrink-0 rounded overflow-hidden relative flex items-center justify-center bg-[#EEE]">
                   {displayImage ? (
                     <img
                       src={displayImage}
@@ -162,7 +162,7 @@ function EngagementStatsPanel({ theme = "main" }: EngagementStatsPanelProps) {
                     className="absolute inset-0 flex items-center justify-center bg-gradient-to-tr from-[#F3EFF5] to-[#E5E9F0] select-none"
                     style={{ display: displayImage ? "none" : "flex" }}
                   >
-                    <span className="text-[12px] font-black text-[#5C4D66] font-serif leading-none">
+                    <span className="text-[14px] font-black text-[#5C4D66] font-serif leading-none">
                       {item.source ? item.source.charAt(0) : "N"}
                     </span>
                   </div>
@@ -170,10 +170,10 @@ function EngagementStatsPanel({ theme = "main" }: EngagementStatsPanelProps) {
 
                 {/* Title & Info */}
                 <div className="flex-1 min-w-0">
-                  <h4 className="text-[14px] font-black text-[#161311] leading-snug line-clamp-1 group-hover:text-[var(--hover-accent)] group-hover:underline transition-colors duration-150">
+                  <h4 className="text-[15px] font-black text-[#161311] leading-snug line-clamp-1 group-hover:text-[var(--hover-accent)] group-hover:underline transition-colors duration-150">
                     {item.title}
                   </h4>
-                  <div className="flex items-center gap-1.5 mt-0.5 text-[11px] text-[#777] font-semibold">
+                  <div className="flex items-center gap-1.5 mt-0.5 text-[11px] text-[#777] font-bold">
                     <span>{item.source}</span>
                     <span className="text-[#DDD]">·</span>
                     <span>{item.published_at?.split("T")[0] || "날짜 미상"}</span>

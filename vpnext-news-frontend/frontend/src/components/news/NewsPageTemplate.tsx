@@ -73,7 +73,7 @@ export default function NewsPageTemplate({
               onLoadMore={onLoadMore}
             />
           </div>
-          <div className="w-full lg:w-[320px] xl:w-[340px] shrink-0">
+          <div className="w-full lg:w-[360px] xl:w-[380px] shrink-0">
             <EngagementStatsPanel theme={variant} />
           </div>
         </div>

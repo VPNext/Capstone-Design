@@ -58,10 +58,10 @@ function NewsPageHeader({
             </span>
           )}
         </div>
-        <h1 className="text-2xl sm:text-[28px] font-black text-[#111] tracking-tight leading-tight">
+        <h1 className="text-3xl sm:text-[34px] font-black text-[#111] tracking-tight leading-tight">
           {title}
         </h1>
-        <p className="text-sm text-[#666] mt-1">{subtitle}</p>
+        <p className="text-[15px] font-medium text-[#666] mt-1.5">{subtitle}</p>
       </div>
 
       <NewsSearchBar

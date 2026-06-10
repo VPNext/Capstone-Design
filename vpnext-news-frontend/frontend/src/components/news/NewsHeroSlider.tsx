@@ -38,6 +38,69 @@ function prefetchDetail(id: number) {
   prefetchQuery(["newsDetail", String(id)], () => fetchNewsDetail(id), 1000 * 60 * 10);
 }
 
+interface NewsHeroThumbItemProps {
+  item: NewsItem;
+  index: number;
+  keyword: string;
+  onSelect: (index: number) => void;
+  onPrefetch: (id: number) => void;
+}
+
+const NewsHeroThumbItem = memo(function NewsHeroThumbItem({
+  item,
+  index,
+  keyword,
+  onSelect,
+  onPrefetch,
+}: NewsHeroThumbItemProps) {
+  const thumb = getNewsDisplayImage(item);
+  const { displaySourceName: thumbSource } = getNewsSourceMeta(item);
+
+  return (
+    <li className="flex-1 min-w-[140px]">
+      <button
+        type="button"
+        onClick={() => onSelect(index)}
+        onMouseEnter={() => onPrefetch(item.id)}
+        className="w-full h-[100px] flex flex-col justify-between p-2.5 text-left transition-colors hover:bg-[#FAFAFA] focus-visible:outline-none focus-visible:bg-[#FAFAFA]"
+      >
+        <div className="flex gap-2.5 items-start">
+          <div className="relative w-[56px] h-[40px] shrink-0 rounded overflow-hidden flex items-center justify-center bg-[#EEE]">
+            {thumb ? (
+              <img
+                src={thumb}
+                alt=""
+                className="w-full h-full object-cover"
+                loading="lazy"
+                onError={(e) => {
+                  const img = e.target as HTMLImageElement;
+                  img.style.display = "none";
+                  const fallback = img.nextElementSibling as HTMLDivElement;
+                  if (fallback) fallback.style.display = "flex";
+                }}
+              />
+            ) : null}
+            <div
+              className="absolute inset-0 flex items-center justify-center bg-gradient-to-tr from-[#F3EFF5] to-[#E5E9F0] select-none"
+              style={{ display: thumb ? "none" : "flex" }}
+            >
+              <span className="text-[11px] font-black text-[#5C4D66] font-serif leading-none">
+                {thumbSource ? thumbSource.charAt(0) : "N"}
+              </span>
+            </div>
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-[12px] font-extrabold leading-[1.35] line-clamp-2 text-[#1c1815] tracking-tight">
+              <HighlightText text={getNewsTitle(item)} keyword={keyword} />
+            </p>
+          </div>
+        </div>
+        <p className="text-[10px] font-extrabold text-[#605a54] truncate w-full tracking-tight">{thumbSource}</p>
+      </button>
+    </li>
+  );
+});
+
 function NewsHeroSlider({
   items,
   activeIndex,
@@ -79,24 +142,25 @@ function NewsHeroSlider({
 
   return (
     <section
-      className="bg-white border border-[#E5E5E5] rounded-lg overflow-hidden shadow-sm"
+      className="bg-white border border-[#E5E5E5] rounded-lg overflow-hidden shadow-sm flex flex-col"
       onMouseEnter={onPause}
       onMouseLeave={onResume}
       onFocus={onPause}
       onBlur={onResume}
       aria-label="헤드라인 슬라이드"
     >
-      <div className="flex flex-col md:flex-row md:h-[400px]">
+      {/* 위: 메인 뉴스 영역 */}
+      <div className="relative h-[360px] w-full bg-[#1a1a1a] group overflow-hidden">
         <Link
           to={`/news/${active.id}`}
-          className="relative flex-1 min-h-[260px] md:min-h-0 group overflow-hidden bg-[#1a1a1a]"
+          className="block w-full h-full"
           onMouseEnter={() => handlePrefetch(active.id)}
         >
           {heroImage ? (
             <img
               src={heroImage}
               alt=""
-              className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.03]"
+              className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.02]"
               loading="eager"
               onError={(e) => {
                 const img = e.target as HTMLImageElement;
@@ -117,9 +181,9 @@ function NewsHeroSlider({
               HEADLINE NEWS FALLBACK
             </span>
           </div>
-          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent pointer-events-none" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/45 to-transparent pointer-events-none" />
 
-          <div className="absolute top-3 left-3 flex items-center gap-2">
+          <div className="absolute top-4 left-4 flex items-center gap-2">
             <span className={`${displayBadgeClass} text-[10px] font-bold px-2 py-0.5 rounded`}>
               {displaySourceName}
             </span>
@@ -131,9 +195,9 @@ function NewsHeroSlider({
             )}
           </div>
 
-          <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-5">
-            <div className="flex flex-wrap items-center gap-2 mb-2">
-              <p className="text-[11px] font-medium text-white/80">
+          <div className="absolute bottom-0 left-0 right-0 p-6 sm:p-7">
+            <div className="flex flex-wrap items-center gap-3 mb-2.5">
+              <p className="text-[12px] font-black text-white">
                 {formatNewsRelativeTime(active.published_at)}
               </p>
               <ArticleEngagementBar
@@ -150,90 +214,55 @@ function NewsHeroSlider({
                 }}
               />
             </div>
-            <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-white leading-snug line-clamp-2 group-hover:underline decoration-2 underline-offset-4">
+            <h2 className="text-xl sm:text-2xl md:text-[26px] font-black text-white leading-[1.3] tracking-[-0.015em] line-clamp-2 group-hover:underline decoration-[3px] underline-offset-6">
               <HighlightText text={title} keyword={keyword} />
             </h2>
           </div>
-
-          {items.length > 1 && (
-            <>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.preventDefault();
-                  onPrev();
-                }}
-                className="absolute left-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/45 text-white hover:bg-black/65 transition-colors hidden sm:flex items-center justify-center"
-                aria-label="이전 헤드라인"
-              >
-                ‹
-              </button>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.preventDefault();
-                  onNext();
-                }}
-                className="absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/45 text-white hover:bg-black/65 transition-colors hidden sm:flex items-center justify-center"
-                aria-label="다음 헤드라인"
-              >
-                ›
-              </button>
-            </>
-          )}
         </Link>
 
-        {sideThumbs.length > 0 && (
-          <ul className="md:w-[350px] lg:w-[380px] shrink-0 border-t md:border-t-0 md:border-l border-[#E5E5E5] divide-y divide-[#EFEFEF]">
-            {sideThumbs.map(({ item, index }) => {
-              const thumb = getNewsDisplayImage(item);
-              const { displaySourceName: thumbSource } = getNewsSourceMeta(item);
-
-              return (
-                <li key={item.id}>
-                  <button
-                    type="button"
-                    onClick={() => onSelect(index)}
-                    onMouseEnter={() => handlePrefetch(item.id)}
-                    className="w-full flex items-center gap-3.5 px-4 py-3 text-left transition-colors hover:bg-[#FAFAFA]"
-                  >
-                    <div className="relative w-[92px] h-[64px] shrink-0 rounded overflow-hidden flex items-center justify-center bg-[#EEE]">
-                      {thumb ? (
-                        <img
-                          src={thumb}
-                          alt=""
-                          className="w-full h-full object-cover"
-                          loading="lazy"
-                          onError={(e) => {
-                            const img = e.target as HTMLImageElement;
-                            img.style.display = "none";
-                            const fallback = img.nextElementSibling as HTMLDivElement;
-                            if (fallback) fallback.style.display = "flex";
-                          }}
-                        />
-                      ) : null}
-                      <div
-                        className="absolute inset-0 flex items-center justify-center bg-gradient-to-tr from-[#F3EFF5] to-[#E5E9F0] select-none"
-                        style={{ display: thumb ? "none" : "flex" }}
-                      >
-                        <span className="text-[14px] font-black text-[#5C4D66] font-serif leading-none">
-                          {thumbSource ? thumbSource.charAt(0) : "N"}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[14px] font-black leading-snug line-clamp-2 text-[#222]">
-                        <HighlightText text={getNewsTitle(item)} keyword={keyword} />
-                      </p>
-                      <p className="text-[11px] font-bold text-[#888] mt-1 truncate">{thumbSource}</p>
-                    </div>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
+        {items.length > 1 && (
+          <>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                onPrev();
+              }}
+              className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/45 text-white hover:bg-black/65 transition-colors hidden sm:flex items-center justify-center z-10"
+              aria-label="이전 헤드라인"
+            >
+              ‹
+            </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                onNext();
+              }}
+              className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/45 text-white hover:bg-black/65 transition-colors hidden sm:flex items-center justify-center z-10"
+              aria-label="다음 헤드라인"
+            >
+              ›
+            </button>
+          </>
         )}
       </div>
+
+      {/* 아래: 가로형 썸네일 리스트 영역 */}
+      {sideThumbs.length > 0 && (
+        <ul className="flex flex-row divide-x divide-[#E5E5E5] border-t border-[#E5E5E5] bg-[#FAF9F6] w-full overflow-x-auto select-none">
+          {sideThumbs.map(({ item, index }) => (
+            <NewsHeroThumbItem
+              key={item.id}
+              item={item}
+              index={index}
+              keyword={keyword}
+              onSelect={onSelect}
+              onPrefetch={handlePrefetch}
+            />
+          ))}
+        </ul>
+      )}
 
       {items.length > 1 && (
         <div className="flex items-center justify-center gap-3 py-2.5 border-t border-[#EFEFEF] text-[11px] font-medium text-[#888]">
