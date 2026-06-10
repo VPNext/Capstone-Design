@@ -20,11 +20,11 @@ export default function AnalyzedNewsPage() {
       variant="analyzed"
       totalItems={totalItems}
       loadedCount={newsList.length}
-      title={keyword ? `"${keyword}" AI 분석 검색` : "AI 분석 헤드라인"}
+      title={keyword ? `"${keyword}" AI 분석 검색` : "AI 분석 뉴스"}
       subtitle={
         keyword
           ? "분석 완료 기사 검색 결과 — 슬라이드로 탐색하세요"
-          : "다양한 언론사의 AI 분석 기사를 슬라이드로 이어서 확인하세요"
+          : "분석이 완료된 뉴스를 확인하세요"
       }
       searchPlaceholder="분석 뉴스 검색"
     />

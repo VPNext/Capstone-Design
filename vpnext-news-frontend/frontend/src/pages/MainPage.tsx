@@ -24,7 +24,7 @@ export default function MainPage() {
       subtitle={
         keyword
           ? "검색 결과를 슬라이드로 넘기며 확인하세요"
-          : "다양한 언론사 헤드라인을 슬라이드로 이어서 보여드립니다"
+          : "다양한 언론사 뉴스를 확인하세요"
       }
       searchPlaceholder="뉴스 제목·키워드 검색"
     />
