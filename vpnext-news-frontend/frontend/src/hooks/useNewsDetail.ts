@@ -3,7 +3,6 @@ import { useParams } from "react-router-dom";
 import axios from "axios";
 import { SOURCE_NAME_MAP } from "../constants/source";
 import { fetchNewsDetail, analyzeNews, generateComic } from "../services/newsService";
-import { storage, STORAGE_KEYS } from "../utils/storage";
 import { useToast } from "../context/ToastContext";
 import { useCustomQuery, invalidateCustomQueries } from "./useCustomQuery";
 import type { NewsDetail, AnalysisData } from "../types/news";
@@ -124,10 +123,6 @@ export function useNewsDetail() {
       // 기사 상세 및 뉴스 목록 캐시 무효화 -> 리프레시 선언적 촉발
       invalidateCustomQueries(["newsDetail", id]);
       invalidateCustomQueries(["newsList"]);
-      
-      // 구형 스토리지 세션 캐시 무효화 보완
-      storage.remove(STORAGE_KEYS.MAIN_NEWS_CACHE);
-      storage.remove(STORAGE_KEYS.ANALYZED_NEWS_CACHE);
       
       showToast("기사 분석이 완료되었습니다!", "success");
     } catch (error: any) {

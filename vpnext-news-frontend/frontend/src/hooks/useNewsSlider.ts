@@ -23,8 +23,14 @@ export function useNewsSlider(
     [itemCount],
   );
 
-  const next = useCallback(() => goTo(index + 1), [goTo, index]);
-  const prev = useCallback(() => goTo(index - 1), [goTo, index]);
+  const next = useCallback(() => {
+    setIndex((current) => (itemCount <= 0 ? 0 : (current + 1) % itemCount));
+  }, [itemCount]);
+
+  const prev = useCallback(() => {
+    setIndex((current) => (itemCount <= 0 ? 0 : (current - 1 + itemCount) % itemCount));
+  }, [itemCount]);
+
   const pause = useCallback(() => setPaused(true), []);
   const resume = useCallback(() => setPaused(false), []);
 
