@@ -12,12 +12,16 @@ export const fetchNewsList = async (
   source?: string,
   isAnalyzed?: boolean,
   keyword?: string,
-  config?: AxiosRequestConfig
+  size = 30,
+  config?: AxiosRequestConfig,
 ): Promise<FetchNewsResponse> => {
   const sourceParam = source ? `&source=${source}` : "";
   const analyzedParam = isAnalyzed !== undefined ? `&is_analyzed=${isAnalyzed}` : "";
   const keywordParam = keyword ? `&keyword=${encodeURIComponent(keyword)}` : "";
-  const response = await api.get(`/api/news?page=${page}${sourceParam}${analyzedParam}${keywordParam}`, config);
+  const response = await api.get(
+    `/api/news?page=${page}&size=${size}${sourceParam}${analyzedParam}${keywordParam}`,
+    config,
+  );
   return response.data;
 };
 

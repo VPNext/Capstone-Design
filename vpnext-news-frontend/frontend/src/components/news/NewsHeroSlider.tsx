@@ -1,4 +1,4 @@
-import { memo, useCallback } from "react";
+import { memo, useCallback, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { prefetchQuery } from "../../hooks/useCustomQuery";
 import { fetchNewsDetail } from "../../services/newsService";
@@ -9,6 +9,7 @@ import {
   getNewsDisplayImage,
   getNewsSourceMeta,
   getNewsTitle,
+  SIDE_THUMB_COUNT,
 } from "../../utils/newsDisplay";
 import type { NewsItem } from "../../types/news";
 
@@ -19,6 +20,7 @@ interface NewsHeroSliderProps {
   activeIndex: number;
   keyword: string;
   variant: NewsPortalVariant;
+  loadingMore?: boolean;
   onSelect: (index: number) => void;
   onPause: () => void;
   onResume: () => void;
@@ -40,6 +42,7 @@ function NewsHeroSlider({
   activeIndex,
   keyword,
   variant,
+  loadingMore = false,
   onSelect,
   onPause,
   onResume,
@@ -48,6 +51,20 @@ function NewsHeroSlider({
 }: NewsHeroSliderProps) {
   const active = items[activeIndex];
   const accent = ACCENT[variant];
+
+  const sideThumbs = useMemo(() => {
+    if (items.length <= 1) return [];
+
+    const thumbs: { item: NewsItem; index: number }[] = [];
+    const count = Math.min(SIDE_THUMB_COUNT, items.length - 1);
+
+    for (let offset = 1; offset <= count; offset++) {
+      const index = (activeIndex + offset) % items.length;
+      thumbs.push({ item: items[index], index });
+    }
+
+    return thumbs;
+  }, [items, activeIndex]);
 
   const handlePrefetch = useCallback((id: number) => {
     prefetchDetail(id);
@@ -69,7 +86,6 @@ function NewsHeroSlider({
       aria-label="헤드라인 슬라이드"
     >
       <div className="flex flex-col md:flex-row md:h-[360px]">
-        {/* 메인 슬라이드 */}
         <Link
           to={`/news/${active.id}`}
           className="relative flex-1 min-h-[220px] md:min-h-0 group overflow-hidden bg-[#1a1a1a]"
@@ -136,11 +152,9 @@ function NewsHeroSlider({
           )}
         </Link>
 
-        {/* 우측 썸네일 리스트 (네이버 뉴스 스타일) */}
-        {items.length > 1 && (
+        {sideThumbs.length > 0 && (
           <ul className="md:w-[300px] lg:w-[320px] shrink-0 border-t md:border-t-0 md:border-l border-[#E5E5E5] divide-y divide-[#EFEFEF]">
-            {items.map((item, idx) => {
-              const isActive = idx === activeIndex;
+            {sideThumbs.map(({ item, index }) => {
               const thumb = getNewsDisplayImage(item);
               const { displaySourceName: thumbSource } = getNewsSourceMeta(item);
 
@@ -148,12 +162,9 @@ function NewsHeroSlider({
                 <li key={item.id}>
                   <button
                     type="button"
-                    onClick={() => onSelect(idx)}
+                    onClick={() => onSelect(index)}
                     onMouseEnter={() => handlePrefetch(item.id)}
-                    className={`w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors ${
-                      isActive ? "bg-[#F7F7F7]" : "hover:bg-[#FAFAFA]"
-                    }`}
-                    aria-current={isActive ? "true" : undefined}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-[#FAFAFA]"
                   >
                     <div className="relative w-[72px] h-[52px] shrink-0 rounded overflow-hidden bg-[#EEE]">
                       {thumb ? (
@@ -161,20 +172,9 @@ function NewsHeroSlider({
                       ) : (
                         <div className="w-full h-full bg-gradient-to-br from-[#DDD] to-[#BBB]" />
                       )}
-                      {isActive && (
-                        <span
-                          className="absolute inset-0 border-2 pointer-events-none"
-                          style={{ borderColor: accent }}
-                        />
-                      )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p
-                        className={`text-[13px] font-bold leading-snug line-clamp-2 ${
-                          isActive ? "text-[#111]" : "text-[#333]"
-                        }`}
-                        style={isActive ? { color: accent } : undefined}
-                      >
+                      <p className="text-[13px] font-bold leading-snug line-clamp-2 text-[#333]">
                         <HighlightText text={getNewsTitle(item)} keyword={keyword} />
                       </p>
                       <p className="text-[10px] text-[#999] mt-0.5 truncate">{thumbSource}</p>
@@ -187,22 +187,17 @@ function NewsHeroSlider({
         )}
       </div>
 
-      {/* 모바일 인디케이터 */}
       {items.length > 1 && (
-        <div className="flex md:hidden justify-center gap-1.5 py-2.5 border-t border-[#EFEFEF]">
-          {items.map((item, idx) => (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => onSelect(idx)}
-              className="w-2 h-2 rounded-full transition-all"
-              style={{
-                backgroundColor: idx === activeIndex ? accent : "#D9D9D9",
-                width: idx === activeIndex ? "1.25rem" : "0.5rem",
-              }}
-              aria-label={`${idx + 1}번 헤드라인`}
-            />
-          ))}
+        <div className="flex items-center justify-center gap-3 py-2.5 border-t border-[#EFEFEF] text-[11px] font-medium text-[#888]">
+          <span style={{ color: accent }}>
+            {activeIndex + 1} / {items.length}
+          </span>
+          {loadingMore && (
+            <span className="flex items-center gap-1.5 text-[#AAA]">
+              <span className="w-3 h-3 border-2 border-[#DDD] border-t-[#888] rounded-full animate-spin" />
+              더 불러오는 중
+            </span>
+          )}
         </div>
       )}
     </section>

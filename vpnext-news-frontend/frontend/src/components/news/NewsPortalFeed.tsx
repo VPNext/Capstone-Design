@@ -1,8 +1,7 @@
-import { memo, useMemo } from "react";
+import { memo, useCallback, useEffect } from "react";
 import { useNewsSlider } from "../../hooks/useNewsSlider";
-import { HERO_SLIDE_COUNT } from "../../utils/newsDisplay";
+import { SLIDE_LOAD_AHEAD_THRESHOLD } from "../../utils/newsDisplay";
 import NewsHeroSlider from "./NewsHeroSlider";
-import NewsHeadlineItem from "./NewsHeadlineItem";
 import type { NewsPortalVariant } from "./NewsHeroSlider";
 import type { NewsItem } from "../../types/news";
 
@@ -10,20 +9,44 @@ interface NewsPortalFeedProps {
   newsList: NewsItem[];
   keyword: string;
   variant: NewsPortalVariant;
+  hasMore: boolean;
+  loadingMore: boolean;
+  onLoadMore: () => void;
 }
 
-function NewsPortalFeed({ newsList, keyword, variant }: NewsPortalFeedProps) {
-  const heroItems = useMemo(
-    () => newsList.slice(0, Math.min(HERO_SLIDE_COUNT, newsList.length)),
-    [newsList],
+const AUTO_SLIDE_MS = 4500;
+const MIN_ITEMS_BEFORE_PREFETCH = 15;
+
+function NewsPortalFeed({
+  newsList,
+  keyword,
+  variant,
+  hasMore,
+  loadingMore,
+  onLoadMore,
+}: NewsPortalFeedProps) {
+  const handleSlideTick = useCallback(
+    (index: number, count: number) => {
+      if (!hasMore || loadingMore || count === 0) return;
+      if (index >= count - SLIDE_LOAD_AHEAD_THRESHOLD) {
+        onLoadMore();
+      }
+    },
+    [hasMore, loadingMore, onLoadMore],
   );
 
-  const listItems = useMemo(
-    () => newsList.slice(heroItems.length),
-    [newsList, heroItems.length],
+  const { index, goTo, next, prev, pause, resume } = useNewsSlider(
+    newsList.length,
+    AUTO_SLIDE_MS,
+    handleSlideTick,
   );
 
-  const { index, goTo, next, prev, pause, resume } = useNewsSlider(heroItems.length);
+  useEffect(() => {
+    if (!hasMore || loadingMore) return;
+    if (newsList.length > 0 && newsList.length < MIN_ITEMS_BEFORE_PREFETCH) {
+      onLoadMore();
+    }
+  }, [hasMore, loadingMore, newsList.length, onLoadMore]);
 
   if (newsList.length === 0) {
     return (
@@ -36,41 +59,18 @@ function NewsPortalFeed({ newsList, keyword, variant }: NewsPortalFeedProps) {
   }
 
   return (
-    <div className="flex flex-col gap-5">
-      {heroItems.length > 0 && (
-        <NewsHeroSlider
-          items={heroItems}
-          activeIndex={index}
-          keyword={keyword}
-          variant={variant}
-          onSelect={goTo}
-          onPause={pause}
-          onResume={resume}
-          onPrev={prev}
-          onNext={next}
-        />
-      )}
-
-      {listItems.length > 0 && (
-        <section className="bg-white border border-[#E5E5E5] rounded-lg overflow-hidden shadow-sm">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-[#EFEFEF] bg-[#FAFAFA]">
-            <h2 className="text-sm font-black text-[#111] tracking-tight">이어지는 뉴스</h2>
-            <span className="text-[11px] font-medium text-[#999]">{listItems.length}건</span>
-          </div>
-          <div className="px-3 sm:px-4">
-            {listItems.map((news, idx) => (
-              <NewsHeadlineItem
-                key={news.id}
-                news={news}
-                rank={heroItems.length + idx + 1}
-                keyword={keyword}
-                variant={variant}
-              />
-            ))}
-          </div>
-        </section>
-      )}
-    </div>
+    <NewsHeroSlider
+      items={newsList}
+      activeIndex={index}
+      keyword={keyword}
+      variant={variant}
+      loadingMore={loadingMore}
+      onSelect={goTo}
+      onPause={pause}
+      onResume={resume}
+      onPrev={prev}
+      onNext={next}
+    />
   );
 }
 

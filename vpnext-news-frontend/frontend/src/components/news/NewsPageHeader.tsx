@@ -5,6 +5,7 @@ import type { NewsPortalVariant } from "./NewsHeroSlider";
 interface NewsPageHeaderProps {
   variant: NewsPortalVariant;
   totalItems: number;
+  loadedCount?: number;
   title: string;
   subtitle: string;
   searchPlaceholder?: string;
@@ -29,6 +30,7 @@ const THEME: Record<
 function NewsPageHeader({
   variant,
   totalItems,
+  loadedCount = 0,
   title,
   subtitle,
   searchPlaceholder,
@@ -49,9 +51,10 @@ function NewsPageHeader({
             {theme.badge}
           </span>
           <span className="text-xs text-[#888] font-medium">{today}</span>
-          {totalItems > 0 && (
+          {loadedCount > 0 && (
             <span className="text-xs font-bold text-[#555]">
-              · {totalItems.toLocaleString()}건
+              · {loadedCount.toLocaleString()}
+              {totalItems > loadedCount ? ` / ${totalItems.toLocaleString()}` : ""}건
             </span>
           )}
         </div>

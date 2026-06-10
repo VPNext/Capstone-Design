@@ -1,34 +1,30 @@
 import { useNewsList } from "../hooks/useNewsList";
-import { STORAGE_KEYS } from "../utils/storage";
 import NewsPageTemplate from "../components/news/NewsPageTemplate";
 import NewsPageHeader from "../components/news/NewsPageHeader";
 
 export default function MainPage() {
   const {
     newsList,
-    page,
-    totalPages,
     totalItems,
     loading,
+    loadingMore,
+    hasMore,
     keyword,
-    handlePageChange,
+    loadMore,
     error,
     handleRetry,
-  } = useNewsList({
-    isAnalyzed: false,
-    cacheKey: STORAGE_KEYS.MAIN_NEWS_CACHE,
-    scrollKey: "",
-  });
+  } = useNewsList({ isAnalyzed: false });
 
   const banner = (
     <NewsPageHeader
       variant="main"
       totalItems={totalItems}
+      loadedCount={newsList.length}
       title={keyword ? `"${keyword}" 검색 결과` : "헤드라인 뉴스"}
       subtitle={
         keyword
-          ? "현재 페이지에 로드된 기사 중 검색 결과입니다"
-          : "주요 언론사 헤드라인을 한눈에 — 기사를 선택하면 AI 분석을 시작할 수 있습니다"
+          ? "검색 결과를 슬라이드로 넘기며 확인하세요"
+          : "다양한 언론사 헤드라인을 슬라이드로 이어서 보여드립니다"
       }
       searchPlaceholder="뉴스 제목·키워드 검색"
     />
@@ -38,10 +34,10 @@ export default function MainPage() {
     <NewsPageTemplate
       newsList={newsList}
       loading={loading}
-      page={page}
-      totalPages={totalPages}
+      loadingMore={loadingMore}
+      hasMore={hasMore}
       keyword={keyword}
-      onChangePage={handlePageChange}
+      onLoadMore={loadMore}
       variant="main"
       banner={banner}
       btnBg="#C13026"

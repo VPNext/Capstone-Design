@@ -38,4 +38,8 @@ export function formatNewsRelativeTime(publishedAt: string): string {
   return date.toLocaleDateString("ko-KR", { month: "numeric", day: "numeric" });
 }
 
-export const HERO_SLIDE_COUNT = 5;
+/** 우측 썸네일 패널에 표시할 다음 기사 수 (고정 개수로 DOM 부담 최소화) */
+export const SIDE_THUMB_COUNT = 5;
+
+/** 슬라이드가 끝에 가까워질 때 추가 로드하는 임계값 */
+export const SLIDE_LOAD_AHEAD_THRESHOLD = 3;

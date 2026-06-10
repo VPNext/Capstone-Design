@@ -3,7 +3,11 @@ import { useCallback, useEffect, useState } from "react";
 const DEFAULT_INTERVAL_MS = 4500;
 
 /** 헤드라인 슬라이더 인덱스·자동재생 (호버 시 일시정지) */
-export function useNewsSlider(itemCount: number, intervalMs = DEFAULT_INTERVAL_MS) {
+export function useNewsSlider(
+  itemCount: number,
+  intervalMs = DEFAULT_INTERVAL_MS,
+  onTick?: (index: number, count: number) => void,
+) {
   const [index, setIndex] = useState(0);
   const [paused, setPaused] = useState(false);
 
@@ -31,6 +35,10 @@ export function useNewsSlider(itemCount: number, intervalMs = DEFAULT_INTERVAL_M
     }, intervalMs);
     return () => window.clearInterval(timer);
   }, [itemCount, paused, intervalMs]);
+
+  useEffect(() => {
+    if (itemCount > 0) onTick?.(index, itemCount);
+  }, [index, itemCount, onTick]);
 
   return { index, goTo, next, prev, pause, resume };
 }
