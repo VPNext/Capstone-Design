@@ -34,6 +34,8 @@ class Article(Base):
     difficult_terms    = Column(JSON)
     comic_script       = Column(Text)
     is_analyzed        = Column(Boolean, default=False)
+    views              = Column(Integer, default=0, nullable=False)
+    tags               = Column(JSON)
 
 
 def init_db():
