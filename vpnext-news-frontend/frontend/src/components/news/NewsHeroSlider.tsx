@@ -4,6 +4,7 @@ import { prefetchQuery } from "../../hooks/useCustomQuery";
 import { fetchNewsDetail } from "../../services/newsService";
 import HighlightText from "../HighlightText";
 import CredibilityBadge from "../CredibilityBadge";
+import ArticleEngagementBar from "./ArticleEngagementBar";
 import {
   formatNewsRelativeTime,
   getNewsDisplayImage,
@@ -116,9 +117,17 @@ function NewsHeroSlider({
           </div>
 
           <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-5">
-            <p className="text-[11px] font-medium text-white/70 mb-1.5">
-              {formatNewsRelativeTime(active.published_at)}
-            </p>
+            <div className="flex flex-wrap items-center gap-2 mb-2">
+              <p className="text-[11px] font-medium text-white/80">
+                {formatNewsRelativeTime(active.published_at)}
+              </p>
+              <ArticleEngagementBar
+                articleId={active.id}
+                overlay
+                compact
+                analyzedTheme={variant === "analyzed"}
+              />
+            </div>
             <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-white leading-snug line-clamp-2 group-hover:underline decoration-2 underline-offset-4">
               <HighlightText text={title} keyword={keyword} />
             </h2>

@@ -173,7 +173,7 @@ export default function DetailPage() {
 
       {/* 기사 헤더 영역: 언론사, 날짜, 원문 링크 등 */}
       <header className="mb-10">
-        <div className="flex items-center flex-wrap gap-3 mb-5">
+        <div className="flex items-center flex-wrap gap-3 mb-4">
           <span className={`${displayBadgeClass} text-xs font-black px-3.5 py-1.5 rounded-full`}>
             {displaySourceName}
           </span>
@@ -188,6 +188,9 @@ export default function DetailPage() {
               AI 분석완료
             </span>
           )}
+        </div>
+
+        <div className="mb-5">
           <ArticleEngagementBar
             articleId={news.id}
             analyzedTheme={news.is_analyzed}
