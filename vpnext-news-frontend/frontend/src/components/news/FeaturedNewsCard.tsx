@@ -5,6 +5,7 @@ import { prefetchQuery } from "../../hooks/useCustomQuery";
 import { fetchNewsDetail } from "../../services/newsService";
 import HighlightText from "../HighlightText";
 import CredibilityBadge from "../CredibilityBadge";
+import ArticleEngagementBar from "./ArticleEngagementBar";
 import type { NewsItem } from "../../types/news";
 
 interface FeaturedNewsCardProps {
@@ -122,6 +123,12 @@ export default function FeaturedNewsCard({
                 <CredibilityBadge
                   label={news.credibility_label}
                   score={news.credibility_score}
+                />
+              )}
+              {isAnalyzedPage && (
+                <ArticleEngagementBar
+                  articleId={news.id}
+                  analyzedTheme
                 />
               )}
             </div>

@@ -1,6 +1,8 @@
 import { useState, useCallback } from "react";
 import { Link } from "react-router-dom";
 import LoadingModal from "../components/LoadingModal";
+import ArticleEngagementBar from "../components/news/ArticleEngagementBar";
+import { useTrackArticleView } from "../hooks/useArticleEngagement";
 import { SOURCE_NAME_MAP, SOURCE_BADGE_CLASS } from "../constants/source";
 import { useNewsDetail } from "../hooks/useNewsDetail";
 import ArticleContent from "../components/detail/ArticleContent";
@@ -68,6 +70,8 @@ export default function DetailPage() {
     handleGenerateComic,
     handleTermSearch,
   } = useNewsDetail();
+
+  useTrackArticleView(id ? Number(id) : undefined, !loading && !!news);
 
   // 최초 로딩 시 상세 화면 구조 스켈레톤을 노출하여 체감 속도 극대화 및 레이아웃 이동(CLS) 방지
   if (loading) {
@@ -184,6 +188,10 @@ export default function DetailPage() {
               AI 분석완료
             </span>
           )}
+          <ArticleEngagementBar
+            articleId={news.id}
+            analyzedTheme={news.is_analyzed}
+          />
         </div>
 
         <h1 className="font-black leading-snug mb-6 font-serif text-[clamp(22px,4vw,40px)] text-[#161311] tracking-[-0.02em]">

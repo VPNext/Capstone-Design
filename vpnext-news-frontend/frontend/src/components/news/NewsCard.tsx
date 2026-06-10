@@ -7,6 +7,7 @@ import { fetchNewsDetail } from "../../services/newsService";
 import HighlightText from "../HighlightText";
 import CredibilityBadge from "../CredibilityBadge";
 import ScoreMeter from "../ScoreMeter";
+import ArticleEngagementBar from "./ArticleEngagementBar";
 import type { NewsItem } from "../../types/news";
 
 interface NewsCardProps {
@@ -102,6 +103,13 @@ export default function NewsCard({
                   <CredibilityBadge
                     label={news.credibility_label}
                     score={news.credibility_score}
+                  />
+                )}
+                {isAnalyzedPage && (
+                  <ArticleEngagementBar
+                    articleId={news.id}
+                    compact
+                    analyzedTheme
                   />
                 )}
               </div>
