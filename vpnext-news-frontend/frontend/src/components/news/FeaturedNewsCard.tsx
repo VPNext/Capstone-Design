@@ -129,6 +129,13 @@ export default function FeaturedNewsCard({
                 <ArticleEngagementBar
                   articleId={news.id}
                   analyzedTheme
+                  articleMeta={{
+                    id: news.id,
+                    title: news.title,
+                    source: news.source,
+                    image_url: news.image_url,
+                    published_at: news.published_at,
+                  }}
                 />
               )}
             </div>

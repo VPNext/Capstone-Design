@@ -194,6 +194,13 @@ export default function DetailPage() {
           <ArticleEngagementBar
             articleId={news.id}
             analyzedTheme={news.is_analyzed}
+            articleMeta={{
+              id: news.id,
+              title: news.title,
+              source: news.source,
+              image_url: news.image_url,
+              published_at: news.published_at,
+            }}
           />
         </div>
 

@@ -1,5 +1,6 @@
-import { memo } from "react";
-import { formatEngagementCount } from "../../utils/articleEngagement";
+import { memo, useEffect } from "react";
+import { formatEngagementCount, saveArticleMeta } from "../../utils/articleEngagement";
+import type { ArticleMeta } from "../../utils/articleEngagement";
 import { useArticleEngagement } from "../../hooks/useArticleEngagement";
 
 type EngagementTone = "main" | "analyzed";
@@ -11,6 +12,8 @@ interface ArticleEngagementBarProps {
   /** 슬라이드 이미지 위 반투명 칩 */
   overlay?: boolean;
   analyzedTheme?: boolean;
+  /** 기사 통계용 메타데이터 (이 컴포넌트가 마운트될 때 자동으로 저장됨) */
+  articleMeta?: ArticleMeta;
 }
 
 const ACCENT: Record<EngagementTone, string> = {
@@ -66,8 +69,15 @@ function ArticleEngagementBar({
   compact = false,
   overlay = false,
   analyzedTheme = false,
+  articleMeta,
 }: ArticleEngagementBarProps) {
   const { viewCount, likeCount, liked, handleToggleLike } = useArticleEngagement(articleId);
+
+  useEffect(() => {
+    if (articleMeta) {
+      saveArticleMeta(articleMeta);
+    }
+  }, [articleMeta]);
 
   const tone: EngagementTone = analyzedTheme ? "analyzed" : "main";
   const accent = ACCENT[tone];

@@ -1,6 +1,7 @@
 import React from "react";
 import NewsPortalFeed from "./NewsPortalFeed";
 import NewsPortalSkeleton from "./NewsPortalSkeleton";
+import EngagementStatsPanel from "./EngagementStatsPanel";
 import type { NewsPortalVariant } from "./NewsHeroSlider";
 import type { NewsItem } from "../../types/news";
 
@@ -61,14 +62,21 @@ export default function NewsPageTemplate({
       )}
 
       {!showSkeleton && newsList.length > 0 && (
-        <NewsPortalFeed
-          newsList={newsList}
-          keyword={keyword}
-          variant={variant}
-          hasMore={hasMore}
-          loadingMore={loadingMore}
-          onLoadMore={onLoadMore}
-        />
+        <div className="flex flex-col lg:flex-row gap-6 items-start w-full">
+          <div className="flex-1 w-full min-w-0">
+            <NewsPortalFeed
+              newsList={newsList}
+              keyword={keyword}
+              variant={variant}
+              hasMore={hasMore}
+              loadingMore={loadingMore}
+              onLoadMore={onLoadMore}
+            />
+          </div>
+          <div className="w-full lg:w-[320px] xl:w-[340px] shrink-0">
+            <EngagementStatsPanel theme={variant} />
+          </div>
+        </div>
       )}
 
       {!showSkeleton && !error && newsList.length === 0 && (

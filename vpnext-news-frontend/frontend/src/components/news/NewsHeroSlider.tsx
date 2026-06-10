@@ -86,10 +86,10 @@ function NewsHeroSlider({
       onBlur={onResume}
       aria-label="헤드라인 슬라이드"
     >
-      <div className="flex flex-col md:flex-row md:h-[360px]">
+      <div className="flex flex-col md:flex-row md:h-[400px]">
         <Link
           to={`/news/${active.id}`}
-          className="relative flex-1 min-h-[220px] md:min-h-0 group overflow-hidden bg-[#1a1a1a]"
+          className="relative flex-1 min-h-[260px] md:min-h-0 group overflow-hidden bg-[#1a1a1a]"
           onMouseEnter={() => handlePrefetch(active.id)}
         >
           {heroImage ? (
@@ -98,11 +98,26 @@ function NewsHeroSlider({
               alt=""
               className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.03]"
               loading="eager"
+              onError={(e) => {
+                const img = e.target as HTMLImageElement;
+                img.style.display = "none";
+                const fallback = img.nextElementSibling as HTMLDivElement;
+                if (fallback) fallback.style.display = "flex";
+              }}
             />
-          ) : (
-            <div className="absolute inset-0 bg-gradient-to-br from-[#2a2a2a] to-[#111]" />
-          )}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-transparent" />
+          ) : null}
+          <div
+            className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-tr from-[#251A30] to-[#14223A] select-none"
+            style={{ display: heroImage ? "none" : "flex" }}
+          >
+            <span className="text-[44px] font-black text-white/15 font-serif leading-none tracking-wider mb-2">
+              {displaySourceName}
+            </span>
+            <span className="text-[11px] font-bold text-white/20 uppercase tracking-[0.25em]">
+              HEADLINE NEWS FALLBACK
+            </span>
+          </div>
+          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent pointer-events-none" />
 
           <div className="absolute top-3 left-3 flex items-center gap-2">
             <span className={`${displayBadgeClass} text-[10px] font-bold px-2 py-0.5 rounded`}>
@@ -126,6 +141,13 @@ function NewsHeroSlider({
                 overlay
                 compact
                 analyzedTheme={variant === "analyzed"}
+                articleMeta={{
+                  id: active.id,
+                  title: active.title,
+                  source: active.source,
+                  image_url: active.image_url,
+                  published_at: active.published_at,
+                }}
               />
             </div>
             <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-white leading-snug line-clamp-2 group-hover:underline decoration-2 underline-offset-4">
@@ -162,7 +184,7 @@ function NewsHeroSlider({
         </Link>
 
         {sideThumbs.length > 0 && (
-          <ul className="md:w-[300px] lg:w-[320px] shrink-0 border-t md:border-t-0 md:border-l border-[#E5E5E5] divide-y divide-[#EFEFEF]">
+          <ul className="md:w-[350px] lg:w-[380px] shrink-0 border-t md:border-t-0 md:border-l border-[#E5E5E5] divide-y divide-[#EFEFEF]">
             {sideThumbs.map(({ item, index }) => {
               const thumb = getNewsDisplayImage(item);
               const { displaySourceName: thumbSource } = getNewsSourceMeta(item);
@@ -173,20 +195,37 @@ function NewsHeroSlider({
                     type="button"
                     onClick={() => onSelect(index)}
                     onMouseEnter={() => handlePrefetch(item.id)}
-                    className="w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-[#FAFAFA]"
+                    className="w-full flex items-center gap-3.5 px-4 py-3 text-left transition-colors hover:bg-[#FAFAFA]"
                   >
-                    <div className="relative w-[72px] h-[52px] shrink-0 rounded overflow-hidden bg-[#EEE]">
+                    <div className="relative w-[92px] h-[64px] shrink-0 rounded overflow-hidden flex items-center justify-center bg-[#EEE]">
                       {thumb ? (
-                        <img src={thumb} alt="" className="w-full h-full object-cover" loading="lazy" />
-                      ) : (
-                        <div className="w-full h-full bg-gradient-to-br from-[#DDD] to-[#BBB]" />
-                      )}
+                        <img
+                          src={thumb}
+                          alt=""
+                          className="w-full h-full object-cover"
+                          loading="lazy"
+                          onError={(e) => {
+                            const img = e.target as HTMLImageElement;
+                            img.style.display = "none";
+                            const fallback = img.nextElementSibling as HTMLDivElement;
+                            if (fallback) fallback.style.display = "flex";
+                          }}
+                        />
+                      ) : null}
+                      <div
+                        className="absolute inset-0 flex items-center justify-center bg-gradient-to-tr from-[#F3EFF5] to-[#E5E9F0] select-none"
+                        style={{ display: thumb ? "none" : "flex" }}
+                      >
+                        <span className="text-[14px] font-black text-[#5C4D66] font-serif leading-none">
+                          {thumbSource ? thumbSource.charAt(0) : "N"}
+                        </span>
+                      </div>
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-[13px] font-bold leading-snug line-clamp-2 text-[#333]">
+                      <p className="text-[14px] font-black leading-snug line-clamp-2 text-[#222]">
                         <HighlightText text={getNewsTitle(item)} keyword={keyword} />
                       </p>
-                      <p className="text-[10px] text-[#999] mt-0.5 truncate">{thumbSource}</p>
+                      <p className="text-[11px] font-bold text-[#888] mt-1 truncate">{thumbSource}</p>
                     </div>
                   </button>
                 </li>

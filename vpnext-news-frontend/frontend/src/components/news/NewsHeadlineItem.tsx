@@ -65,7 +65,18 @@ function NewsHeadlineItem({ news, rank, keyword, variant }: NewsHeadlineItemProp
             {variant === "analyzed" && (
               <>
                 <CredibilityBadge label={news.credibility_label} score={news.credibility_score} />
-                <ArticleEngagementBar articleId={news.id} compact analyzedTheme />
+                <ArticleEngagementBar
+                  articleId={news.id}
+                  compact
+                  analyzedTheme
+                  articleMeta={{
+                    id: news.id,
+                    title: news.title,
+                    source: news.source,
+                    image_url: news.image_url,
+                    published_at: news.published_at,
+                  }}
+                />
               </>
             )}
           </div>

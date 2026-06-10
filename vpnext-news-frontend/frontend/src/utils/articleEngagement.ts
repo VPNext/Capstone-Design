@@ -1,9 +1,18 @@
 /** 브라우저 로컬 저장소 기반 기사 조회수·좋아요 (백엔드 없이 프론트 전용) */
 
+export interface ArticleMeta {
+  id: number;
+  title: string;
+  source: string;
+  image_url: string | null;
+  published_at: string;
+}
+
 const STORAGE_KEYS = {
   VIEWS: "article_views",
   LIKES: "article_likes",
   LIKED_IDS: "liked_article_ids",
+  METADATA: "article_metadata",
 } as const;
 
 const RELOAD_VISIT_KEY = "article_detail_reload_key";
@@ -22,6 +31,7 @@ let snapshotVersion = 0;
 let views: CountMap = {};
 let likes: CountMap = {};
 let likedIds = new Set<number>();
+let articleMetadata: Record<string, ArticleMeta> = {};
 let hydrated = false;
 
 const pendingWrites = new Map<string, ReturnType<typeof setTimeout>>();
@@ -67,6 +77,7 @@ function hydrate(): void {
   likes = readJson<CountMap>(STORAGE_KEYS.LIKES, {});
   const likedList = readJson<number[]>(STORAGE_KEYS.LIKED_IDS, []);
   likedIds = new Set(likedList);
+  articleMetadata = readJson<Record<string, ArticleMeta>>(STORAGE_KEYS.METADATA, {});
   hydrated = true;
 }
 
@@ -209,4 +220,99 @@ export function formatEngagementCount(count: number): string {
   if (count >= 10000) return `${(count / 1000).toFixed(1)}k`;
   if (count >= 1000) return `${(count / 1000).toFixed(1)}k`;
   return String(count);
+}
+
+export function saveArticleMeta(meta: ArticleMeta): void {
+  hydrate();
+  const key = toKey(meta.id);
+  const existing = articleMetadata[key];
+  if (
+    !existing ||
+    existing.title !== meta.title ||
+    existing.source !== meta.source ||
+    existing.image_url !== meta.image_url ||
+    existing.published_at !== meta.published_at
+  ) {
+    articleMetadata = { ...articleMetadata, [key]: meta };
+    writeJsonDebounced(STORAGE_KEYS.METADATA, articleMetadata);
+    emit();
+  }
+}
+
+export interface EngagementSummary {
+  totalViews: number;
+  totalLikes: number;
+  likedCount: number;
+  averageViews: number;
+}
+
+export function getEngagementSummary(): EngagementSummary {
+  hydrate();
+  const totalViews = Object.values(views).reduce((sum, val) => sum + val, 0);
+  const totalLikes = Object.values(likes).reduce((sum, val) => sum + val, 0);
+  const likedCount = likedIds.size;
+  const viewedArticlesCount = Object.keys(views).length;
+  const averageViews =
+    viewedArticlesCount > 0 ? parseFloat((totalViews / viewedArticlesCount).toFixed(1)) : 0;
+
+  return {
+    totalViews,
+    totalLikes,
+    likedCount,
+    averageViews,
+  };
+}
+
+export interface ArticleEngagementItem extends ArticleMeta {
+  views: number;
+  likes: number;
+  liked: boolean;
+}
+
+export function getTopArticlesByViews(limit: number = 5): ArticleEngagementItem[] {
+  hydrate();
+  return Object.keys(views)
+    .map((idStr) => {
+      const id = parseInt(idStr, 10);
+      const meta = articleMetadata[idStr] || {
+        id,
+        title: `기사 #${id}`,
+        source: "알 수 없음",
+        image_url: null,
+        published_at: "",
+      };
+      return {
+        ...meta,
+        views: views[idStr] ?? 0,
+        likes: likes[idStr] ?? 0,
+        liked: likedIds.has(id),
+      };
+    })
+    .filter((item) => item.views > 0)
+    .sort((a, b) => b.views - a.views || b.likes - a.likes)
+    .slice(0, limit);
+}
+
+export function getTopArticlesByLikes(limit: number = 5): ArticleEngagementItem[] {
+  hydrate();
+  return Object.keys(likes)
+    .map((idStr) => {
+      const id = parseInt(idStr, 10);
+      const meta = articleMetadata[idStr] || {
+        id,
+        title: `기사 #${id}`,
+        source: "알 수 없음",
+        image_url: null,
+        published_at: "",
+      };
+      return {
+        ...meta,
+        views: views[idStr] ?? 0,
+        likes: likes[idStr] ?? 0,
+        liked: likedIds.has(id),
+      };
+    })
+    .filter((item) => item.likes > 0)
+    .sort((a, b) => b.likes - a.likes || b.views - a.views)
+    .slice(0, limit);
 }
