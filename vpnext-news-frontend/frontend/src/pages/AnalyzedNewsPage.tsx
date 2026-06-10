@@ -1,6 +1,7 @@
 import { useNewsList } from "../hooks/useNewsList";
 import { STORAGE_KEYS } from "../utils/storage";
 import NewsPageTemplate from "../components/news/NewsPageTemplate";
+import NewsSearchBar from "../components/news/NewsSearchBar";
 
 // AI 분석이 완료된(신뢰도 리포트가 존재하는) 기사들을 모아보는 분석 뉴스 페이지
 export default function AnalyzedNewsPage() {
@@ -60,10 +61,10 @@ export default function AnalyzedNewsPage() {
 
       {/* Sub-header */}
       <div
-        className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-4"
+        className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-4 pb-4"
         style={{ borderBottom: "2px solid #161311" }}
       >
-        <div>
+        <div className="flex-1 min-w-0">
           <p className="text-[10px] font-black uppercase tracking-[0.2em] mb-0.5" style={{ color: "#1A55A8" }}>
             {keyword ? "검색 결과" : "ANALYZED NEWS"}
           </p>
@@ -71,6 +72,11 @@ export default function AnalyzedNewsPage() {
             {keyword ? "현재 로드된 분석 뉴스 내 검색 결과입니다" : "AI가 심층 분석한 뉴스 목록입니다"}
           </p>
         </div>
+        <NewsSearchBar
+          variant="analyzed"
+          placeholder="분석 뉴스 검색..."
+          className="w-full lg:w-[min(100%,360px)]"
+        />
       </div>
     </>
   );

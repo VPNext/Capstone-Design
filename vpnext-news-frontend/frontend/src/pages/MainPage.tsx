@@ -1,6 +1,7 @@
 import { useNewsList } from "../hooks/useNewsList";
 import { STORAGE_KEYS } from "../utils/storage";
 import NewsPageTemplate from "../components/news/NewsPageTemplate";
+import NewsSearchBar from "../components/news/NewsSearchBar";
 
 // 오늘의 뉴스 목록을 보여주는 메인 화면 페이지
 export default function MainPage() {
@@ -24,8 +25,8 @@ export default function MainPage() {
 
   // 상단 타이틀 배너 영역 정의
   const banner = (
-    <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6 pb-5 border-b-2 border-[#161311]">
-      <div>
+    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5 mb-6 pb-5 border-b-2 border-[#161311]">
+      <div className="flex-1 min-w-0">
         <p className="text-[10px] font-black uppercase tracking-[0.25em] mb-1.5 flex items-center gap-2 text-[#C13026]">
           <span className="inline-block w-4 h-px bg-[#C13026]" />
           {keyword ? "검색 결과" : "TODAY'S NEWS"}
@@ -40,23 +41,25 @@ export default function MainPage() {
         </p>
       </div>
 
-      {/* 오른쪽 오늘 날짜 및 기사 수 표시 */}
-      <div className="hidden md:flex flex-col items-end gap-1 shrink-0">
-        <p className="text-xs font-medium text-[#9C9891]">
-          {new Date().toLocaleDateString("ko-KR", {
-            year: "numeric",
-            month: "long",
-            day: "numeric",
-          })}
-        </p>
-        {totalItems > 0 && (
-          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-[#161311] text-white">
-            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M2 3a1 1 0 000 2h11a1 1 0 100-2H2zm0 4a1 1 0 000 2h7a1 1 0 100-2H2zm0 4a1 1 0 000 2h4a1 1 0 100-2H2z" />
-            </svg>
-            총 {totalItems}개 기사
-          </div>
-        )}
+      <div className="flex flex-col gap-2.5 w-full lg:w-[min(100%,400px)] shrink-0">
+        <NewsSearchBar variant="main" />
+        <div className="flex items-center justify-between sm:justify-end gap-3 text-xs font-medium text-[#9C9891]">
+          <span>
+            {new Date().toLocaleDateString("ko-KR", {
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+            })}
+          </span>
+          {totalItems > 0 && (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full font-bold bg-[#161311] text-white">
+              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20" aria-hidden>
+                <path d="M2 3a1 1 0 000 2h11a1 1 0 100-2H2zm0 4a1 1 0 000 2h7a1 1 0 100-2H2zm0 4a1 1 0 000 2h4a1 1 0 100-2H2z" />
+              </svg>
+              총 {totalItems}개 기사
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );
