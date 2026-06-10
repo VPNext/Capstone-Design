@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useSyncExternalStore } from "react";
+import { useLocation } from "react-router-dom";
 import {
   cancelViewIncrement,
   getEngagementSnapshot,
@@ -30,11 +31,17 @@ export function useArticleEngagement(articleId: number) {
   return { viewCount, likeCount, liked, handleToggleLike };
 }
 
-/** 상세 페이지에서 기사 로드 후 조회수 증가 (세션당 1회, 짧은 지연) */
+/**
+ * 상세 페이지에서 기사 로드 후 조회수 증가
+ * - 재진입 시마다 증가 (location.key 변경)
+ * - 새로고침(reload)은 제외
+ */
 export function useTrackArticleView(articleId: number | undefined, ready: boolean): void {
+  const location = useLocation();
+
   useEffect(() => {
     if (!articleId || !ready) return;
-    scheduleViewIncrement(articleId);
-    return () => cancelViewIncrement(articleId);
-  }, [articleId, ready]);
+    scheduleViewIncrement(articleId, location.key);
+    return () => cancelViewIncrement(articleId, location.key);
+  }, [articleId, ready, location.key]);
 }

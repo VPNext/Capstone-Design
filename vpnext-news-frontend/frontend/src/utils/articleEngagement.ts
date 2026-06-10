@@ -6,11 +6,12 @@ const STORAGE_KEYS = {
   LIKED_IDS: "liked_article_ids",
 } as const;
 
-const SESSION_VIEW_KEY = "article_viewed_ids";
+const RELOAD_VISIT_KEY = "article_detail_reload_key";
 
 const WRITE_DEBOUNCE_MS = 280;
 const LIKE_COOLDOWN_MS = 400;
-const VIEW_INCREMENT_DELAY_MS = 320;
+/** 상세 진입 후 조회수 반영까지 대기 (빠른 이탈·연속 호출 방지) */
+const VIEW_INCREMENT_DELAY_MS = 400;
 
 type CountMap = Record<string, number>;
 
@@ -25,7 +26,8 @@ let hydrated = false;
 
 const pendingWrites = new Map<string, ReturnType<typeof setTimeout>>();
 const likeCooldowns = new Map<number, ReturnType<typeof setTimeout>>();
-const pendingViewTimers = new Map<number, ReturnType<typeof setTimeout>>();
+const pendingViewTimers = new Map<string, ReturnType<typeof setTimeout>>();
+const countedVisits = new Set<string>();
 
 function emit(): void {
   snapshotVersion += 1;
@@ -81,23 +83,30 @@ function toKey(id: number): string {
   return String(id);
 }
 
-function getSessionViewedIds(): Set<number> {
-  try {
-    const raw = sessionStorage.getItem(SESSION_VIEW_KEY);
-    if (!raw) return new Set();
-    return new Set(JSON.parse(raw) as number[]);
-  } catch {
-    return new Set();
-  }
+function visitTimerKey(articleId: number, visitKey: string): string {
+  return `${articleId}:${visitKey}`;
 }
 
-function markSessionViewed(id: number): void {
-  const viewed = getSessionViewedIds();
-  viewed.add(id);
+function visitDedupeKey(articleId: number, visitKey: string): string {
+  return `counted:${articleId}:${visitKey}`;
+}
+
+/** 새로고침(F5)으로 상세에 머무는 경우만 스킵 — 목록에서 다시 들어오면 visitKey가 달라져 카운트됨 */
+function shouldSkipViewIncrement(visitKey: string): boolean {
+  const nav = performance.getEntriesByType("navigation")[0] as
+    | PerformanceNavigationTiming
+    | undefined;
+  if (nav?.type !== "reload") return false;
+
   try {
-    sessionStorage.setItem(SESSION_VIEW_KEY, JSON.stringify(Array.from(viewed)));
+    const reloadVisitKey = sessionStorage.getItem(RELOAD_VISIT_KEY);
+    if (!reloadVisitKey) {
+      sessionStorage.setItem(RELOAD_VISIT_KEY, visitKey);
+      return true;
+    }
+    return reloadVisitKey === visitKey;
   } catch {
-    /* sessionStorage 용량 초과 등 — 조회수 증가만 스킵하지 않음 */
+    return false;
   }
 }
 
@@ -127,36 +136,43 @@ export function isArticleLiked(articleId: number): boolean {
   return likedIds.has(articleId);
 }
 
-/** 상세 페이지 진입 시 호출 — 세션당 1회, 짧은 지연 후 증가 */
-export function scheduleViewIncrement(articleId: number): void {
+/**
+ * 상세 페이지 진입 시 호출
+ * - 목록 등에서 다시 들어올 때마다 증가
+ * - 새로고침(reload)으로 같은 상세에 머무는 경우는 제외
+ */
+export function scheduleViewIncrement(articleId: number, visitKey: string): void {
   hydrate();
+  if (shouldSkipViewIncrement(visitKey)) return;
 
-  const viewed = getSessionViewedIds();
-  if (viewed.has(articleId)) return;
-
-  const existing = pendingViewTimers.get(articleId);
+  const timerKey = visitTimerKey(articleId, visitKey);
+  const existing = pendingViewTimers.get(timerKey);
   if (existing) clearTimeout(existing);
 
   pendingViewTimers.set(
-    articleId,
+    timerKey,
     setTimeout(() => {
-      pendingViewTimers.delete(articleId);
-      if (getSessionViewedIds().has(articleId)) return;
+      pendingViewTimers.delete(timerKey);
+      if (shouldSkipViewIncrement(visitKey)) return;
+
+      const dedupeKey = visitDedupeKey(articleId, visitKey);
+      if (countedVisits.has(dedupeKey)) return;
+      countedVisits.add(dedupeKey);
 
       const key = toKey(articleId);
       views = { ...views, [key]: (views[key] ?? 0) + 1 };
-      markSessionViewed(articleId);
       persistViews();
       emit();
     }, VIEW_INCREMENT_DELAY_MS),
   );
 }
 
-export function cancelViewIncrement(articleId: number): void {
-  const timer = pendingViewTimers.get(articleId);
+export function cancelViewIncrement(articleId: number, visitKey: string): void {
+  const timerKey = visitTimerKey(articleId, visitKey);
+  const timer = pendingViewTimers.get(timerKey);
   if (timer) {
     clearTimeout(timer);
-    pendingViewTimers.delete(articleId);
+    pendingViewTimers.delete(timerKey);
   }
 }
 
