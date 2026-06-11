@@ -6,7 +6,7 @@ import { fetchNewsDetail, analyzeNews, generateComic } from "../services/newsSer
 import { useToast } from "../context/ToastContext";
 import { useCustomQuery, invalidateCustomQueries } from "./useCustomQuery";
 import { syncEngagementFromBackend } from "../utils/articleEngagement";
-import type { NewsDetail, AnalysisData } from "../types/news";
+import type { NewsDetail, AnalysisData, ComicScene } from "../types/news";
 
 type AnalysisStatus = "pending" | "analyzing" | "complete";
 
@@ -50,7 +50,7 @@ export function useNewsDetail() {
 
   // 4컷 만화 생성용 상태값
   const [isComicGenerating, setIsComicGenerating] = useState(false);
-  const [comicUrls, setComicUrls] = useState<string[] | null>(null);
+  const [comicUrls, setComicUrls] = useState<(ComicScene | string)[] | null>(null);
   const [progress, setProgress] = useState(0);
   const [loadingStatus, setLoadingStatus] = useState("");
 
