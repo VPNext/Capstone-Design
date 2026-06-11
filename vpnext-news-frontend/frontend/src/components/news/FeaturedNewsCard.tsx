@@ -125,6 +125,18 @@ export default function FeaturedNewsCard({
                   score={news.credibility_score}
                 />
               )}
+              {isAnalyzedPage && news.tags && news.tags.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 items-center">
+                  {news.tags.map((tag, idx) => (
+                    <span
+                      key={idx}
+                      className="px-2 py-0.5 text-[9.5px] font-black rounded-md bg-[#F3F0EB] text-[#5C5853] border border-[#E4DDD3] transition-all duration-200 hover:bg-white hover:scale-105 cursor-default select-none"
+                    >
+                      #{tag}
+                    </span>
+                  ))}
+                </div>
+              )}
               {isAnalyzedPage && (
                 <ArticleEngagementBar
                   articleId={news.id}

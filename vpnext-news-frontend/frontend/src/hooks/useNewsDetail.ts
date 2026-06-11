@@ -41,6 +41,7 @@ export function useNewsDetail() {
         reason: news.credibility_reason,
         red_flags: news.red_flags || [],
         summary: news.ai_summary || "",
+        tags: news.tags || [],
       },
       difficult_terms: news.difficult_terms || [],
       key_persons: news.key_persons || [],

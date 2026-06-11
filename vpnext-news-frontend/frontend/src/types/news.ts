@@ -37,6 +37,7 @@ export interface CredibilityData {
   reason: string | null;
   red_flags: string[];
   summary: string;
+  tags?: string[];
 }
 
 export interface AnalysisData {

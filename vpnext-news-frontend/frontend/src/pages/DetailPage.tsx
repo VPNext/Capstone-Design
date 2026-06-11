@@ -229,6 +229,18 @@ export default function DetailPage() {
           <span className="text-sm text-[#9C9891]">
             출처: {sourceName}
           </span>
+          {news.tags && news.tags.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 items-center">
+              {news.tags.map((tag, idx) => (
+                <span
+                  key={idx}
+                  className="px-2 py-0.5 text-xs font-bold rounded-md bg-[#F3F0EB] text-[#5C5853] border border-[#E4DDD3] transition-all duration-200 hover:bg-white hover:scale-105 cursor-default select-none shadow-[0_1px_2px_rgba(0,0,0,0.02)]"
+                >
+                  #{tag}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
       </header>
 

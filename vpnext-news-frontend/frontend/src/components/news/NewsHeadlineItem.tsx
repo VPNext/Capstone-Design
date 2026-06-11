@@ -65,6 +65,18 @@ function NewsHeadlineItem({ news, rank, keyword, variant }: NewsHeadlineItemProp
             {variant === "analyzed" && (
               <>
                 <CredibilityBadge label={news.credibility_label} score={news.credibility_score} />
+                {news.tags && news.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-1 items-center">
+                    {news.tags.map((tag, idx) => (
+                      <span
+                        key={idx}
+                        className="px-1.5 py-0.2 text-[9px] font-black rounded bg-[#F3F0EB] text-[#5C5853] border border-[#E4DDD3] transition-all duration-200 hover:bg-white hover:scale-105 cursor-default select-none"
+                      >
+                        #{tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
                 <ArticleEngagementBar
                   articleId={news.id}
                   compact

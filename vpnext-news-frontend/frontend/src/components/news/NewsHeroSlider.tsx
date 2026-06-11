@@ -183,7 +183,7 @@ function NewsHeroSlider({
           </div>
           <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/45 to-transparent pointer-events-none" />
 
-          <div className="absolute top-4 left-4 flex items-center gap-2">
+          <div className="absolute top-4 left-4 flex items-center gap-2 flex-wrap max-w-[calc(100%-2rem)]">
             <span className={`${displayBadgeClass} text-[10px] font-bold px-2 py-0.5 rounded`}>
               {displaySourceName}
             </span>
@@ -192,6 +192,18 @@ function NewsHeroSlider({
                 label={active.credibility_label}
                 score={active.credibility_score}
               />
+            )}
+            {variant === "analyzed" && active.tags && active.tags.length > 0 && (
+              <div className="flex flex-wrap gap-1 items-center">
+                {active.tags.map((tag, idx) => (
+                  <span
+                    key={idx}
+                    className="px-2 py-0.5 text-[9.5px] font-bold rounded-md bg-black/40 text-white/95 backdrop-blur-[2px] border border-white/10 transition-all duration-200 hover:bg-black/60 hover:scale-105 cursor-default select-none shadow-sm"
+                  >
+                    #{tag}
+                  </span>
+                ))}
+              </div>
             )}
           </div>
 
