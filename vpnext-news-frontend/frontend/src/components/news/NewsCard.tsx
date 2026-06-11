@@ -1,3 +1,4 @@
+import { memo, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { SOURCE_NAME_MAP, SOURCE_BADGE_CLASS } from "../../constants/source";
 import { extractImageFromSummary, extractTextFromSummary, decodeHtmlEntities, optimizeImageUrl } from "../../utils/summary";
@@ -17,7 +18,7 @@ interface NewsCardProps {
   innerRef?: (node: HTMLDivElement | null) => void;
 }
 
-export default function NewsCard({
+const NewsCard = memo(function NewsCard({
   news,
   keyword,
   isAnalyzedPage = false,
@@ -49,13 +50,13 @@ export default function NewsCard({
     : "hover:border-[rgba(193,48,38,0.25)]";
 
   // 상세 데이터 프리패칭 함수
-  const handlePrefetch = () => {
+  const handlePrefetch = useCallback(() => {
     prefetchQuery(
       ["newsDetail", String(news.id)],
       () => fetchNewsDetail(news.id),
       1000 * 60 * 10 // 10분 유효기간 (staleTime)
     );
-  };
+  }, [news.id]);
 
   return (
     <div
@@ -195,4 +196,6 @@ export default function NewsCard({
       </Link>
     </div>
   );
-}
+});
+
+export default NewsCard;

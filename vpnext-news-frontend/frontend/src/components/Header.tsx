@@ -8,6 +8,27 @@ const todayStr = new Date().toLocaleDateString("ko-KR", {
   weekday: "long",
 });
 
+const NAV_ITEMS = [
+  {
+    to: "/",
+    label: "홈",
+    activeClass: "text-white bg-white/12 border-white/20",
+    dotClass: "",
+  },
+  {
+    to: "/analyzed",
+    label: "AI 분석 뉴스",
+    activeClass: "text-[#38BDF8] bg-[#38BDF8]/10 border-[#38BDF8]/20",
+    dotClass: "bg-[#38BDF8] shadow-[0_0_6px_#38BDF8]",
+  },
+  {
+    to: "/cartoons",
+    label: "AI 만화",
+    activeClass: "text-[#FBBF24] bg-[#FBBF24]/10 border-[#FBBF24]/20",
+    dotClass: "bg-[#FBBF24] shadow-[0_0_6px_#FBBF24]",
+  },
+];
+
 export default function Header() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -17,7 +38,16 @@ export default function Header() {
   const isNewsDetailPage = location.pathname.startsWith("/news/");
 
   useEffect(() => {
-    const handler = () => setScrolled(window.scrollY > 8);
+    let ticking = false;
+    const handler = () => {
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          setScrolled(window.scrollY > 8);
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
     window.addEventListener("scroll", handler, { passive: true });
     return () => window.removeEventListener("scroll", handler);
   }, []);
@@ -32,13 +62,20 @@ export default function Header() {
       return;
     }
 
+    let ticking = false;
     const handleScroll = () => {
-      const totalHeight = document.documentElement.scrollHeight - window.innerHeight;
-      if (totalHeight > 0) {
-        const progress = (window.scrollY / totalHeight) * 100;
-        setScrollProgress(progress);
-      } else {
-        setScrollProgress(0);
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          const totalHeight = document.documentElement.scrollHeight - window.innerHeight;
+          if (totalHeight > 0) {
+            const progress = (window.scrollY / totalHeight) * 100;
+            setScrollProgress(progress);
+          } else {
+            setScrollProgress(0);
+          }
+          ticking = false;
+        });
+        ticking = true;
       }
     };
 
@@ -47,27 +84,6 @@ export default function Header() {
 
     return () => window.removeEventListener("scroll", handleScroll);
   }, [isNewsDetailPage, location.pathname]);
-
-  const navItems = [
-    {
-      to: "/",
-      label: "홈",
-      activeClass: "text-white bg-white/12 border-white/20",
-      dotClass: "",
-    },
-    {
-      to: "/analyzed",
-      label: "AI 분석 뉴스",
-      activeClass: "text-[#38BDF8] bg-[#38BDF8]/10 border-[#38BDF8]/20",
-      dotClass: "bg-[#38BDF8] shadow-[0_0_6px_#38BDF8]",
-    },
-    {
-      to: "/cartoons",
-      label: "AI 만화",
-      activeClass: "text-[#FBBF24] bg-[#FBBF24]/10 border-[#FBBF24]/20",
-      dotClass: "bg-[#FBBF24] shadow-[0_0_6px_#FBBF24]",
-    },
-  ];
 
   return (
     <>
@@ -130,7 +146,7 @@ export default function Header() {
 
             {/* Navigation — desktop */}
             <nav className="hidden md:flex items-center gap-1">
-              {navItems.map((item) => {
+              {NAV_ITEMS.map((item) => {
                 const isActive = location.pathname === item.to;
                 return (
                   <Link
@@ -192,7 +208,7 @@ export default function Header() {
           }`}
         >
           <div className="px-4 py-4 flex flex-col gap-1">
-            {navItems.map((item) => {
+            {NAV_ITEMS.map((item) => {
               const isActive = location.pathname === item.to;
               return (
                 <Link

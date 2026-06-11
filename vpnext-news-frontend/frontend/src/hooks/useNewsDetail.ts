@@ -188,6 +188,7 @@ export function useNewsDetail() {
       
       // 상세 정보 캐시 갱신 (만화 목록 연동을 위해)
       invalidateCustomQueries(["newsDetail", id]);
+      invalidateCustomQueries(["cartoons"]);
       
       showToast("4컷 만화가 성공적으로 생성되었습니다!", "success");
     } catch (error: any) {

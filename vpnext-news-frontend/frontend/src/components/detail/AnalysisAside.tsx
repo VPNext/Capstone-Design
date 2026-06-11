@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, memo } from "react";
 import type { FormEvent } from "react";
 import type { AnalysisData } from "../../types/news";
 import DictionarySearchForm from "./DictionarySearchForm";
@@ -27,7 +27,7 @@ interface AnalysisAsideProps {
   onSidebarItemClick?: (name: string, type: "term" | "person") => void;
 }
 
-export default function AnalysisAside({
+const AnalysisAside = memo(function AnalysisAside({
   status,
   analysisData,
   aiSummary,
@@ -304,6 +304,8 @@ export default function AnalysisAside({
     </div>
   </aside>
 );
-}
+});
+
+export default AnalysisAside;
 
 
