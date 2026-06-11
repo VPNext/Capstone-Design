@@ -12,7 +12,9 @@ import {
   getEngagementSummary,
   getTopArticlesByViews,
   getTopArticlesByLikes,
+  syncEngagementFromBackend,
 } from "../utils/articleEngagement";
+import { toggleLikeNews } from "../services/newsService";
 
 /** 기사별 조회수·좋아요 상태를 구독하는 경량 훅 */
 export function useArticleEngagement(articleId: number) {
@@ -23,10 +25,20 @@ export function useArticleEngagement(articleId: number) {
   const liked = isArticleLiked(articleId);
 
   const handleToggleLike = useCallback(
-    (e?: React.MouseEvent) => {
+    async (e?: React.MouseEvent) => {
       e?.preventDefault();
       e?.stopPropagation();
+      const currentLiked = isArticleLiked(articleId);
+      const nextLiked = !currentLiked;
+      
       toggleLike(articleId);
+      try {
+        const res = await toggleLikeNews(articleId, nextLiked);
+        syncEngagementFromBackend(articleId, getViewCount(articleId), res.likes);
+      } catch (err) {
+        console.error("좋아요 상태 동기화 실패:", err);
+        toggleLike(articleId);
+      }
     },
     [articleId],
   );

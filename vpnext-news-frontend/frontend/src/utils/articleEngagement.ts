@@ -222,6 +222,16 @@ export function formatEngagementCount(count: number): string {
   return String(count);
 }
 
+export function syncEngagementFromBackend(articleId: number, backendViews: number, backendLikes: number): void {
+  hydrate();
+  const key = toKey(articleId);
+  views = { ...views, [key]: backendViews };
+  likes = { ...likes, [key]: backendLikes };
+  persistViews();
+  persistLikes();
+  emit();
+}
+
 export function saveArticleMeta(meta: ArticleMeta): void {
   hydrate();
   const key = toKey(meta.id);

@@ -5,6 +5,7 @@ import {
   fetchDiverseFeedPage,
   fetchDiverseInitialFeed,
 } from "../services/newsFeedService";
+import { syncEngagementFromBackend } from "../utils/articleEngagement";
 import type { NewsItem } from "../types/news";
 
 interface UseNewsListOptions {
@@ -34,6 +35,10 @@ export function useNewsList({ isAnalyzed }: UseNewsListOptions) {
 
     try {
       const result = await fetchDiverseInitialFeed(isAnalyzed, keyword);
+      // 백엔드 조회수/좋아요 상태를 로컬 저장소에 동기화
+      result.items.forEach((item) => {
+        syncEngagementFromBackend(item.id, item.views || 0, item.likes || 0);
+      });
       setNewsList(result.items);
       setTotalItems(result.total);
       nextFeedPageRef.current = result.nextFeedPage;
@@ -54,6 +59,10 @@ export function useNewsList({ isAnalyzed }: UseNewsListOptions) {
       const page = nextFeedPageRef.current;
       const result = await fetchDiverseFeedPage(page, isAnalyzed, keyword);
 
+      // 백엔드 조회수/좋아요 상태를 로컬 저장소에 동기화
+      result.items.forEach((item) => {
+        syncEngagementFromBackend(item.id, item.views || 0, item.likes || 0);
+      });
       setTotalItems(result.total);
       setNewsList((prev) => appendDiverseNews(prev, result.items));
       nextFeedPageRef.current = page + 1;

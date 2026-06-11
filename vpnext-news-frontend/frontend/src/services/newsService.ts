@@ -57,3 +57,12 @@ export const fetchCartoons = async (config?: AxiosRequestConfig): Promise<Cartoo
   const response = await api.get("/api/cartoons", config);
   return response.data;
 };
+
+export const toggleLikeNews = async (
+  id: number | string,
+  liked: boolean,
+  config?: AxiosRequestConfig
+): Promise<{ id: number; likes: number }> => {
+  const response = await api.post(`/api/news/${id}/like`, { liked }, config);
+  return response.data;
+};

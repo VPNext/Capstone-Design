@@ -5,6 +5,7 @@ import { SOURCE_NAME_MAP } from "../constants/source";
 import { fetchNewsDetail, analyzeNews, generateComic } from "../services/newsService";
 import { useToast } from "../context/ToastContext";
 import { useCustomQuery, invalidateCustomQueries } from "./useCustomQuery";
+import { syncEngagementFromBackend } from "../utils/articleEngagement";
 import type { NewsDetail, AnalysisData } from "../types/news";
 
 type AnalysisStatus = "pending" | "analyzing" | "complete";
@@ -98,6 +99,13 @@ export function useNewsDetail() {
       }
     };
   }, [id, news?.comic_script]);
+
+  // 기사 데이터 로드 완료 또는 리프레시 시 백엔드의 최신 조회수/좋아요를 로컬에 동기화
+  useEffect(() => {
+    if (news) {
+      syncEngagementFromBackend(news.id, news.views || 0, news.likes || 0);
+    }
+  }, [news]);
 
   // AI 분석(신뢰도 평가, 단어 요약, 인물 분석) 시작 함수
   const startAnalysis = useCallback(async () => {
