@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import { appendDiverseNews } from "../utils/diversifyNews";
 import {
@@ -6,15 +6,24 @@ import {
   fetchDiverseInitialFeed,
 } from "../services/newsFeedService";
 import { syncEngagementFromBackend } from "../utils/articleEngagement";
+import { useCustomQuery, setCustomQueryData } from "./useCustomQuery";
 import type { NewsItem } from "../types/news";
 
 interface UseNewsListOptions {
   isAnalyzed: boolean;
 }
 
+interface NewsListCacheData {
+  items: NewsItem[];
+  total: number;
+  nextPage: number;
+}
+
 export function useNewsList({ isAnalyzed }: UseNewsListOptions) {
   const [searchParams] = useSearchParams();
   const keyword = searchParams.get("q") || "";
+
+  const cacheKey = useMemo(() => ["newsFeed", isAnalyzed, keyword], [isAnalyzed, keyword]);
 
   const [newsList, setNewsList] = useState<NewsItem[]>([]);
   const [totalItems, setTotalItems] = useState(0);
@@ -25,29 +34,56 @@ export function useNewsList({ isAnalyzed }: UseNewsListOptions) {
   const nextFeedPageRef = useRef(2);
   const loadingMoreRef = useRef(false);
 
-  const hasMore = newsList.length < totalItems;
-
-  const loadInitial = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    setNewsList([]);
-    nextFeedPageRef.current = 2;
-
-    try {
+  // 1. 선언형 캐시로부터 초기 피드 조회 (staleTime 5분)
+  const { data: cachedData, loading: queryLoading, error: queryError, refetch } = useCustomQuery<NewsListCacheData>({
+    queryKey: cacheKey,
+    queryFn: async () => {
       const result = await fetchDiverseInitialFeed(isAnalyzed, keyword);
-      // 백엔드 조회수/좋아요 상태를 로컬 저장소에 동기화
       result.items.forEach((item) => {
         syncEngagementFromBackend(item.id, item.views || 0, item.likes || 0);
       });
-      setNewsList(result.items);
-      setTotalItems(result.total);
-      nextFeedPageRef.current = result.nextFeedPage;
-    } catch (err) {
-      setError(err instanceof Error ? err : new Error(String(err)));
-    } finally {
+      return {
+        items: result.items,
+        total: result.total,
+        nextPage: result.nextFeedPage,
+      };
+    },
+    staleTime: 1000 * 60 * 5,
+  });
+
+  // 2. 캐시 변경에 반응하여 로컬 상태 동기화
+  useEffect(() => {
+    if (cachedData) {
+      setNewsList(cachedData.items);
+      setTotalItems(cachedData.total);
+      nextFeedPageRef.current = cachedData.nextPage;
       setLoading(false);
     }
-  }, [isAnalyzed, keyword]);
+  }, [cachedData]);
+
+  // 로딩 상태 동기화
+  useEffect(() => {
+    if (queryLoading && !cachedData) {
+      setLoading(true);
+    } else {
+      setLoading(false);
+    }
+  }, [queryLoading, cachedData]);
+
+  // 에러 상태 동기화
+  useEffect(() => {
+    if (queryError) {
+      setError(queryError);
+    } else {
+      setError(null);
+    }
+  }, [queryError]);
+
+  const hasMore = newsList.length < totalItems;
+
+  const loadInitial = useCallback(async () => {
+    refetch();
+  }, [refetch]);
 
   const loadMore = useCallback(async () => {
     if (loadingMoreRef.current || loading || !hasMore) return;
@@ -59,28 +95,32 @@ export function useNewsList({ isAnalyzed }: UseNewsListOptions) {
       const page = nextFeedPageRef.current;
       const result = await fetchDiverseFeedPage(page, isAnalyzed, keyword);
 
-      // 백엔드 조회수/좋아요 상태를 로컬 저장소에 동기화
       result.items.forEach((item) => {
         syncEngagementFromBackend(item.id, item.views || 0, item.likes || 0);
       });
+
       setTotalItems(result.total);
-      setNewsList((prev) => appendDiverseNews(prev, result.items));
+      const updatedList = appendDiverseNews(newsList, result.items);
+      setNewsList(updatedList);
       nextFeedPageRef.current = page + 1;
+
+      // 무한 스크롤 적재 데이터를 캐시 보관소에 병합 (Optimistic Cache Update)
+      setCustomQueryData<NewsListCacheData>(cacheKey, () => ({
+        items: updatedList,
+        total: result.total,
+        nextPage: page + 1,
+      }));
     } catch (err) {
       setError(err instanceof Error ? err : new Error(String(err)));
     } finally {
       loadingMoreRef.current = false;
       setLoadingMore(false);
     }
-  }, [hasMore, isAnalyzed, keyword, loading]);
-
-  useEffect(() => {
-    void loadInitial();
-  }, [loadInitial]);
+  }, [hasMore, isAnalyzed, keyword, loading, newsList, cacheKey]);
 
   const handleRetry = useCallback(() => {
-    void loadInitial();
-  }, [loadInitial]);
+    refetch();
+  }, [refetch]);
 
   return {
     newsList,

@@ -200,3 +200,25 @@ export function useCustomQuery<T>({
 
   return { data, loading, error, refetch };
 }
+
+// 캐시 데이터 수동 업데이트 및 리스너 전파 헬퍼 함수
+export function setCustomQueryData<T>(
+  queryKey: readonly unknown[],
+  updater: (prev: T | null) => T
+) {
+  const serializedKey = JSON.stringify(queryKey);
+  const cached = queryCache.get(serializedKey);
+  const prevData = cached ? (cached.data as T) : null;
+  const nextData = updater(prevData);
+
+  queryCache.set(serializedKey, {
+    data: nextData,
+    updatedAt: Date.now(),
+  });
+
+  // 해당 키를 구독하고 있는 리스너 컴포넌트들에게 강제 갱신 전파
+  const set = listeners.get(serializedKey);
+  if (set) {
+    set.forEach((listener) => listener());
+  }
+}

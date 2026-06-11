@@ -4,9 +4,9 @@ import axios from "axios";
 import { SOURCE_NAME_MAP } from "../constants/source";
 import { fetchNewsDetail, analyzeNews, generateComic } from "../services/newsService";
 import { useToast } from "../context/ToastContext";
-import { useCustomQuery, invalidateCustomQueries } from "./useCustomQuery";
+import { useCustomQuery, invalidateCustomQueries, setCustomQueryData } from "./useCustomQuery";
 import { syncEngagementFromBackend } from "../utils/articleEngagement";
-import type { NewsDetail, AnalysisData, ComicScene } from "../types/news";
+import type { NewsDetail, AnalysisData, ComicScene, CartoonItem } from "../types/news";
 
 type AnalysisStatus = "pending" | "analyzing" | "complete";
 
@@ -188,7 +188,23 @@ export function useNewsDetail() {
       
       // 상세 정보 캐시 갱신 (만화 목록 연동을 위해)
       invalidateCustomQueries(["newsDetail", id]);
-      invalidateCustomQueries(["cartoons"]);
+
+      // 만화 캐시 데이터 즉각 주입 (Optimistic Update) -> API 호출 지연을 0ms로 단축
+      if (news) {
+        setCustomQueryData<CartoonItem[]>(["cartoons"], (prev) => {
+          const newCartoon: CartoonItem = {
+            news_id: Number(id),
+            title: news.title,
+            source: news.source,
+            summary: news.ai_summary || news.summary || "",
+            comic_urls: res.comic_urls,
+            published_at: new Date().toISOString(),
+          };
+          if (!prev) return [newCartoon];
+          const filtered = prev.filter((c) => c.news_id !== Number(id));
+          return [newCartoon, ...filtered];
+        });
+      }
       
       showToast("4컷 만화가 성공적으로 생성되었습니다!", "success");
     } catch (error: any) {
