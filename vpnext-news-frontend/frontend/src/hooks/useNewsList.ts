@@ -5,7 +5,7 @@ import {
   fetchDiverseFeedPage,
   fetchDiverseInitialFeed,
 } from "../services/newsFeedService";
-import { syncEngagementFromBackend } from "../utils/articleEngagement";
+import { syncMultipleEngagementFromBackend } from "../utils/articleEngagement";
 import { useCustomQuery, setCustomQueryData } from "./useCustomQuery";
 import type { NewsItem } from "../types/news";
 
@@ -39,9 +39,7 @@ export function useNewsList({ isAnalyzed }: UseNewsListOptions) {
     queryKey: cacheKey,
     queryFn: async () => {
       const result = await fetchDiverseInitialFeed(isAnalyzed, keyword);
-      result.items.forEach((item) => {
-        syncEngagementFromBackend(item.id, item.views || 0, item.likes || 0);
-      });
+      syncMultipleEngagementFromBackend(result.items);
       return {
         items: result.items,
         total: result.total,
@@ -95,9 +93,7 @@ export function useNewsList({ isAnalyzed }: UseNewsListOptions) {
       const page = nextFeedPageRef.current;
       const result = await fetchDiverseFeedPage(page, isAnalyzed, keyword);
 
-      result.items.forEach((item) => {
-        syncEngagementFromBackend(item.id, item.views || 0, item.likes || 0);
-      });
+      syncMultipleEngagementFromBackend(result.items);
 
       setTotalItems(result.total);
       const updatedList = appendDiverseNews(newsList, result.items);

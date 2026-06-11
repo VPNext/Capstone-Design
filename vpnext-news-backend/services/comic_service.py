@@ -99,7 +99,7 @@ async def generate_comic_data(news_id: int, news_title: str, news_body: str, cus
         caption = panel.get("caption", "")
         
         payload = {
-            "model": "gpt-image-1-mini", 
+            "model": "gpt-image-1", 
             "prompt": scene_prompt,
             "quality": "high", 
             "number_of_images": 1

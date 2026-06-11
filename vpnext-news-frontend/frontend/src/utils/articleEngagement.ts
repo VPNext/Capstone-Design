@@ -101,6 +101,37 @@ export function syncEngagementFromBackend(articleId: number, backendViews: numbe
   emit();
 }
 
+interface SyncItem {
+  id: number;
+  views?: number;
+  likes?: number;
+}
+
+/** 백엔드로부터 가져온 복수의 기사 views와 likes 데이터를 로컬 저장소에 일괄(Bulk) 동기화 (Render Thrashing 해결) */
+export function syncMultipleEngagementFromBackend(items: SyncItem[]): void {
+  if (!items || items.length === 0) return;
+  hydrate();
+  
+  let changed = false;
+  items.forEach((item) => {
+    const key = toKey(item.id);
+    const backendViews = item.views || 0;
+    const backendLikes = item.likes || 0;
+    
+    if (views[key] !== backendViews || likes[key] !== backendLikes) {
+      views[key] = backendViews;
+      likes[key] = backendLikes;
+      changed = true;
+    }
+  });
+  
+  if (changed) {
+    writeJson(STORAGE_KEYS.VIEWS, views);
+    writeJson(STORAGE_KEYS.LIKES, likes);
+    emit();
+  }
+}
+
 /** 좋아요 토글 (로컬 스토리지에 눌렀는지 여부만 기록) */
 export function toggleLikeLocal(articleId: number): boolean {
   hydrate();
