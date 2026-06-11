@@ -1,14 +1,11 @@
-import { useCallback, useEffect, useSyncExternalStore } from "react";
-import { useLocation } from "react-router-dom";
+import { useCallback, useSyncExternalStore } from "react";
 import {
-  cancelViewIncrement,
   getEngagementSnapshot,
   getLikeCount,
   getViewCount,
   isArticleLiked,
-  scheduleViewIncrement,
   subscribeEngagement,
-  toggleLike,
+  toggleLikeLocal,
   getEngagementSummary,
   getTopArticlesByViews,
   getTopArticlesByLikes,
@@ -28,37 +25,20 @@ export function useArticleEngagement(articleId: number) {
     async (e?: React.MouseEvent) => {
       e?.preventDefault();
       e?.stopPropagation();
-      const currentLiked = isArticleLiked(articleId);
-      const nextLiked = !currentLiked;
       
-      toggleLike(articleId);
+      const nextLiked = toggleLikeLocal(articleId);
       try {
         const res = await toggleLikeNews(articleId, nextLiked);
         syncEngagementFromBackend(articleId, getViewCount(articleId), res.likes);
       } catch (err) {
         console.error("좋아요 상태 동기화 실패:", err);
-        toggleLike(articleId);
+        toggleLikeLocal(articleId);
       }
     },
     [articleId],
   );
 
   return { viewCount, likeCount, liked, handleToggleLike };
-}
-
-/**
- * 상세 페이지에서 기사 로드 후 조회수 증가
- * - 재진입 시마다 증가 (location.key 변경)
- * - 새로고침(reload)은 제외
- */
-export function useTrackArticleView(articleId: number | undefined, ready: boolean): void {
-  const location = useLocation();
-
-  useEffect(() => {
-    if (!articleId || !ready) return;
-    scheduleViewIncrement(articleId, location.key);
-    return () => cancelViewIncrement(articleId, location.key);
-  }, [articleId, ready, location.key]);
 }
 
 /** 실시간 통계 데이터를 구독하는 훅 */
