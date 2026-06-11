@@ -3,10 +3,10 @@ import { useParams } from "react-router-dom";
 import axios from "axios";
 import { SOURCE_NAME_MAP } from "../constants/source";
 import { fetchNewsDetail, analyzeNews, generateComic } from "../services/newsService";
-import { storage, STORAGE_KEYS } from "../utils/storage";
 import { useToast } from "../context/ToastContext";
-import { useCustomQuery, invalidateCustomQueries } from "./useCustomQuery";
-import type { NewsDetail, AnalysisData } from "../types/news";
+import { useCustomQuery, invalidateCustomQueries, setCustomQueryData } from "./useCustomQuery";
+import { syncEngagementFromBackend } from "../utils/articleEngagement";
+import type { NewsDetail, AnalysisData, ComicScene, CartoonItem } from "../types/news";
 
 type AnalysisStatus = "pending" | "analyzing" | "complete";
 
@@ -41,6 +41,7 @@ export function useNewsDetail() {
         reason: news.credibility_reason,
         red_flags: news.red_flags || [],
         summary: news.ai_summary || "",
+        tags: news.tags || [],
       },
       difficult_terms: news.difficult_terms || [],
       key_persons: news.key_persons || [],
@@ -49,7 +50,7 @@ export function useNewsDetail() {
 
   // 4컷 만화 생성용 상태값
   const [isComicGenerating, setIsComicGenerating] = useState(false);
-  const [comicUrls, setComicUrls] = useState<string[] | null>(null);
+  const [comicUrls, setComicUrls] = useState<(ComicScene | string)[] | null>(null);
   const [progress, setProgress] = useState(0);
   const [loadingStatus, setLoadingStatus] = useState("");
 
@@ -100,6 +101,13 @@ export function useNewsDetail() {
     };
   }, [id, news?.comic_script]);
 
+  // 기사 데이터 로드 완료 또는 리프레시 시 백엔드의 최신 조회수/좋아요를 로컬에 동기화
+  useEffect(() => {
+    if (news) {
+      syncEngagementFromBackend(news.id, news.views || 0, news.likes || 0);
+    }
+  }, [news]);
+
   // AI 분석(신뢰도 평가, 단어 요약, 인물 분석) 시작 함수
   const startAnalysis = useCallback(async () => {
     if (!news?.url || !id) return;
@@ -124,10 +132,6 @@ export function useNewsDetail() {
       // 기사 상세 및 뉴스 목록 캐시 무효화 -> 리프레시 선언적 촉발
       invalidateCustomQueries(["newsDetail", id]);
       invalidateCustomQueries(["newsList"]);
-      
-      // 구형 스토리지 세션 캐시 무효화 보완
-      storage.remove(STORAGE_KEYS.MAIN_NEWS_CACHE);
-      storage.remove(STORAGE_KEYS.ANALYZED_NEWS_CACHE);
       
       showToast("기사 분석이 완료되었습니다!", "success");
     } catch (error: any) {
@@ -184,6 +188,23 @@ export function useNewsDetail() {
       
       // 상세 정보 캐시 갱신 (만화 목록 연동을 위해)
       invalidateCustomQueries(["newsDetail", id]);
+
+      // 만화 캐시 데이터 즉각 주입 (Optimistic Update) -> API 호출 지연을 0ms로 단축
+      if (news) {
+        setCustomQueryData<CartoonItem[]>(["cartoons"], (prev) => {
+          const newCartoon: CartoonItem = {
+            news_id: Number(id),
+            title: news.title,
+            source: news.source,
+            summary: news.ai_summary || news.summary || "",
+            comic_urls: res.comic_urls,
+            published_at: new Date().toISOString(),
+          };
+          if (!prev) return [newCartoon];
+          const filtered = prev.filter((c) => c.news_id !== Number(id));
+          return [newCartoon, ...filtered];
+        });
+      }
       
       showToast("4컷 만화가 성공적으로 생성되었습니다!", "success");
     } catch (error: any) {

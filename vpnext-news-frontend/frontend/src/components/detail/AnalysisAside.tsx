@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, memo } from "react";
 import type { FormEvent } from "react";
 import type { AnalysisData } from "../../types/news";
 import DictionarySearchForm from "./DictionarySearchForm";
@@ -27,7 +27,7 @@ interface AnalysisAsideProps {
   onSidebarItemClick?: (name: string, type: "term" | "person") => void;
 }
 
-export default function AnalysisAside({
+const AnalysisAside = memo(function AnalysisAside({
   status,
   analysisData,
   aiSummary,
@@ -194,13 +194,25 @@ export default function AnalysisAside({
                         </span>
                       </div>
                       
-                      <div className="flex flex-col gap-1">
+                      <div className="flex flex-col gap-1 min-w-0 flex-1">
                         <span className="text-[10px] font-black tracking-wider text-[#9C9891] uppercase">
                           AI 신뢰 지수
                         </span>
-                        <span className={`text-lg font-black ${scoreColor.text}`}>
+                        <span className={`text-lg font-black ${scoreColor.text} leading-tight`}>
                           {credibility.label || "분석 완료"}
                         </span>
+                        {credibility.tags && credibility.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-1.5">
+                            {credibility.tags.map((tag, idx) => (
+                              <span
+                                key={idx}
+                                className="px-2 py-0.5 text-[10.5px] font-bold rounded-md bg-white/85 text-slate-700 border border-slate-200/50 shadow-[0_1px_2px_rgba(0,0,0,0.02)] transition-all duration-200 hover:bg-white hover:scale-105 cursor-default select-none"
+                              >
+                                #{tag}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
 
@@ -292,6 +304,8 @@ export default function AnalysisAside({
     </div>
   </aside>
 );
-}
+});
+
+export default AnalysisAside;
 
 

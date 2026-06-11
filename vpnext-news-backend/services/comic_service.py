@@ -1,100 +1,137 @@
 import logging
 import httpx
 import json
-from typing import Optional, List, Tuple
-from ai_analyzer import gemini_client
+import asyncio
+from typing import Optional, List, Tuple, Dict
+from ai_analyzer import gemini_client, _parse_json
 from config import GATEWAY_API_KEY
 
 logger = logging.getLogger(__name__)
 
 async def generate_comic_data(news_id: int, news_title: str, news_body: str, custom_prompt: str = None) -> Tuple[List, List]:
     """
-    제미나이를 활용해 뉴스를 바탕으로 대사가 포함된 4컷 만화 프롬프트를 생성하고,
-    이미지 생성 API를 호출하여 완성된 이미지를 반환합니다.
+    뉴스 요약본을 기반으로 10대~20대가 직관적이고 재미있게 이해할 수 있는 3~8컷 만화 시나리오를 생성합니다.
+    각 컷별로 이미지 생성 AI를 위한 영어 묘사(scene_prompt)와 하단에 노출될 한국어 대사/해설(caption)을 한 번에 생성한 후,
+    이미지 생성 API를 병렬로 호출하여 결과 데이터를 반환합니다.
     """
-    logger.info(f"[만화 #{news_id}] 분석 및 만화 생성 시작 (커스텀 프롬프트: {'O' if custom_prompt else 'X'})")
+    logger.info(f"[만화 #{news_id}] 요약본 기반 웹툰 생성 시작 (커스텀 프롬프트: {'O' if custom_prompt else 'X'})")
     
+    # 1. 뉴스 요약 및 만화 스크립트(3~8컷) 생성용 프롬프트 작성
     base_instructions = f"""
-당신은 코믹 웹툰 프롬프트 엔지니어입니다.
-아래 뉴스를 바탕으로 '전연령층이 쉽게 이해할 수 있는 코믹 웹툰 스타일'의 4컷 만화(2x2 그리드) 생성용 영문 프롬프트를 작성하세요.
+당신은 어려운 뉴스를 10대와 20대가 직관적이고 재미있게 이해할 수 있도록 웹툰 시나리오로 각색하는 전문 웹툰 작가입니다.
+제시된 [뉴스 요약본]을 바탕으로, 1020 세대의 눈높이에 맞추어 친근하고 자연스러운 흐름이 이어지는 **3컷에서 8컷 사이**의 만화 시나리오를 작성하세요.
 
-[뉴스 기사]
+[뉴스 요약본]
 제목: {news_title}
-본문: {news_body}
+내용 요약: {news_body}
 """
 
     if custom_prompt and custom_prompt.strip():
         user_injection = f"""
-[사용자 특별 요청사항 - 만화 묘사 시 아래 내용을 최우선으로 반영할 것!]
+[사용자 특별 요청사항 - 만화 구성 시 반드시 최우선 반영할 것]
 {custom_prompt}
 """
         base_instructions += user_injection
 
     rules = """
-[이미지 프롬프트 작성 규칙 - 반드시 지킬 것]
-1. 극단적 대사 압축: 말풍선 대사는 본문에서 핵심 메시지만 5~7단어로 압축해서 표현하세요. (예: "정부, 긴급 경제 대책 발표!" → "긴급 경제 대책 발표!")
-2. 전연령 코믹 웹툰 화풍 고정: 프롬프트 전반에 과장된 캐릭터와 밝은 색감을 지시하세요. 
-   (필수 포함 키워드: "Korean casual webtoon style, , highly expressive comic style, family-friendly, vibrant colors")
-3. 직관적인 시각적 비유: 어려운 정치/경제 뉴스라도 전연령층이 이해할 수 있는 쉬운 상황으로 묘사하세요. 
-4. 타이포그래피 강제: 각 컷 묘사 끝에 반드시 다음 문구를 토시 하나 틀리지 말고 포함하세요. 
-   -> Speech bubble with clear, bold black sans-serif font. Exact text: "한국어대사"
-5. 레이아웃: 프롬프트 시작에 'A 2x2 comic strip grid.'를 명시하고, Panel 1부터 Panel 4까지 나누어 묘사하세요.
-6. 출력 형식: 부가적인 설명이나 마크다운 없이, 오직 이미지 생성 API에 직접 입력할 '단일 영문 프롬프트'만 출력하세요.
+[만화 시나리오 작성 및 JSON 출력 규칙]
+1. 요약본 기반 흐름 설계: 기사 요약본의 기승전결(도입 - 핵심 내용 설명 - 영향/결론)이 매끄럽게 연결되도록 최소 3컷, 최대 8컷의 만화 구성을 만드세요.
+2. 타겟 독자 (1020대): 어조를 매우 친근하고 자연스럽게 구성하세요. 트렌디한 구어체, 친근한 반말이나 해요체 가능, 비속어 금지.
+3. 시각적 비유 및 스토리텔링: 어려운 정치, 경제, 사회 개념을 일상적인 상황이나 비유(예: 치킨 가격, 친구 간의 대화, 게임 아이템 등)로 쉽게 변환하여 표현하세요.
+4. 이미지 프롬프트 작성 (영어): 
+   - 각 컷의 `scene_prompt`는 이미지 생성 AI(DALL-E)가 이해할 수 있는 구체적인 영어 묘사여야 합니다.
+   - 텍스트나 말풍선이 이미지 안에 직접 포함되지 않도록 하십시오 (No text, no speech bubbles, no typography).
+   - 모든 컷에서 인물과 화풍의 일관성을 유지할 수 있도록 공통 스타일 키워드를 포함하세요.
+   - 필수 화풍 키워드: "Korean casual webtoon style, flat coloring, clean lines, highly expressive comic style, vibrant colors"
+5. 한국어 대사/해설 (caption):
+   - 이미지 내부가 아닌, 이미지 하단에 텍스트 형태로 노출될 대사나 나레이션입니다.
+   - 1020 독자가 흥미를 가질 만한 생동감 넘치는 한국어 구어로 작성하세요.
+6. 작성 방식 안내: 이 시나리오는 전체 내용을 영문 프롬프트로 제작한 뒤 한글로 번역하는 방식이 아닙니다. 각 컷마다 해당 컷의 '영문 이미지 묘사(scene_prompt)'와 '한국어 대사/해설(caption)'을 별도로 작성하여 JSON 구조로 출력하는 방식입니다.
+
+아래 JSON 형식으로만 응답해야 합니다 (이외의 텍스트나 설명 절대 금지):
+```json
+{
+  "comic_title": "1020 맞춤형 웹툰 제목",
+  "panels": [
+    {
+      "panel_num": 1,
+      "scene_prompt": "Detailed English description of the scene for AI image generator. Include character action, emotion, background. Add style keywords.",
+      "caption": "컷에 해당하는 자연스러운 한국어 대사 또는 해설"
+    }
+  ]
+}
+```
 """
 
     prompt_generator = base_instructions + rules
     
     try:
-        # ai_analyzer의 GeminiClient.call()을 사용 (내부적으로 모델 폴백 처리됨)
-        # 이 부분도 동기식으로 되어 있었습니다. 그러니까 에러가 났던거고요 
-        final_integrated_prompt = await gemini_client.call(prompt_generator)
-        if not final_integrated_prompt:
-            raise Exception("이미지 프롬프트 생성 결과가 비어 있습니다.")
-        logger.info(f"[만화 #{news_id}] 이미지 프롬프트 생성 완료")
+        response_text = await gemini_client.call(prompt_generator)
+        if not response_text:
+            raise Exception("Gemini로부터 시나리오를 받지 못했습니다.")
+            
+        # JSON 파싱
+        parsed = _parse_json(response_text)
+        if not parsed or "panels" not in parsed:
+            raise Exception(f"시나리오 JSON 파싱 실패: {response_text}")
+            
+        panels = parsed["panels"]
+        logger.info(f"[만화 #{news_id}] {len(panels)}컷 시나리오 생성 완료. 이미지 생성 시작...")
     except Exception as e:
-        logger.error(f"[만화 #{news_id}] 프롬프트 생성 실패: {e}")
-        raise e
+        logger.error(f"[만화 #{news_id}] 시나리오 생성 중 오류 발생: {e}")
+        # 폴백 시나리오
+        panels = [
+            {"panel_num": 1, "scene_prompt": "A cute character reading news with a shocked expression, Korean casual webtoon style, vibrant colors", "caption": "어려운 뉴스를 한눈에 요약해 줄게!"},
+            {"panel_num": 2, "scene_prompt": "A character explaining things on a blackboard, Korean casual webtoon style, vibrant colors", "caption": "뉴스 내용을 1020 눈높이로 쉽게 풀어 설명하는 중!"},
+            {"panel_num": 3, "scene_prompt": "A happy character understanding everything, thumbs up, Korean casual webtoon style, vibrant colors", "caption": "이제 이 기사 내용이 완벽하게 이해됐어!"}
+        ]
 
-    comic_data = []
-    raw_urls = []
-
+    # 2. 각 Panel에 대해 이미지 생성 API를 비동기 병렬로 호출
     gateway_url = "https://factchat-cloud.mindlogic.ai/v1/gateway/images/generate/"
     headers = {
         "Authorization": f"Bearer {GATEWAY_API_KEY}",
         "Content-Type": "application/json"
     }
 
-    async with httpx.AsyncClient(timeout=65.0) as http_client:
+    async def generate_single_panel_image(http_client: httpx.AsyncClient, panel: Dict) -> Dict:
+        panel_num = panel.get("panel_num", 1)
+        scene_prompt = panel.get("scene_prompt", "")
+        caption = panel.get("caption", "")
+        
         payload = {
-            #시연용 모델 :gemini-3-pro-image-preview
-            #테스트용 모델 : gpt-image-1-mini
-            "model": "gpt-image-1-mini", 
-            "prompt": final_integrated_prompt,
+            "model": "gpt-image-1", 
+            "prompt": scene_prompt,
             "quality": "high", 
             "number_of_images": 1
         }
-
+        
         try:
-            logger.info(f"[만화 #{news_id}] 대사가 포함된 4컷 만화 이미지 생성 API 호출 중...")
+            logger.info(f"[만화 #{news_id} - {panel_num}컷] 이미지 생성 API 호출 중...")
             response = await http_client.post(gateway_url, json=payload, headers=headers)
             response.raise_for_status()
-            
             res_json = response.json()
             
             if "data" in res_json and len(res_json["data"]) > 0:
-                image_url = res_json["data"][0]["url"]
-                comic_data.append({"url": image_url})
-                raw_urls.append(image_url)
-                logger.info(f"[만화 #{news_id}] 만화 이미지 생성 완료.")
+                img_url = res_json["data"][0]["url"]
+                logger.info(f"[만화 #{news_id} - {panel_num}컷] 이미지 생성 완료: {img_url}")
+                return {"url": img_url, "caption": caption}
             else:
-                logger.error(f"[만화 #{news_id}] 이미지 반환 실패. API 응답: {res_json}")
-                comic_data.append({
-                    "url": "https://placehold.co/600x600/1e293b/yellow?text=Blocked+by+AI+Safety+Policy", 
-                    "caption": "안전 정책에 의해 차단되었습니다."
-                })
-
+                logger.error(f"[만화 #{news_id} - {panel_num}컷] 이미지 주소 미반환. 응답: {res_json}")
+                return {"url": "https://placehold.co/600x600/1e293b/yellow?text=Safety+Block", "caption": f"[안전 차단] {caption}"}
         except Exception as e:
-            logger.error(f"[만화 #{news_id}] 이미지 생성 실패: {e}")
-            comic_data.append({"url": "", "caption": "이미지 생성에 실패했습니다."})
+            logger.error(f"[만화 #{news_id} - {panel_num}컷] 이미지 생성 에러: {e}")
+            return {"url": "", "caption": caption}
+
+    comic_data = []
+    raw_urls = []
+
+    async with httpx.AsyncClient(timeout=65.0) as http_client:
+        tasks = [generate_single_panel_image(http_client, p) for p in panels]
+        results = await asyncio.gather(*tasks)
+        
+        for res in results:
+            comic_data.append(res)
+            if res["url"]:
+                raw_urls.append(res["url"])
 
     return comic_data, raw_urls

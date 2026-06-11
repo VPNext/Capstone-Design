@@ -179,6 +179,7 @@ async def analyze_credibility(
      있습니다."라고 의심표현으로 'red_flags'에 포함하세요. 
 3. 제목-내용 일치도:  제목의 키워드가 본문의 핵심 내용과 괴리가 큰지 분석하여 '과장/낚시성' 여부를 판단하세요.
 4. 시계열 검증: 현재 시점({year_month})에서의 유효성을 판단하세요.
+5. 태그 추출: 기사의 핵심 주제 또는 주요 키워드를 드러내는 태그(예: 정치, 금리, 인공지능 등)를 3~5개 추출하여 'tags' 목록에 한국어로 포함하세요. (이모지 및 이모티콘 사용 절대 금지)
 참조 표시: 비교 분석 시 활용한 기사의 출처는 반드시 Markdown 하이퍼링크 형식(예:
           [언론사명](URL))으로 'summary'에 포함하세요.
 아래 JSON 형식으로만 응답:
@@ -189,7 +190,8 @@ async def analyze_credibility(
   "label": "신뢰/주의/허위 의심/과장/낚시성 중 선택",
   "reason": "교차 분석 결과, 제목-본문 일치성, 과장 표현 유무를 종합하여 상세히 작성 (참조 기사 하이퍼링크 포함)",
   "red_flags": ["의심 표현1", "의심 표현2"],
-  "summary": "[{source_name} 보도 요약] 본문 요약 및 (과거 기사인 경우) 현재 상황과 달라진 점을 포함하여 3~4줄로 작성 (참조 기사 하이퍼링크 {related_names_links} 활용)"
+  "summary": "[{source_name} 보도 요약] 본문 요약 및 (과거 기사인 경우) 현재 상황과 달라진 점을 포함하여 3~4줄로 작성 (참조 기사 하이퍼링크 {related_names_links} 활용)",
+  "tags": ["태그1", "태그2", "태그3"]
 }}
 ```
 score 범위: 0.7이상→신뢰, 0.4~0.7→주의, 0.4미만→허위 의심
@@ -211,7 +213,7 @@ score 범위: 0.7이상→신뢰, 0.4~0.7→주의, 0.4미만→허위 의심
 
     return result or {
         "score": 0.3, "label": "분석 불가",
-        "reason": "모든 AI 분석 도구 호출 실패", "red_flags": [], "summary": "",
+        "reason": "모든 AI 분석 도구 호출 실패", "red_flags": [], "summary": "", "tags": [],
     }
 
 async def extract_terms(content: str) -> List[Dict]:
@@ -267,35 +269,3 @@ async def extract_persons(title: str, content: str) -> List[Dict]:
 """
     result = await call_ai(prompt)
     return result.get("persons", []) if result else []
-
-async def generate_comic_script(title: str, content: str) -> str:
-    prompt = f"""
-당신은 뉴스 기사를 4컷 만화 시나리오로 변환하는 전문가입니다.
-아래 기사 내용을 바탕으로 4컷 만화 스크립트를 생성하세요.
-
-[중요 지침]
-- 기사 내용에 사건, 사고, 범죄 등 민감한 내용이 포함되어 있더라도, 이를 직접적으로 묘사하거나 자극적인 언어를 사용하지 마세요.
-- 상황을 객관적으로 설명하거나 비유적인 표현을 사용하여 안전 정책(AI Safety Policy)에 저촉되지 않도록 하세요.
-- 어린이도 이해할 수 있도록 쉽고 유익하게 구성하세요.
-
-
-[기사 제목] {title}
-[기사 본문] {content[:1500]}
-
-아래 JSON 형식으로만 응답:
-```json
-{{
-  "comic_title": "만화 제목 (공익적/객관적 문구)",
-  "panels": [
-    {{
-      "panel": 1,
-      "scene_prompt": "이미지 생성 AI용 영어 프롬프트 (안전하고 비폭력적인 묘사)",
-      "dialogue": "등장인물 대사 또는 나레이션 (한국어)",
-      "description": "장면 요약 (한국어)"
-    }}
-  ]
-}}
-```
-"""
-    result = await call_ai(prompt)
-    return json.dumps(result, ensure_ascii=False, indent=2) if result else "{}"

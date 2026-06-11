@@ -10,6 +10,9 @@ export interface NewsItem {
   credibility_score: number | null;
   credibility_label: string | null;
   is_analyzed: boolean;
+  views?: number;
+  likes?: number;
+  tags?: string[];
 }
 
 export interface DifficultTerm {
@@ -34,6 +37,7 @@ export interface CredibilityData {
   reason: string | null;
   red_flags: string[];
   summary: string;
+  tags?: string[];
 }
 
 export interface AnalysisData {

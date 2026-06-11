@@ -1,3 +1,4 @@
+import { memo, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { SOURCE_NAME_MAP, SOURCE_BADGE_CLASS } from "../../constants/source";
 import { extractImageFromSummary, extractTextFromSummary, decodeHtmlEntities, optimizeImageUrl } from "../../utils/summary";
@@ -5,6 +6,7 @@ import { prefetchQuery } from "../../hooks/useCustomQuery";
 import { fetchNewsDetail } from "../../services/newsService";
 import HighlightText from "../HighlightText";
 import CredibilityBadge from "../CredibilityBadge";
+import ArticleEngagementBar from "./ArticleEngagementBar";
 import type { NewsItem } from "../../types/news";
 
 interface FeaturedNewsCardProps {
@@ -13,7 +15,7 @@ interface FeaturedNewsCardProps {
   isAnalyzedPage?: boolean;
 }
 
-export default function FeaturedNewsCard({
+const FeaturedNewsCard = memo(function FeaturedNewsCard({
   news,
   keyword,
   isAnalyzedPage = false,
@@ -39,13 +41,13 @@ export default function FeaturedNewsCard({
     : "hover:border-[rgba(193,48,38,0.2)]";
 
   // 상세 데이터 프리패칭 함수
-  const handlePrefetch = () => {
+  const handlePrefetch = useCallback(() => {
     prefetchQuery(
       ["newsDetail", String(news.id)],
       () => fetchNewsDetail(news.id),
       1000 * 60 * 10 // 10분 유효기간 (staleTime)
     );
-  };
+  }, [news.id]);
 
   return (
     <div
@@ -124,6 +126,31 @@ export default function FeaturedNewsCard({
                   score={news.credibility_score}
                 />
               )}
+              {isAnalyzedPage && news.tags && news.tags.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 items-center">
+                  {news.tags.map((tag, idx) => (
+                    <span
+                      key={idx}
+                      className="px-2 py-0.5 text-[9.5px] font-black rounded-md bg-[#F3F0EB] text-[#5C5853] border border-[#E4DDD3] transition-all duration-200 hover:bg-white hover:scale-105 cursor-default select-none"
+                    >
+                      #{tag}
+                    </span>
+                  ))}
+                </div>
+              )}
+              {isAnalyzedPage && (
+                <ArticleEngagementBar
+                  articleId={news.id}
+                  analyzedTheme
+                  articleMeta={{
+                    id: news.id,
+                    title: news.title,
+                    source: news.source,
+                    image_url: news.image_url,
+                    published_at: news.published_at,
+                  }}
+                />
+              )}
             </div>
 
             <h2
@@ -147,4 +174,6 @@ export default function FeaturedNewsCard({
       </Link>
     </div>
   );
-}
+});
+
+export default FeaturedNewsCard;

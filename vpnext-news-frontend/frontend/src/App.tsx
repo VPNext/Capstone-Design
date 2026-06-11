@@ -38,7 +38,7 @@ function App() {
             }}
           >
             <Header />
-            <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6">
+            <main className="flex-1 max-w-[1300px] w-full mx-auto px-4 sm:px-6">
               <Suspense fallback={<PageLoader />}>
                 <Routes>
                   <Route path="/" element={<MainPage />} />

@@ -84,6 +84,9 @@ def list_news(
                 "credibility_score": a.credibility_score,
                 "credibility_label": a.credibility_label,
                 "is_analyzed":       a.is_analyzed,
+                "views":             a.views or 0,
+                "likes":             a.likes or 0,
+                "tags":              a.tags or [],
             }
             for a in articles
         ],
@@ -94,6 +97,12 @@ def get_news(article_id: int, db: Session = Depends(get_db)):
     a = db.query(Article).filter(Article.id == article_id).first()
     if not a:
         raise HTTPException(404, "기사를 찾을 수 없습니다.")
+    
+    # 조회수 증가
+    a.views = (a.views or 0) + 1
+    db.commit()
+    db.refresh(a)
+
     return {
         "id":                  a.id,
         "title":               a.title,
@@ -113,7 +122,29 @@ def get_news(article_id: int, db: Session = Depends(get_db)):
         "difficult_terms":     a.difficult_terms,
         "comic_script":        a.comic_script,
         "is_analyzed":         a.is_analyzed,
+        "views":               a.views,
+        "likes":               a.likes or 0,
+        "tags":                a.tags or [],
     }
+
+from pydantic import BaseModel
+class LikePayload(BaseModel):
+    liked: bool
+
+@router.post("/news/{article_id}/like", summary="뉴스 좋아요 상태 변경")
+def toggle_like(article_id: int, payload: LikePayload, db: Session = Depends(get_db)):
+    a = db.query(Article).filter(Article.id == article_id).first()
+    if not a:
+        raise HTTPException(404, "기사를 찾을 수 없습니다.")
+    
+    if payload.liked:
+        a.likes = (a.likes or 0) + 1
+    else:
+        a.likes = max(0, (a.likes or 0) - 1)
+        
+    db.commit()
+    db.refresh(a)
+    return {"id": a.id, "likes": a.likes}
 
 @router.get("/search", summary="뉴스 검색")
 def search(

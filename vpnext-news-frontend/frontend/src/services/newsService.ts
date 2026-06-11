@@ -12,12 +12,16 @@ export const fetchNewsList = async (
   source?: string,
   isAnalyzed?: boolean,
   keyword?: string,
-  config?: AxiosRequestConfig
+  size = 30,
+  config?: AxiosRequestConfig,
 ): Promise<FetchNewsResponse> => {
   const sourceParam = source ? `&source=${source}` : "";
   const analyzedParam = isAnalyzed !== undefined ? `&is_analyzed=${isAnalyzed}` : "";
   const keywordParam = keyword ? `&keyword=${encodeURIComponent(keyword)}` : "";
-  const response = await api.get(`/api/news?page=${page}${sourceParam}${analyzedParam}${keywordParam}`, config);
+  const response = await api.get(
+    `/api/news?page=${page}&size=${size}${sourceParam}${analyzedParam}${keywordParam}`,
+    config,
+  );
   return response.data;
 };
 
@@ -51,5 +55,14 @@ export const generateComic = async (
 
 export const fetchCartoons = async (config?: AxiosRequestConfig): Promise<CartoonItem[]> => {
   const response = await api.get("/api/cartoons", config);
+  return response.data;
+};
+
+export const toggleLikeNews = async (
+  id: number | string,
+  liked: boolean,
+  config?: AxiosRequestConfig
+): Promise<{ id: number; likes: number }> => {
+  const response = await api.post(`/api/news/${id}/like`, { liked }, config);
   return response.data;
 };

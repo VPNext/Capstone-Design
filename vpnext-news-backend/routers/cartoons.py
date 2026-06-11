@@ -24,10 +24,13 @@ async def generate_comic_endpoint(
         raise HTTPException(status_code=404, detail="기사를 찾을 수 없습니다.")
 
     news_title = article.title or ""
-    news_summary = article.ai_summary or ""
-    news_content = article.content or article.summary or ""
-    combined_body = (news_summary + "\n\n" + news_content).strip()
-    news_body = combined_body[:1500] if combined_body else news_title
+    # 요약본을 최우선적으로 확보하여 기반으로 삼음
+    news_summary = article.ai_summary or article.summary or ""
+    if not news_summary and article.content:
+        # 요약본이 없으면 본문 앞부분을 대안으로 사용
+        news_summary = article.content[:1000]
+    
+    news_body = news_summary.strip() if news_summary else news_title
 
     custom_prompt = payload.custom_prompt if payload else None
 

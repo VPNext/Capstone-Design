@@ -34,10 +34,29 @@ class Article(Base):
     difficult_terms    = Column(JSON)
     comic_script       = Column(Text)
     is_analyzed        = Column(Boolean, default=False)
+    views              = Column(Integer, default=0, nullable=False)
+    likes              = Column(Integer, default=0, nullable=False)
+    tags               = Column(JSON)
 
 
 def init_db():
     Base.metadata.create_all(bind=engine)
+    
+    # SQLite 마이그레이션: 컬럼이 없으면 자동으로 추가
+    from sqlalchemy import inspect, text
+    inspector = inspect(engine)
+    columns = [col['name'] for col in inspector.get_columns('articles')]
+    
+    if 'views' not in columns:
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE articles ADD COLUMN views INTEGER DEFAULT 0 NOT NULL"))
+    if 'likes' not in columns:
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE articles ADD COLUMN likes INTEGER DEFAULT 0 NOT NULL"))
+    if 'tags' not in columns:
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE articles ADD COLUMN tags JSON"))
+
 
 
 def get_db():

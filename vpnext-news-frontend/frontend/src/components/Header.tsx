@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link, useNavigate, useLocation } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 
 const todayStr = new Date().toLocaleDateString("ko-KR", {
   year: "numeric",
@@ -8,19 +8,46 @@ const todayStr = new Date().toLocaleDateString("ko-KR", {
   weekday: "long",
 });
 
+const NAV_ITEMS = [
+  {
+    to: "/",
+    label: "홈",
+    activeClass: "text-white bg-white/12 border-white/20",
+    dotClass: "",
+  },
+  {
+    to: "/analyzed",
+    label: "AI 분석 뉴스",
+    activeClass: "text-[#38BDF8] bg-[#38BDF8]/10 border-[#38BDF8]/20",
+    dotClass: "bg-[#38BDF8] shadow-[0_0_6px_#38BDF8]",
+  },
+  {
+    to: "/cartoons",
+    label: "AI 만화",
+    activeClass: "text-[#FBBF24] bg-[#FBBF24]/10 border-[#FBBF24]/20",
+    dotClass: "bg-[#FBBF24] shadow-[0_0_6px_#FBBF24]",
+  },
+];
+
 export default function Header() {
-  const [keyword, setKeyword] = useState("");
-  const [searchOpen, setSearchOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const navigate = useNavigate();
   const location = useLocation();
 
   const [scrollProgress, setScrollProgress] = useState(0);
   const isNewsDetailPage = location.pathname.startsWith("/news/");
 
   useEffect(() => {
-    const handler = () => setScrolled(window.scrollY > 8);
+    let ticking = false;
+    const handler = () => {
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          setScrolled(window.scrollY > 8);
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
     window.addEventListener("scroll", handler, { passive: true });
     return () => window.removeEventListener("scroll", handler);
   }, []);
@@ -35,13 +62,20 @@ export default function Header() {
       return;
     }
 
+    let ticking = false;
     const handleScroll = () => {
-      const totalHeight = document.documentElement.scrollHeight - window.innerHeight;
-      if (totalHeight > 0) {
-        const progress = (window.scrollY / totalHeight) * 100;
-        setScrollProgress(progress);
-      } else {
-        setScrollProgress(0);
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          const totalHeight = document.documentElement.scrollHeight - window.innerHeight;
+          if (totalHeight > 0) {
+            const progress = (window.scrollY / totalHeight) * 100;
+            setScrollProgress(progress);
+          } else {
+            setScrollProgress(0);
+          }
+          ticking = false;
+        });
+        ticking = true;
       }
     };
 
@@ -50,49 +84,6 @@ export default function Header() {
 
     return () => window.removeEventListener("scroll", handleScroll);
   }, [isNewsDetailPage, location.pathname]);
-
-  const handleSearch = () => {
-    const trimmed = keyword.trim();
-    if (!trimmed) return;
-    
-    // 분석 뉴스 페이지에서는 검색을 해도 해당 페이지 컨텍스트를 유지
-    const targetPath = location.pathname === "/analyzed" ? "/analyzed" : "/";
-    navigate(`${targetPath}?q=${encodeURIComponent(trimmed)}`);
-    
-    setSearchOpen(false);
-    setKeyword("");
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") handleSearch();
-    if (e.key === "Escape") {
-      setSearchOpen(false);
-      setKeyword("");
-    }
-  };
-
-
-
-  const navItems = [
-    {
-      to: "/",
-      label: "홈",
-      activeClass: "text-white bg-white/12 border-white/20",
-      dotClass: "",
-    },
-    {
-      to: "/analyzed",
-      label: "AI 분석 뉴스",
-      activeClass: "text-[#38BDF8] bg-[#38BDF8]/10 border-[#38BDF8]/20",
-      dotClass: "bg-[#38BDF8] shadow-[0_0_6px_#38BDF8]",
-    },
-    {
-      to: "/cartoons",
-      label: "AI 만화",
-      activeClass: "text-[#FBBF24] bg-[#FBBF24]/10 border-[#FBBF24]/20",
-      dotClass: "bg-[#FBBF24] shadow-[0_0_6px_#FBBF24]",
-    },
-  ];
 
   return (
     <>
@@ -155,7 +146,7 @@ export default function Header() {
 
             {/* Navigation — desktop */}
             <nav className="hidden md:flex items-center gap-1">
-              {navItems.map((item) => {
+              {NAV_ITEMS.map((item) => {
                 const isActive = location.pathname === item.to;
                 return (
                   <Link
@@ -181,65 +172,8 @@ export default function Header() {
             </nav>
           </div>
 
-          {/* Right side: search + mobile menu toggle */}
-          <div className="flex items-center gap-2">
-            {/* Search — desktop */}
-            <div className="hidden sm:flex items-center">
-              {searchOpen ? (
-                <div className="flex items-center gap-2.5 rounded-full px-4 py-2.5 bg-white/8 border border-white/18 w-[270px] backdrop-blur-[12px] transition-all duration-300">
-                  <svg
-                    className="w-3.5 h-3.5 shrink-0 text-white/35"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2.5}
-                      d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"
-                    />
-                  </svg>
-                  <input
-                    autoFocus
-                    type="text"
-                    value={keyword}
-                    onChange={(e) => setKeyword(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    placeholder="키워드 검색..."
-                    className="flex-1 bg-transparent text-sm outline-none text-white"
-                  />
-                  <button
-                    onClick={() => {
-                      setSearchOpen(false);
-                      setKeyword("");
-                    }}
-                    className="flex items-center justify-center w-5 h-5 rounded-full transition-all text-white/30 hover:text-white hover:bg-white/10"
-                  >
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
-              ) : (
-                <button
-                  onClick={() => setSearchOpen(true)}
-                  className="flex items-center gap-2 text-sm font-semibold px-3.5 py-2 rounded-full transition-all duration-200 text-white/40 hover:text-white hover:bg-white/7 border border-transparent hover:border-white/10"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2.5}
-                      d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"
-                    />
-                  </svg>
-                  검색
-                </button>
-              )}
-            </div>
-
-            {/* Mobile menu button */}
+          {/* Mobile menu button */}
+          <div className="flex items-center">
             <button
               className="md:hidden flex flex-col justify-center items-center gap-1.5 w-9 h-9 rounded-lg transition-all text-white/55"
               onClick={() => setMobileMenuOpen((v) => !v)}
@@ -274,7 +208,7 @@ export default function Header() {
           }`}
         >
           <div className="px-4 py-4 flex flex-col gap-1">
-            {navItems.map((item) => {
+            {NAV_ITEMS.map((item) => {
               const isActive = location.pathname === item.to;
               return (
                 <Link
@@ -291,31 +225,6 @@ export default function Header() {
                 </Link>
               );
             })}
-
-            {/* Mobile search */}
-            <div className="flex items-center gap-2.5 mt-3 rounded-xl px-4 py-3 bg-white/6 border border-white/8">
-              <svg
-                className="w-4 h-4 shrink-0 text-white/30"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2.5}
-                  d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"
-                />
-              </svg>
-              <input
-                type="text"
-                value={keyword}
-                onChange={(e) => setKeyword(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="키워드 검색..."
-                className="flex-1 bg-transparent text-sm outline-none font-medium text-white"
-              />
-            </div>
           </div>
         </div>
         {/* Reading progress bar for news detail pages */}

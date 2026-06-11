@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useCallback, memo } from "react";
 import type { NewsDetail } from "../../types/news";
 import { parseAndRenderSummary } from "../../utils/source";
 import { extractImageFromSummary, optimizeImageUrl } from "../../utils/summary";
@@ -11,12 +11,14 @@ interface ArticleContentProps {
   onSelectKeyword?: (name: string, type: "term" | "person") => void;
 }
 
-export default function ArticleContent({
+const ArticleContent = memo(function ArticleContent({
   news,
   aiSummary,
   onSelectKeyword,
 }: ArticleContentProps) {
-  const finalImage = optimizeImageUrl(news.image_url) || extractImageFromSummary(news.summary);
+  const finalImage = useMemo(() => {
+    return optimizeImageUrl(news.image_url) || extractImageFromSummary(news.summary);
+  }, [news.image_url, news.summary]);
 
   const [tooltipData, setTooltipData] = useState<{
     rect: DOMRect;
@@ -30,7 +32,7 @@ export default function ArticleContent({
     return parseAndRenderSummary(aiSummary, false);
   }, [aiSummary]);
 
-  const handleArticleClick = (e: React.MouseEvent) => {
+  const handleArticleClick = useCallback((e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
     const termName = target.getAttribute("data-term-name");
     const personName = target.getAttribute("data-person-name");
@@ -62,7 +64,7 @@ export default function ArticleContent({
         });
       }
     }
-  };
+  }, [news.difficult_terms, news.key_persons, onSelectKeyword]);
 
   return (
     <article className="flex-1 min-w-0 max-w-[720px] mx-auto">
@@ -138,4 +140,6 @@ export default function ArticleContent({
       </div>
     </article>
   );
-}
+});
+
+export default ArticleContent;
