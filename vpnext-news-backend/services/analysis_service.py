@@ -4,8 +4,7 @@ from typing import Dict, Optional, Any
 from ai_analyzer import (
     analyze_credibility,
     extract_persons,
-    extract_terms,
-    generate_comic_script
+    extract_terms
 )
 from dictionary_api import enrich
 from article_scraper import scrape, get_source_from_url
@@ -37,10 +36,12 @@ async def run_full_analysis(
                 "reason":    cached_art.credibility_reason,
                 "red_flags": cached_art.red_flags or [],
                 "summary":   cached_art.ai_summary or "",
+                "tags":      cached_art.tags or [],
             },
             "key_persons":     cached_art.key_persons or [],
             "difficult_terms": cached_art.difficult_terms or [],
             "comic_script":    cached_art.comic_script,
+            "views":           cached_art.views or 0,
         }
 
     # 2. 스크래핑 및 폴백 예외 처리 (안정성 보장)
@@ -130,16 +131,13 @@ async def run_full_analysis(
         extract_persons(title, content),
         extract_terms(content)
     ]
-    
-    if include_comic:
-        tasks.append(generate_comic_script(title, content))
 
     results = await asyncio.gather(*tasks)
     
     credibility = results[0]
     key_persons = results[1]
     difficult_terms = results[2]
-    comic_script = results[3] if include_comic else None
+    comic_script = None  # 최초 분석 시에는 만화 텍스트 스크립트 생성을 제외 (프론트 요청 시 요약본 기준 온디맨드로 생성)
 
     # 4. 어려운 용어 보완 (사전 링크 등)
     if difficult_terms:
@@ -162,6 +160,7 @@ async def run_full_analysis(
     art.credibility_reason = credibility.get("reason")
     art.red_flags          = credibility.get("red_flags", [])
     art.ai_summary         = credibility.get("summary")
+    art.tags               = credibility.get("tags", [])
     art.key_persons        = key_persons
     art.difficult_terms    = difficult_terms
     art.comic_script       = comic_script
@@ -174,5 +173,6 @@ async def run_full_analysis(
         "credibility": credibility,
         "key_persons": key_persons,
         "difficult_terms": difficult_terms,
-        "comic_script": comic_script
+        "comic_script": comic_script,
+        "views": art.views or 0
     }

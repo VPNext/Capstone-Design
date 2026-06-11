@@ -22,6 +22,7 @@ class CredibilityInfo(BaseModel):
     reason: str
     red_flags: List[str] = []
     summary: str = ""
+    tags: List[str] = []
 
 # PersonInfo클래스 : 주요 인물 정보 모델
 class PersonInfo(BaseModel):
@@ -45,3 +46,4 @@ class AnalysisResponse(BaseModel):
     key_persons: List[PersonInfo] = []
     difficult_terms: List[TermInfo] = []
     comic_script: Optional[str] = None
+    views: int = 0
