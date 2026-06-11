@@ -3,7 +3,7 @@ import httpx
 import json
 import asyncio
 from typing import Optional, List, Tuple, Dict
-from ai_analyzer_v2 import gemini_client, _parse_json
+from ai_analyzer import gemini_client, _parse_json
 from config import GATEWAY_API_KEY
 
 logger = logging.getLogger(__name__)
