@@ -105,14 +105,20 @@ interface SyncItem {
   id: number;
   views?: number;
   likes?: number;
+  title?: string;
+  source?: string;
+  image_url?: string | null;
+  published_at?: string;
 }
 
-/** 백엔드로부터 가져온 복수의 기사 views와 likes 데이터를 로컬 저장소에 일괄(Bulk) 동기화 (Render Thrashing 해결) */
+/** 백엔드로부터 가져온 복수의 기사 views와 likes 데이터를 로컬 저장소에 일괄(Bulk) 동기화 (Render Thrashing 해결 및 메타데이터 동시 캐싱) */
 export function syncMultipleEngagementFromBackend(items: SyncItem[]): void {
   if (!items || items.length === 0) return;
   hydrate();
   
   let changed = false;
+  let metaChanged = false;
+
   items.forEach((item) => {
     const key = toKey(item.id);
     const backendViews = item.views || 0;
@@ -123,11 +129,36 @@ export function syncMultipleEngagementFromBackend(items: SyncItem[]): void {
       likes[key] = backendLikes;
       changed = true;
     }
+
+    if (item.title && item.source && item.published_at) {
+      const existing = articleMetadata[key];
+      if (
+        !existing ||
+        existing.title !== item.title ||
+        existing.source !== item.source ||
+        existing.image_url !== item.image_url ||
+        existing.published_at !== item.published_at
+      ) {
+        articleMetadata[key] = {
+          id: item.id,
+          title: item.title,
+          source: item.source,
+          image_url: item.image_url || null,
+          published_at: item.published_at,
+        };
+        metaChanged = true;
+      }
+    }
   });
   
   if (changed) {
     writeJson(STORAGE_KEYS.VIEWS, views);
     writeJson(STORAGE_KEYS.LIKES, likes);
+  }
+  if (metaChanged) {
+    writeJson(STORAGE_KEYS.METADATA, articleMetadata);
+  }
+  if (changed || metaChanged) {
     emit();
   }
 }
