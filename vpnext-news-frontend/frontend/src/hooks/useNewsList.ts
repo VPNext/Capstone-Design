@@ -79,9 +79,6 @@ export function useNewsList({ isAnalyzed }: UseNewsListOptions) {
 
   const hasMore = newsList.length < totalItems;
 
-  const loadInitial = useCallback(async () => {
-    refetch();
-  }, [refetch]);
 
   const loadMore = useCallback(async () => {
     if (loadingMoreRef.current || loading || !hasMore) return;

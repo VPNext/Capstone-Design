@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, useMemo } from "react";
 import NewsSearchBar from "./NewsSearchBar";
 import type { NewsPortalVariant } from "./NewsHeroSlider";
 
@@ -27,6 +27,14 @@ const THEME: Record<
   },
 };
 
+// today 문자열은 컴포넌트 외부에서 한 번만 계산
+const TODAY_STR = new Date().toLocaleDateString("ko-KR", {
+  year: "numeric",
+  month: "long",
+  day: "numeric",
+  weekday: "short",
+});
+
 function NewsPageHeader({
   variant,
   totalItems,
@@ -36,38 +44,43 @@ function NewsPageHeader({
   searchPlaceholder,
 }: NewsPageHeaderProps) {
   const theme = THEME[variant];
-  const today = new Date().toLocaleDateString("ko-KR", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-    weekday: "short",
-  });
+
+  const countLabel = useMemo(() => {
+    if (loadedCount <= 0) return null;
+    if (totalItems > loadedCount) {
+      return `${loadedCount.toLocaleString()} / ${totalItems.toLocaleString()}건`;
+    }
+    return `${loadedCount.toLocaleString()}건`;
+  }, [loadedCount, totalItems]);
 
   return (
     <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b-2 border-[#111]">
       <div className="flex-1 min-w-0">
         <div className="flex flex-wrap items-center gap-2 mb-2">
-          <span className={`${theme.badgeBg} text-white text-[11px] font-black px-2 py-0.5 rounded-sm`}>
+          <span
+            className={`${theme.badgeBg} text-white text-[11px] font-black px-2.5 py-0.5 rounded tracking-wide`}
+          >
             {theme.badge}
           </span>
-          <span className="text-xs text-[#888] font-medium">{today}</span>
-          {loadedCount > 0 && (
+          <time className="text-xs text-[#888] font-medium">{TODAY_STR}</time>
+          {countLabel && (
             <span className="text-xs font-bold text-[#555]">
-              · {loadedCount.toLocaleString()}
-              {totalItems > loadedCount ? ` / ${totalItems.toLocaleString()}` : ""}건
+              · {countLabel}
             </span>
           )}
         </div>
-        <h1 className="text-3xl sm:text-[34px] font-black text-[#111] tracking-tight leading-tight">
+        <h1 className="text-[28px] sm:text-[34px] font-black text-[#111] tracking-tight leading-tight">
           {title}
         </h1>
-        <p className="text-[15px] font-medium text-[#666] mt-1.5">{subtitle}</p>
+        <p className="text-[14px] sm:text-[15px] font-medium text-[#666] mt-1.5 leading-relaxed">
+          {subtitle}
+        </p>
       </div>
 
       <NewsSearchBar
         variant={variant}
         placeholder={searchPlaceholder}
-        className="w-full lg:w-[min(100%,380px)] shrink-0"
+        className="w-full lg:w-[min(100%,360px)] shrink-0"
       />
     </div>
   );

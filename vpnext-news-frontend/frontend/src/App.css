@@ -25,8 +25,8 @@
   --radius: 16px;
   --radius-lg: 24px;
   --radius-xl: 32px;
-  --transition: 250ms cubic-bezier(0.4, 0, 0.2, 1);
-  --transition-slow: 450ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition: 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 400ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* ─────────────────────────────────────────────────────────
@@ -45,9 +45,10 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   letter-spacing: -0.015em; /* 한글 뭉침 가독성을 위한 최적화 자간 */
+  text-rendering: optimizeSpeed; /* 성능 우선 렌더링 */
 }
 
-/* Noise grain overlay for warmth */
+/* Noise grain overlay for warmth — GPU 합성 레이어 분리로 성능 최적화 */
 body::before {
   content: "";
   position: fixed;
@@ -57,6 +58,7 @@ body::before {
   opacity: 0.022;
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   background-size: 128px;
+  will-change: auto;
 }
 
 /* ─────────────────────────────────────────────────────────
@@ -73,7 +75,8 @@ body::before {
 .shimmer {
   background: linear-gradient(90deg, #ede9e2 20%, #f5f2ec 50%, #ede9e2 80%);
   background-size: 900px 100%;
-  animation: shimmer 1.6s ease-in-out infinite;
+  animation: shimmer 1.4s ease-in-out infinite;
+  will-change: background-position;
 }
 
 /* ─────────────────────────────────────────────────────────
@@ -89,7 +92,7 @@ body::before {
 
 /* Custom Thin Scrollbar for category indicator on Windows */
 .scrollbar-thin::-webkit-scrollbar {
-  height: 5px;
+  height: 4px;
 }
 .scrollbar-thin::-webkit-scrollbar-track {
   background: rgba(228, 221, 211, 0.35);
@@ -108,12 +111,12 @@ body::before {
 }
 
 /* ─────────────────────────────────────────────────────────
-   ANIMATIONS
+   ANIMATIONS — transform/opacity만 사용하여 레이아웃 재계산 방지
 ───────────────────────────────────────────────────────── */
 @keyframes fadeSlideUp {
   from {
     opacity: 0;
-    transform: translateY(24px);
+    transform: translateY(20px);
   }
   to {
     opacity: 1;
@@ -121,7 +124,8 @@ body::before {
   }
 }
 .fade-in-card {
-  animation: fadeSlideUp 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation: fadeSlideUp 0.45s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  will-change: opacity, transform;
 }
 
 @keyframes fadeIn {
@@ -133,7 +137,8 @@ body::before {
   }
 }
 .fade-in {
-  animation: fadeIn 0.4s ease forwards;
+  animation: fadeIn 0.3s ease forwards;
+  will-change: opacity;
 }
 
 @keyframes scaleIn {
@@ -147,7 +152,8 @@ body::before {
   }
 }
 .scale-in {
-  animation: scaleIn 0.35s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation: scaleIn 0.28s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  will-change: opacity, transform;
 }
 
 @keyframes pulseGlow {
@@ -169,7 +175,8 @@ body::before {
   }
 }
 .spin {
-  animation: spin 0.9s linear infinite;
+  animation: spin 0.8s linear infinite;
+  will-change: transform;
 }
 
 @keyframes float {
@@ -183,6 +190,7 @@ body::before {
 }
 .float {
   animation: float 3s ease-in-out infinite;
+  will-change: transform;
 }
 
 /* ─────────────────────────────────────────────────────────
@@ -200,7 +208,7 @@ body::before {
 }
 
 /* ─────────────────────────────────────────────────────────
-   CARD UTILITIES
+   CARD UTILITIES — transform 최적화로 스무스 호버
 ───────────────────────────────────────────────────────── */
 .card-base {
   background: var(--surface);
@@ -211,6 +219,7 @@ body::before {
     box-shadow var(--transition),
     border-color var(--transition),
     transform var(--transition);
+  will-change: transform, box-shadow;
 }
 .card-base:hover {
   box-shadow: var(--shadow-lg);
@@ -259,40 +268,44 @@ body::before {
 .progress-bar-fill {
   height: 100%;
   border-radius: 999px;
-  transition: width 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+  transition: width 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: width;
 }
 
 /* ─────────────────────────────────────────────────────────
-   IMAGE ZOOM CONTAINER
+   IMAGE ZOOM CONTAINER — GPU 합성 레이어에서 처리
 ───────────────────────────────────────────────────────── */
 .img-zoom-container {
   overflow: hidden;
 }
 .img-zoom-container img {
-  transition: transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+  transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
 }
 .img-zoom-container:hover img {
-  transform: scale(1.06);
+  transform: scale(1.05);
 }
 
 /* ─────────────────────────────────────────────────────────
-   READING TYPOGRAPHY (Detail page)
+   READING TYPOGRAPHY (Detail page) — 최적화된 가독성
 ───────────────────────────────────────────────────────── */
 .article-body p {
-  font-size: 16px;
-  line-height: 1.95;
+  font-size: 17px;
+  line-height: 2;
   color: #2c2926;
-  margin-bottom: 1.4em;
+  margin-bottom: 1.5em;
   font-family: "Noto Sans KR", sans-serif;
   font-weight: 400;
+  word-break: keep-all;
+  overflow-wrap: break-word;
 }
 .article-body p:first-child::first-letter {
   font-family: "Noto Serif KR", serif;
-  font-size: 3.6em;
+  font-size: 3.4em;
   font-weight: 900;
   float: left;
   line-height: 0.78;
-  margin-right: 0.08em;
+  margin-right: 0.09em;
   margin-top: 0.05em;
   color: var(--ink);
 }
@@ -318,6 +331,7 @@ body::before {
     box-shadow var(--transition),
     transform var(--transition);
   box-shadow: 0 4px 16px rgba(22, 19, 17, 0.18);
+  will-change: transform;
 }
 .btn-primary:hover:not(:disabled) {
   background: var(--red);
@@ -339,7 +353,7 @@ mark {
   background: #fde68a;
   color: #1a1008;
   border-radius: 3px;
-  padding: 0 2px;
+  padding: 0 3px;
   font-weight: 700;
 }
 
@@ -361,22 +375,26 @@ mark {
 @keyframes slideUp {
   from {
     transform: translateY(100%);
+    opacity: 0;
   }
   to {
     transform: translateY(0);
+    opacity: 1;
   }
 }
 
 .animate-fade-in {
-  animation: fadeIn 0.22s ease-out forwards;
+  animation: fadeIn 0.18s ease-out forwards;
 }
 
 .animate-slide-up {
-  animation: slideUp 0.28s cubic-bezier(0.32, 0.94, 0.6, 1) forwards;
+  animation: slideUp 0.24s cubic-bezier(0.32, 0.94, 0.6, 1) forwards;
+  will-change: transform, opacity;
 }
 
 .animate-scale-in {
-  animation: scaleIn 0.18s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  animation: scaleIn 0.15s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  will-change: transform, opacity;
 }
 
 /* ─────────────────────────────────────────────────────────
@@ -385,7 +403,7 @@ mark {
 
 /* Custom Vertical Scrollbar for sidebar container */
 .custom-sidebar-scrollbar::-webkit-scrollbar {
-  width: 5px;
+  width: 4px;
 }
 .custom-sidebar-scrollbar::-webkit-scrollbar-track {
   background: rgba(228, 221, 211, 0.2);
@@ -406,14 +424,14 @@ mark {
 /* Highlight pulse animation for keyword occurrences in news body */
 @keyframes highlightPulse {
   0% {
-    background-color: rgba(234, 179, 8, 0.4);
+    background-color: rgba(234, 179, 8, 0.45);
     box-shadow: 0 0 0 4px rgba(234, 179, 8, 0.2);
-    transform: scale(1.05);
+    transform: scale(1.04);
   }
   50% {
     background-color: rgba(234, 179, 8, 0.75);
-    box-shadow: 0 0 0 8px rgba(234, 179, 8, 0.3);
-    transform: scale(1.08);
+    box-shadow: 0 0 0 8px rgba(234, 179, 8, 0.25);
+    transform: scale(1.07);
   }
   100% {
     background-color: transparent;
@@ -423,8 +441,52 @@ mark {
 }
 
 .animate-highlight-pulse {
-  animation: highlightPulse 1.6s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+  animation: highlightPulse 1.4s cubic-bezier(0.25, 1, 0.5, 1) forwards;
   position: relative;
   z-index: 10;
   display: inline-block !important;
+  will-change: transform, box-shadow, background-color;
+}
+
+/* ─────────────────────────────────────────────────────────
+   TOAST ANIMATION
+───────────────────────────────────────────────────────── */
+@keyframes toastSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.toast-enter {
+  animation: toastSlideIn 0.28s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  will-change: opacity, transform;
+}
+
+/* ─────────────────────────────────────────────────────────
+   LAYOUT CONTAIN — 재계산 범위 격리로 성능 향상
+───────────────────────────────────────────────────────── */
+.contain-layout {
+  contain: layout style;
+}
+.contain-strict {
+  contain: strict;
+}
+
+/* ─────────────────────────────────────────────────────────
+   FOCUS VISIBLE — 키보드 접근성 개선
+───────────────────────────────────────────────────────── */
+:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+button:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--red);
+  outline-offset: 3px;
 }

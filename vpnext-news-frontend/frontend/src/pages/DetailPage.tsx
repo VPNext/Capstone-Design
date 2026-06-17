@@ -10,42 +10,48 @@ import type { TabType } from "../components/detail/AnalysisAside";
 import ComicViewer from "../components/detail/ComicViewer";
 import { decodeHtmlEntities } from "../utils/summary";
 
-// 뉴스 상세 정보(기사 본문, AI 신뢰도 분석 리포트, AI 만화)를 보여주는 페이지
+// 뉴스 상세 페이지: 기사 본문 + AI 신뢰도 분석 리포트 + AI 만화
 export default function DetailPage() {
-  // ── 양방향 스크롤 및 탭 동기화를 위한 핵심 상태 정의 ──
   const [activeTab, setActiveTab] = useState<TabType>("credibility");
   const [activeKeyword, setActiveKeyword] = useState<string | null>(null);
 
-  // 본문 내 단어 클릭 -> 사이드바 탭 전환, 하이라이트 및 사이드바 내부 스크롤 이동
-  const handleSelectKeyword = useCallback((name: string, type: "term" | "person") => {
-    const targetTab = type === "term" ? "terms" : "persons";
-    setActiveTab(targetTab);
-    setActiveKeyword(name);
+  // 본문 단어 클릭 → 사이드바 탭 전환 + 스크롤
+  const handleSelectKeyword = useCallback(
+    (name: string, type: "term" | "person") => {
+      const targetTab = type === "term" ? "terms" : "persons";
+      setActiveTab(targetTab);
+      setActiveKeyword(name);
 
-    // React 상태가 렌더링된 후 DOM에 접근하기 위해 지연 실행
-    setTimeout(() => {
-      const elementId = type === "term" ? `sidebar-term-${name}` : `sidebar-person-${name}`;
-      const element = document.getElementById(elementId);
+      setTimeout(() => {
+        const elementId =
+          type === "term"
+            ? `sidebar-term-${name}`
+            : `sidebar-person-${name}`;
+        const element = document.getElementById(elementId);
+        if (element) {
+          element.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        }
+      }, 50);
+    },
+    [],
+  );
+
+  // 사이드바 아이템 클릭 → 본문 스크롤 + 펄스 효과
+  const handleSidebarItemClick = useCallback(
+    (name: string, type: "term" | "person") => {
+      setActiveKeyword(name);
+      const targetAttr =
+        type === "term" ? "data-term-name" : "data-person-name";
+      const element = document.querySelector(`[${targetAttr}="${name}"]`);
       if (element) {
-        element.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        element.scrollIntoView({ behavior: "smooth", block: "center" });
+        element.classList.remove("animate-highlight-pulse");
+        void (element as HTMLElement).offsetWidth;
+        element.classList.add("animate-highlight-pulse");
       }
-    }, 50);
-  }, []);
-
-  // 사이드바 아이템 클릭 -> 본문 내 첫 번째 출현 지점으로 본문 화면 스크롤 이동 및 펄스 효과 부여
-  const handleSidebarItemClick = useCallback((name: string, type: "term" | "person") => {
-    setActiveKeyword(name);
-    const targetAttr = type === "term" ? "data-term-name" : "data-person-name";
-    const element = document.querySelector(`[${targetAttr}="${name}"]`);
-    if (element) {
-      element.scrollIntoView({ behavior: "smooth", block: "center" });
-
-      // CSS 펄스 애니메이션 초기화 후 재발동 (Reflow 트릭)
-      element.classList.remove("animate-highlight-pulse");
-      void (element as HTMLElement).offsetWidth;
-      element.classList.add("animate-highlight-pulse");
-    }
-  }, []);
+    },
+    [],
+  );
 
   const {
     id,
@@ -70,16 +76,12 @@ export default function DetailPage() {
     handleTermSearch,
   } = useNewsDetail();
 
-
-
-  // 최초 로딩 시 상세 화면 구조 스켈레톤을 노출하여 체감 속도 극대화 및 레이아웃 이동(CLS) 방지
+  // 로딩 스켈레톤
   if (loading) {
     return (
       <div className="mt-8 pb-20 font-sans animate-pulse">
-        {/* 목록으로 가기 버튼 스켈레톤 */}
         <div className="w-20 h-5 bg-[#F3F0EB] rounded-lg mb-7" />
 
-        {/* 기사 헤더 스켈레톤 */}
         <header className="mb-10">
           <div className="flex gap-3 mb-5">
             <div className="w-16 h-6 bg-[#F3F0EB] rounded-full" />
@@ -90,28 +92,24 @@ export default function DetailPage() {
           <div className="w-full h-[1px] bg-[#E4DDD3]" />
         </header>
 
-        {/* 2단 레이아웃 구조 스켈레톤 */}
         <div className="flex flex-col lg:flex-row gap-10">
-          {/* 좌측 기사 본문 영역 스켈레톤 */}
           <div className="flex-1 min-w-0 flex flex-col gap-4">
-            <div className="w-full h-4.5 bg-[#F3F0EB] rounded" />
-            <div className="w-full h-4.5 bg-[#F3F0EB] rounded" />
-            <div className="w-[95%] h-4.5 bg-[#F3F0EB] rounded" />
-            <div className="w-[92%] h-4.5 bg-[#F3F0EB] rounded" />
-            <div className="w-full h-4.5 bg-[#F3F0EB] rounded mt-4" />
-            <div className="w-[97%] h-4.5 bg-[#F3F0EB] rounded" />
-            <div className="w-[85%] h-4.5 bg-[#F3F0EB] rounded" />
-            
+            {[100, 100, 95, 92, 100, 97, 85].map((w, i) => (
+              <div
+                key={i}
+                className="h-[18px] bg-[#F3F0EB] rounded"
+                style={{ width: `${w}%` }}
+              />
+            ))}
             <div className="w-full h-14 bg-[#F3F0EB] rounded-2xl mt-8" />
           </div>
 
-          {/* 우측 사이드바 리포트 영역 스켈레톤 */}
-          <div className="w-full lg:w-[360px] shrink-0 flex flex-col gap-6">
-            <div className="p-6 border border-[#E4DDD3] rounded-[24px] bg-[#FDFBF7]">
+          <div className="w-full lg:w-[360px] shrink-0 flex flex-col gap-4">
+            <div className="p-6 border border-[#E4DDD3] rounded-[22px] bg-[#FDFBF7]">
               <div className="w-28 h-5 bg-[#F3F0EB] rounded-lg mb-4" />
               <div className="w-full h-24 bg-[#F3F0EB] rounded-xl" />
             </div>
-            <div className="p-6 border border-[#E4DDD3] rounded-[24px] bg-[#FDFBF7]">
+            <div className="p-6 border border-[#E4DDD3] rounded-[22px] bg-[#FDFBF7]">
               <div className="w-24 h-5 bg-[#F3F0EB] rounded-lg mb-4" />
               <div className="w-full h-32 bg-[#F3F0EB] rounded-xl" />
             </div>
@@ -121,15 +119,18 @@ export default function DetailPage() {
     );
   }
 
-  // 기사가 DB나 서버에 없을 경우의 대체 화면
+  // 기사 미발견
   if (!news) {
     return (
       <div className="mt-32 text-center text-[#5C5853] font-sans">
-        <p className="text-5xl mb-4">📰</p>
-        <p className="text-lg font-bold">기사를 찾을 수 없습니다.</p>
+        <p className="text-5xl mb-4" aria-hidden="true">📰</p>
+        <p className="text-lg font-bold mb-2">기사를 찾을 수 없습니다.</p>
+        <p className="text-sm text-[#9C9891] mb-6">
+          삭제되었거나 주소가 잘못되었을 수 있습니다.
+        </p>
         <Link
           to="/"
-          className="mt-4 inline-block text-sm font-bold text-[#C13026]"
+          className="inline-flex items-center gap-1.5 text-sm font-bold text-[#C13026] hover:underline"
         >
           ← 목록으로 돌아가기
         </Link>
@@ -137,59 +138,72 @@ export default function DetailPage() {
     );
   }
 
-  const aiSummary = analysisData?.credibility?.summary || news.ai_summary || null;
+  const aiSummary =
+    analysisData?.credibility?.summary || news.ai_summary || null;
   const sourceKey = news.source?.toLowerCase();
-  const sourceName = SOURCE_NAME_MAP[sourceKey] || news.source?.toUpperCase() || "알 수 없음";
-  
-  // 네이버 뉴스 플랫폼 제휴 유통 여부 판정
+  const sourceName =
+    SOURCE_NAME_MAP[sourceKey] || news.source?.toUpperCase() || "알 수 없음";
   const isNaverPlatform = news.url?.includes("naver.com");
   const displaySourceName = isNaverPlatform ? "네이버 뉴스" : sourceName;
-  
-  // 네이버 뉴스 플랫폼일 경우 뱃지 색상을 네이버 시그니처 초록색으로 강제 통일
-  const displayBadgeClass = isNaverPlatform 
-    ? (SOURCE_BADGE_CLASS["naver"] || "bg-[#03c75a] text-white") 
-    : (SOURCE_BADGE_CLASS[sourceKey] || "badge-default");
+  const displayBadgeClass = isNaverPlatform
+    ? SOURCE_BADGE_CLASS["naver"] || "bg-[#03c75a] text-white"
+    : SOURCE_BADGE_CLASS[sourceKey] || "badge-default";
 
   return (
     <div className="mt-8 pb-20 font-sans">
-      {/* 만화 생성 중일 때 뜨는 전면 프로그레스 모달 */}
+      {/* 만화 생성 모달 */}
       <LoadingModal
         isOpen={isComicGenerating}
         progress={progress}
         status={loadingStatus}
       />
 
-      {/* 목록으로 가기 버튼 */}
+      {/* 뒤로가기 */}
       <Link
         to="/"
-        className="inline-flex items-center gap-1.5 text-sm font-bold mb-7 transition-colors duration-200 text-[#9C9891] hover:text-[#161311]"
+        className="inline-flex items-center gap-1.5 text-sm font-bold mb-7 transition-colors duration-150 text-[#9C9891] hover:text-[#161311]"
+        aria-label="뉴스 목록으로 이동"
       >
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
+        <svg
+          className="w-4 h-4"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+          aria-hidden="true"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2.5}
+            d="M15 19l-7-7 7-7"
+          />
         </svg>
         목록으로
       </Link>
 
-      {/* 기사 헤더 영역: 언론사, 날짜, 원문 링크 등 */}
-      <header className="mb-10">
-        <div className="flex items-center flex-wrap gap-3 mb-4">
-          <span className={`${displayBadgeClass} text-xs font-black px-3.5 py-1.5 rounded-full`}>
+      {/* 기사 헤더 */}
+      <header className="mb-8">
+        <div className="flex items-center flex-wrap gap-2.5 mb-4">
+          <span
+            className={`${displayBadgeClass} text-xs font-black px-3.5 py-1.5 rounded-full`}
+          >
             {displaySourceName}
           </span>
-          <span className="text-sm font-medium text-[#9C9891]">
+          <time
+            className="text-sm font-medium text-[#9C9891]"
+            dateTime={news.published_at}
+          >
             {news.published_at?.split("T")[0]}
-          </span>
+          </time>
           {news.is_analyzed && (
-            <span
-              className="inline-flex items-center gap-1.5 text-[10px] font-black px-2.5 py-1.5 rounded-full bg-[#ECFDF5] text-[#065F46] border border-[#A7F3D0]"
-            >
+            <span className="inline-flex items-center gap-1.5 text-[10px] font-black px-2.5 py-1.5 rounded-full bg-[#ECFDF5] text-[#065F46] border border-[#A7F3D0]">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
               AI 분석완료
             </span>
           )}
         </div>
 
-        <div className="mb-5">
+        <div className="mb-4">
           <ArticleEngagementBar
             articleId={news.id}
             analyzedTheme={news.is_analyzed}
@@ -203,38 +217,41 @@ export default function DetailPage() {
           />
         </div>
 
-        <h1 className="font-black leading-snug mb-6 font-serif text-[clamp(22px,4vw,40px)] text-[#161311] tracking-[-0.02em]">
+        <h1 className="font-black leading-snug mb-5 font-serif text-[clamp(22px,4vw,38px)] text-[#161311] tracking-[-0.02em] break-keep">
           {decodeHtmlEntities(news.title)}
         </h1>
 
-        <div className="flex items-center flex-wrap gap-4 pb-6 border-b border-[#E4DDD3]">
+        <div className="flex items-center flex-wrap gap-3 pb-6 border-b border-[#E4DDD3]">
           <a
             href={news.url}
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-1.5 text-sm font-bold transition-colors duration-200 text-[#1A55A8] hover:text-[#C13026]"
+            className="inline-flex items-center gap-1.5 text-sm font-bold transition-colors duration-150 text-[#1A55A8] hover:text-[#C13026]"
           >
-            기사 원문 사이트에서 보기
+            기사 원문 보기
             <svg
               xmlns="http://www.w3.org/2000/svg"
               fill="none"
               viewBox="0 0 24 24"
               strokeWidth={2.5}
               stroke="currentColor"
-              className="w-4 h-4"
+              className="w-3.5 h-3.5"
+              aria-hidden="true"
             >
-              <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 19.5 15-15m0 0H8.25m11.25 0v11.25" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="m4.5 19.5 15-15m0 0H8.25m11.25 0v11.25"
+              />
             </svg>
           </a>
-          <span className="text-sm text-[#9C9891]">
-            출처: {sourceName}
-          </span>
+          <span className="text-sm text-[#9C9891]">출처: {sourceName}</span>
           {news.tags && news.tags.length > 0 && (
             <div className="flex flex-wrap gap-1.5 items-center">
               {news.tags.map((tag, idx) => (
                 <span
                   key={idx}
-                  className="px-2 py-0.5 text-xs font-bold rounded-md bg-[#F3F0EB] text-[#5C5853] border border-[#E4DDD3] transition-all duration-200 hover:bg-white hover:scale-105 cursor-default select-none shadow-[0_1px_2px_rgba(0,0,0,0.02)]"
+                  className="px-2.5 py-1 text-xs font-bold rounded-lg bg-[#F3F0EB] text-[#5C5853] border border-[#E4DDD3] hover:bg-white transition-colors duration-150 cursor-default select-none"
                 >
                   #{tag}
                 </span>
@@ -244,55 +261,99 @@ export default function DetailPage() {
         </div>
       </header>
 
-      {/* 좌측(본문/만화) & 우측(AI 분석 리포트) 2단 레이아웃 */}
+      {/* 2단 레이아웃: 좌(본문) + 우(사이드바) */}
       <div className="flex flex-col lg:flex-row gap-10 relative">
-        {/* 본문 및 만화 생성 컨트롤러 */}
         <div className="flex-1 min-w-0">
-          {/* 기사 텍스트 본문 컴포넌트 */}
           <ArticleContent
             news={news}
             aiSummary={aiSummary}
             onSelectKeyword={handleSelectKeyword}
           />
 
-          {/* AI 기사 분석 트리거 버튼 */}
-          <div className="mt-12 pt-8 border-t border-[#E4DDD3]">
+          {/* AI 분석 실행 버튼 */}
+          <div className="mt-10 pt-8 border-t border-[#E4DDD3]">
             <button
               onClick={startAnalysis}
               disabled={status !== "pending"}
-              className={`w-full py-5 text-[17px] font-black flex items-center justify-center gap-3.5 transition-all duration-300 rounded-[18px] ${
+              className={`w-full py-5 text-[16px] font-black flex items-center justify-center gap-3 transition-all duration-200 rounded-[18px] ${
                 status === "analyzing"
                   ? "bg-[#F3F0EB] text-[#9C9891] cursor-not-allowed"
                   : status === "complete"
                     ? "bg-[#ECFDF5] text-[#065F46] border border-[#A7F3D0] cursor-default"
-                    : "bg-[#161311] text-white shadow-[0_4px_20px_rgba(22,19,17,0.2)] hover:bg-[#C13026] hover:shadow-[0_8px_32px_rgba(193,48,38,0.3)] hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
+                    : "bg-[#161311] text-white shadow-[0_4px_20px_rgba(22,19,17,0.2)] hover:bg-[#C13026] hover:shadow-[0_8px_32px_rgba(193,48,38,0.28)] hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
               }`}
+              style={{ willChange: "transform" }}
+              aria-label={
+                status === "analyzing"
+                  ? "AI 분석 중"
+                  : status === "complete"
+                    ? "AI 분석 완료"
+                    : "AI 분석 실행"
+              }
             >
               {status === "analyzing" && (
-                <svg className="animate-spin h-5 w-5 text-[#9C9891]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                <svg
+                  className="animate-spin h-5 w-5 text-[#9C9891]"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  />
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  />
                 </svg>
               )}
               {status === "complete" && (
-                <svg className="h-5 w-5 text-[#065F46]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                <svg
+                  className="h-5 w-5 text-[#065F46]"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={3}
+                    d="M5 13l4 4L19 7"
+                  />
                 </svg>
               )}
               {status === "pending" && (
-                <svg className="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                <svg
+                  className="h-5 w-5 text-white"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2.5}
+                    d="M13 10V3L4 14h7v7l9-11h-7z"
+                  />
                 </svg>
               )}
               {status === "analyzing"
-                ? "AI가 기사를 꼼꼼히 읽고 분석 중입니다..."
+                ? "AI가 기사를 분석하고 있습니다..."
                 : status === "complete"
                   ? "AI 분석이 완료되었습니다"
                   : "AI 분석 실행 및 본문 가져오기"}
             </button>
           </div>
 
-          {/* AI 뉴스 요약 만화 뷰어 */}
+          {/* AI 만화 뷰어 */}
           <ComicViewer
             id={id}
             status={status}
@@ -306,7 +367,7 @@ export default function DetailPage() {
           />
         </div>
 
-        {/* 우측 사이드바: 신뢰도 수치, 어려운 단어 사전, 핵심 인물 프로필 */}
+        {/* 우측 사이드바 */}
         <AnalysisAside
           status={status}
           analysisData={analysisData}
@@ -322,7 +383,6 @@ export default function DetailPage() {
           onSidebarItemClick={handleSidebarItemClick}
         />
       </div>
-
     </div>
   );
 }
