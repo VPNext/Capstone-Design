@@ -22,7 +22,7 @@ function CartoonCard({ item, highlight, viewMode = "feed", onSelect }: CartoonCa
   const totalPanels = item.comic_urls.length;
 
   useEffect(() => {
-    if (highlight && cardRef.current) {
+    if (highlight && viewMode === "grid" && cardRef.current) {
       const timer = setTimeout(() => {
         cardRef.current?.scrollIntoView({
           behavior: "smooth",
@@ -31,7 +31,7 @@ function CartoonCard({ item, highlight, viewMode = "feed", onSelect }: CartoonCa
       }, 300);
       return () => clearTimeout(timer);
     }
-  }, [highlight]);
+  }, [highlight, viewMode]);
 
   useEffect(() => {
     const currentRef = cardRef.current;

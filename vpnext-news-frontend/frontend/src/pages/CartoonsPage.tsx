@@ -17,6 +17,11 @@ export default function CartoonsPage() {
     }
   }, [targetNewsId]);
 
+  // 선택된 만화 ID가 변경될 때 (상세 보기 진입 또는 목록 복귀 시) 스크롤을 맨 위로 강제 이동
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "instant" });
+  }, [selectedNewsId]);
+
   // 만화 목록 불러오는 중일 때의 스켈레톤 로더 화면
   if (loading) {
     return (
