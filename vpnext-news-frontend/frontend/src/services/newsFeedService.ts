@@ -20,6 +20,15 @@ export async function fetchDiverseInitialFeed(
 ): Promise<DiverseFeedResult> {
   const trimmedKeyword = keyword.trim();
 
+  if (isAnalyzed) {
+    const res = await fetchNewsList(1, undefined, true, trimmedKeyword || undefined, FEED_PAGE_SIZE);
+    return {
+      items: res.items,
+      total: res.total,
+      nextFeedPage: 2,
+    };
+  }
+
   const [countRes, ...sourceResponses] = await Promise.all([
     fetchNewsList(1, undefined, isAnalyzed, trimmedKeyword || undefined, 1),
     ...SOURCE_KEYS.map((source) =>

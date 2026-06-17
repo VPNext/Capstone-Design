@@ -93,7 +93,14 @@ export function useNewsList({ isAnalyzed }: UseNewsListOptions) {
       syncMultipleEngagementFromBackend(result.items);
 
       setTotalItems(result.total);
-      const updatedList = appendDiverseNews(newsList, result.items);
+      let updatedList: NewsItem[];
+      if (isAnalyzed) {
+        const existingIds = new Set(newsList.map((item) => item.id));
+        const fresh = result.items.filter((item) => !existingIds.has(item.id));
+        updatedList = [...newsList, ...fresh];
+      } else {
+        updatedList = appendDiverseNews(newsList, result.items);
+      }
       setNewsList(updatedList);
       nextFeedPageRef.current = page + 1;
 
