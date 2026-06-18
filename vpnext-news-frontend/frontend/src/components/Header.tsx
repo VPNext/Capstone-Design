@@ -1,5 +1,9 @@
 import { useState, useEffect, useCallback, memo } from "react";
 import { Link, useLocation } from "react-router-dom";
+import { prefetchQuery } from "../hooks/useCustomQuery";
+import { fetchDiverseInitialFeed } from "../services/newsFeedService";
+import { fetchCartoons } from "../services/newsService";
+import { syncMultipleEngagementFromBackend } from "../utils/articleEngagement";
 
 const todayStr = new Date().toLocaleDateString("ko-KR", {
   year: "numeric",
@@ -33,13 +37,17 @@ const NAV_ITEMS = [
 const NavItem = memo(function NavItem({
   item,
   isActive,
+  onHover,
 }: {
   item: (typeof NAV_ITEMS)[0];
   isActive: boolean;
+  onHover?: (to: string) => void;
 }) {
   return (
     <Link
       to={item.to}
+      onMouseEnter={() => onHover?.(item.to)}
+      onFocus={() => onHover?.(item.to)}
       className={`relative flex items-center gap-1.5 text-sm font-bold px-3.5 py-2 rounded-full transition-all duration-200 hover:text-white hover:bg-white/8 ${
         isActive
           ? `${item.activeClass} border`
@@ -63,15 +71,19 @@ const MobileNavItem = memo(function MobileNavItem({
   item,
   isActive,
   onClick,
+  onHover,
 }: {
   item: (typeof NAV_ITEMS)[0];
   isActive: boolean;
   onClick: () => void;
+  onHover?: (to: string) => void;
 }) {
   return (
     <Link
       to={item.to}
       onClick={onClick}
+      onMouseEnter={() => onHover?.(item.to)}
+      onFocus={() => onHover?.(item.to)}
       className={`flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all duration-200 ${
         isActive ? item.activeClass + " border" : "text-white/55 bg-transparent"
       }`}
@@ -146,6 +158,32 @@ export default function Header() {
   const closeMobileMenu = useCallback(() => setMobileMenuOpen(false), []);
   const toggleMobileMenu = useCallback(() => setMobileMenuOpen((v) => !v), []);
 
+  const handlePrefetch = useCallback((to: string) => {
+    if (to === "/") {
+      prefetchQuery(["newsFeed", false, ""], async () => {
+        const result = await fetchDiverseInitialFeed(false, "");
+        syncMultipleEngagementFromBackend(result.items);
+        return {
+          items: result.items,
+          total: result.total,
+          nextPage: result.nextFeedPage,
+        };
+      });
+    } else if (to === "/analyzed") {
+      prefetchQuery(["newsFeed", true, ""], async () => {
+        const result = await fetchDiverseInitialFeed(true, "");
+        syncMultipleEngagementFromBackend(result.items);
+        return {
+          items: result.items,
+          total: result.total,
+          nextPage: result.nextFeedPage,
+        };
+      });
+    } else if (to === "/cartoons") {
+      prefetchQuery(["cartoons"], fetchCartoons);
+    }
+  }, []);
+
   return (
     <>
       <header
@@ -213,6 +251,7 @@ export default function Header() {
                   key={item.to}
                   item={item}
                   isActive={location.pathname === item.to}
+                  onHover={handlePrefetch}
                 />
               ))}
             </nav>
@@ -269,6 +308,7 @@ export default function Header() {
                 item={item}
                 isActive={location.pathname === item.to}
                 onClick={closeMobileMenu}
+                onHover={handlePrefetch}
               />
             ))}
           </nav>
