@@ -131,7 +131,7 @@ export function useNewsDetail() {
       
       // 기사 상세 및 뉴스 목록 캐시 무효화 -> 리프레시 선언적 촉발
       invalidateCustomQueries(["newsDetail", id]);
-      invalidateCustomQueries(["newsList"]);
+      invalidateCustomQueries(["newsFeed"]);
       
       showToast("기사 분석이 완료되었습니다!", "success");
     } catch (error: any) {
